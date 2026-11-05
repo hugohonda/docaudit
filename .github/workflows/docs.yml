@@ -1,10 +1,6 @@
 name: docs
 
-# A documentação sai das docstrings, então ela se atualiza sozinha a cada push
-# que mexe no código. O build roda em todo PR (workflow `ci`); aqui só publica.
-# Publicar no Pages a partir de um repositório privado exige plano pago. Até o
-# repositório ser público, ou o Pages ser habilitado, este workflow roda só por
-# acionamento manual; o build em si é verificado em todo PR pelo workflow `ci`.
+# Publica a documentação no Pages, à mão. O build também roda em todo PR, no workflow `ci`.
 on:
   workflow_dispatch:
 

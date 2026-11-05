@@ -559,6 +559,9 @@ def _swap_failing(failing: Sequence[Failure], other: Sequence[Chunk]) -> dict[st
     da caixa do outro) e trazer só valores do campo que conferem; entre
     vários, fica o de maior sobreposição com a linha. Se algum valor inválido
     fica sem conserto, nada troca e sai `None`: a página segue ao leitor caro.
+
+    Aqui vale só `valid_in`, de propósito. Com a regra de `_explains`, uma releitura sem `R$`
+    trocaria a linha e tiraria a página do leitor caro.
     """
     swaps: dict[str, Chunk] = {}
     for check, _value, chunk in failing:

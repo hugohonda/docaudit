@@ -1,5 +1,5 @@
 # prek roda estes hooks; `prek install` uma vez por clone.
-# Ruff, pyright e ty rodam pelo `uv run`: a versão é a do uv.lock, a mesma da
+# Ruff, zizmor, pyright e ty rodam pelo `uv run`: a versão é a do uv.lock, a mesma da
 # CI, e não um `rev` aqui que envelhece separado.
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
@@ -30,11 +30,10 @@ repos:
     hooks:
       - id: zizmor
         name: zizmor
-        entry: uv run zizmor --offline
+        entry: uv run zizmor --offline .github/workflows
         language: system
         files: ^\.github/
         pass_filenames: false
-        args: [.github/workflows]
       - id: ruff-check
         name: ruff check
         entry: uv run ruff check --fix

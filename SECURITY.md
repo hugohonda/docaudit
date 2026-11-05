@@ -13,7 +13,8 @@ Nenhuma dependência, action ou hook entra com menos de 7 dias de publicada:
 
 - `exclude-newer` no `pyproject.toml` vale para o `uv lock`;
 - `cooldown` no `.github/dependabot.yml` vale para os PRs do Dependabot;
-- actions e hooks ficam fixados por hash.
+- actions e hooks ficam fixados por hash;
+- o binário do `gitleaks` na CI tem versão e hash no `ci.yml`, e sobe à mão, com a mesma janela.
 
 A atualização automática de segurança do Dependabot fica desligada, porque ela ignora essa
 janela. Uma correção urgente entra à mão, por pacote, com o motivo e a data de retirada.
