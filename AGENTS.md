@@ -122,6 +122,8 @@ Python. O push na main não roda CI.
   ocupam o mesmo módulo, e quem usa GPU troca um pelo outro.
 - `uv.lock` é a fonte da reprodutibilidade: fixa versão e hash de cada pacote, e
   a CI instala com `--locked`, que falha se o lock não bate com o `pyproject`.
+- Nada entra com menos de 7 dias: `exclude-newer`, `cooldown` e hash nas actions e nos hooks
+  (`SECURITY.md`). Não contorne a janela sem exceção escrita, com motivo e data.
 - `uv lock --upgrade-package <nome>` para subir uma só; `--upgrade` para todas.
 
 ## Commits
