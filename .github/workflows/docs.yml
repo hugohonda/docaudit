@@ -1,0 +1,45 @@
+name: docs
+
+# A documentação sai das docstrings, então ela se atualiza sozinha a cada push
+# que mexe no código. O build roda em todo PR (workflow `ci`); aqui só publica.
+# Publicar no Pages a partir de um repositório privado exige plano pago. Até o
+# repositório ser público, ou o Pages ser habilitado, este workflow roda só por
+# acionamento manual; o build em si é verificado em todo PR pelo workflow `ci`.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # mkdocs-material usa a data do git nas páginas
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - run: uv sync --locked --only-group docs
+      - run: uv run mkdocs build --strict
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5

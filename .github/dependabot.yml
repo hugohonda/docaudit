@@ -1,0 +1,19 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      # Um PR por mês com todas as actions. Separadas, cinco bumps viram
+      # cinco PRs que se invalidam a cada merge.
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: uv
+    directory: "/"
+    schedule:
+      interval: monthly
+    groups:
+      dev:
+        patterns: ["ruff", "pyright", "ty", "pytest*", "hypothesis", "mkdocs*", "prek"]

@@ -1,0 +1,167 @@
+[build-system]
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
+
+[project]
+name = "docaudit"
+dynamic = ["version"]
+description = "Leitura de documentos digitalizados em português com verificação da própria leitura, releitura seletiva e a origem de cada trecho"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+requires-python = ">=3.12,<3.15"
+authors = [{ name = "Hugo Honda" }]
+keywords = ["ocr", "document-ai", "legal", "portuguese", "brazil", "vlm", "provenance"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Intended Audience :: Science/Research",
+  "Intended Audience :: Legal Industry",
+  "Natural Language :: Portuguese (Brazilian)",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
+  "Operating System :: POSIX :: Linux",
+  "Operating System :: MacOS",
+  "Topic :: Scientific/Engineering :: Image Recognition",
+  "Topic :: Text Processing",
+  "Typing :: Typed",
+]
+# Núcleo: leve o bastante para instalar em qualquer projeto.
+# Limites inferiores são estimativas; o uv.lock fixa versões exatas.
+dependencies = [
+  "pydantic>=2.11",
+  "pypdfium2>=5",
+  # Núcleo e não extra: `process()` renderiza a página para entregá-la ao leitor
+  # barato, e o pypdfium2 delega a codificação do bitmap ao Pillow.
+  "pillow>=11",
+]
+
+[project.urls]
+Homepage = "https://github.com/hugohonda/docaudit"
+Documentation = "https://hugohonda.github.io/docaudit"
+Repository = "https://github.com/hugohonda/docaudit"
+Changelog = "https://github.com/hugohonda/docaudit/blob/main/CHANGELOG.md"
+Issues = "https://github.com/hugohonda/docaudit/issues"
+
+[project.optional-dependencies]
+# Um extra por backend; o nome do extra coincide com o nome do backend registrado.
+tesseract = ["pytesseract>=0.3"]
+# PP-OCRv5 em ONNX Runtime: os pesos do PaddleOCR sem o paddlepaddle.
+# `ppocr.py` usa métodos do RapidOCR que não são API pública (`preprocess_img`,
+# `detect_and_crop`, `recognize_txt`): o teto segura a versão maior.
+ppocr = ["rapidocr>=3.4,<4", "onnxruntime>=1.20"]
+# O leitor `vlm` fala com o llama-server só com a biblioteca padrão.
+vlm = []
+# O PP-OCR no OpenVINO, na CPU: os mesmos pesos ONNX, e o motor padrão quando instalado.
+openvino = ["rapidocr>=3.4,<4", "openvino>=2025.1"]
+# O detector de layout `PPDocLayout`, em ONNX Runtime.
+layout = ["onnxruntime>=1.20", "numpy>=2"]
+
+[project.entry-points."docaudit.backends"]
+text_layer = "docaudit.backends.textlayer:TextLayerReader"
+tesseract = "docaudit.backends.tesseract:TesseractOCR"
+ppocr = "docaudit.backends.ppocr:PPOCR"
+vlm = "docaudit.backends.vlm:VLM"
+
+[dependency-groups]
+test = ["pytest>=9", "pytest-cov>=7", "pytest-randomly>=3.16"]
+lint = ["ruff>=0.15", "pyright>=1.1", "ty>=0.0.84", "prek>=0.4", "rust-just>=1.58"]
+docs = ["mkdocs>=1.6", "mkdocs-material>=9.6", "mkdocstrings[python]>=0.30", "pymdown-extensions>=10"]
+dev  = [{ include-group = "test" }, { include-group = "lint" }, { include-group = "docs" }]
+
+[tool.uv]
+required-version = ">=0.12"
+default-groups = ["dev"]
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.hatch.build.hooks.vcs]
+version-file = "src/docaudit/_version.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/docaudit"]
+
+[tool.hatch.build.targets.sdist]
+include = ["/src/docaudit", "/tests", "/docs", "/mkdocs.yml", "/README.md", "/CHANGELOG.md", "/CITATION.cff", "/LICENSE"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "W", "F", "I", "UP", "B", "SIM", "RUF", "D", "N", "PT", "PTH", "ARG", "C4", "T20", "PERF", "FA", "TC"]
+# TC003: mover import de stdlib para bloco TYPE_CHECKING é atrito sem ganho;
+# TC001/TC002 continuam ligados, que são os que pesam no custo de import.
+ignore = ["D203", "D213", "D100", "D104", "TC003"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["D", "ARG", "T20"]
+# O harness imprime tabelas e não é API.
+# Stubs de Protocol: a docstring do contrato está na classe, não em cada `...`.
+"src/docaudit/types.py" = ["D102"]
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.pyright]
+include = ["src", "tests"]
+pythonVersion = "3.12"
+typeCheckingMode = "strict"
+reportMissingTypeStubs = false
+
+# A biblioteca fica no modo estrito inteiro. Os testes ficam no padrão:
+# as regras de tipo desconhecido e de membro privado só pesam numa API pública,
+# e os testes chamam o privado de propósito.
+[[tool.pyright.executionEnvironments]]
+root = "src"
+
+[[tool.pyright.executionEnvironments]]
+root = "."
+strictListInference = false
+strictDictionaryInference = false
+strictSetInference = false
+reportConstantRedefinition = false
+reportMissingParameterType = false
+reportMissingTypeArgument = false
+reportPrivateUsage = false
+reportUnknownArgumentType = false
+reportUnknownLambdaType = false
+reportUnknownMemberType = false
+reportUnknownParameterType = false
+reportUnknownVariableType = false
+reportUnnecessaryCast = false
+reportUnnecessaryComparison = false
+reportUnnecessaryIsInstance = false
+reportUntypedFunctionDecorator = false
+reportUnusedExpression = false
+reportUnusedFunction = false
+reportUnusedVariable = false
+
+[tool.pytest.ini_options]
+addopts = "-ra -q --strict-markers --strict-config --import-mode=importlib"
+testpaths = ["tests"]
+pythonpath = ["."]
+markers = [
+  "slow: precisa de pesos de modelo ou rede",
+  "contract: suíte de contrato de um Protocol",
+  "integration: exercita o pipeline inteiro com um motor real",
+  "real: usa PDFs públicos baixados da rede",
+]
+filterwarnings = ["error"]
+
+[tool.coverage.run]
+source = ["docaudit"]
+branch = true
+# O ppocr só é exercitado pelo teste `slow`, que baixa os pesos; a suíte rápida
+# não o alcança e não deve fingir que alcança.
+omit = ["src/docaudit/_version.py", "src/docaudit/backends/ppocr.py", "src/docaudit/backends/layout.py"]
+
+[tool.coverage.report]
+fail_under = 85
+show_missing = true

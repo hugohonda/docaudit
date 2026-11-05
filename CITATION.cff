@@ -1,0 +1,10 @@
+cff-version: 1.2.0
+message: "Se usar este software, cite-o como abaixo."
+title: "docaudit"
+abstract: "Leitura de documentos digitalizados em português com verificação da própria leitura, releitura por outra família de OCR e a origem de cada trecho."
+type: software
+authors:
+  - family-names: "Honda"
+    given-names: "Hugo"
+license: Apache-2.0
+repository-code: "https://github.com/hugohonda/docaudit"

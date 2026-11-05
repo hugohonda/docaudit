@@ -1,0 +1,77 @@
+site_name: docaudit
+site_description: Leitura de documentos digitalizados com verificação da leitura e a origem de cada trecho
+repo_url: https://github.com/hugohonda/docaudit
+edit_uri: ""
+
+theme:
+  name: material
+  language: pt-BR
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - content.code.annotate
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle: {icon: material/weather-night, name: Modo escuro}
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle: {icon: material/weather-sunny, name: Modo claro}
+
+nav:
+  - Visão geral: index.md
+  - Começando: getting-started.md
+  - Guias:
+      - Conceitos: concepts.md
+      - Formato da resposta: response.md
+      - Entidades: entities.md
+      - Análise por um agente: agent.md
+      - Configuração: configuration.md
+      - Receitas: recipes.md
+      - Escrevendo um leitor: writing-a-reader.md
+  - Desempenho: performance.md
+  - Limites e dados:
+      - Limites: limits.md
+      - Segurança dos dados: security.md
+      - Comparação: comparison.md
+  - Referência:
+      - docaudit: reference/docaudit.md
+      - docaudit.types: reference/types.md
+      - docaudit.pdf: reference/pdf.md
+      - docaudit.process: reference/process.md
+      - docaudit.policies: reference/policies.md
+      - docaudit.registry: reference/registry.md
+      - docaudit.cache: reference/cache.md
+      - docaudit.visualize: reference/visualize.md
+      - docaudit.session: reference/session.md
+      - docaudit.backends.textlayer: reference/backends-textlayer.md
+      - docaudit.backends.tesseract: reference/backends-tesseract.md
+      - docaudit.backends.ppocr: reference/backends-ppocr.md
+      - docaudit.backends.vlm: reference/backends-vlm.md
+      - docaudit.backends.layout: reference/backends-layout.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight: {anchor_linenums: true}
+  - pymdownx.inlinehilite
+  - attr_list
+  - tables
+
+plugins:
+  - search: {lang: pt}
+  - mkdocstrings:
+      handlers:
+        python:
+          options:
+            docstring_style: google
+            show_source: false
+            show_root_heading: true
+            heading_level: 2
+            members_order: source
+            separate_signature: true
+            show_signature_annotations: true
+            signature_crossrefs: true

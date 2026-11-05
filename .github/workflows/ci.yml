@@ -1,0 +1,37 @@
+name: ci
+
+# Os minutos do Actions são contados num repositório privado. Este workflow é
+# o barato, em todo PR: um job só, um runner, uma instalação, na versão do
+# `.python-version`. O caro, com as outras versões do Python, o macOS e o
+# Tesseract de verdade, é o `ci-completo`, que roda quando pedido.
+#
+# O push na main não roda nada: a regra da main exige o PR atualizado com ela
+# antes de juntar, então este check já viu o mesmo código.
+on:
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # O nome do job é o check obrigatório da main.
+  ci-ok:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0          # hatch-vcs precisa das tags
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - run: uv sync --locked --all-groups --extra tesseract --extra ppocr --extra vlm --extra layout --extra openvino
+      - uses: actions/cache@v6
+        with:
+          path: ~/.cache/prek
+          key: prek-${{ hashFiles('.pre-commit-config.yaml') }}
+      # O mesmo que `just ci` no laptop; a receita no justfile diz o que entra.
+      - run: uv run just ci

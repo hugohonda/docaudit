@@ -1,0 +1,31 @@
+# Dados sensíveis nunca entram no repositório. O que se versiona é o manifesto.
+/data/
+*.jsonl
+# Manifestos de documentos públicos: URLs e páginas, sem conteúdo.
+*.pdf
+
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+src/docaudit/_version.py
+
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.hypothesis/
+
+dist/
+build/
+*.egg-info/
+site/
+
+.cache/
+*.sqlite
+
+.DS_Store
+.idea/
+.vscode/
+pylock.toml

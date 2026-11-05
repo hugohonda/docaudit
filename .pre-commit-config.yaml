@@ -1,0 +1,52 @@
+# prek roda estes hooks; `prek install` uma vez por clone.
+# Ruff, pyright e ty rodam pelo `uv run`: a versão é a do uv.lock, a mesma da
+# CI, e não um `rev` aqui que envelhece separado.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-added-large-files
+        args: [--maxkb=512]
+      - id: check-merge-conflict
+      - id: check-toml
+      - id: check-yaml
+      - id: end-of-file-fixer
+      - id: trailing-whitespace
+      # Nenhum dado de auto entra no repositório, nem por acidente.
+      - id: detect-private-key
+
+  # Os workflows do Actions: um erro aqui só aparece quando o job não sobe.
+  - repo: https://github.com/Mateusz-Grzelinski/actionlint-py
+    rev: v1.7.12.25
+    hooks:
+      - id: actionlint
+
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.12.23
+    hooks:
+      - id: uv-lock
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: uv run ruff check --fix
+        language: system
+        types_or: [python, pyi]
+      - id: ruff-format
+        name: ruff format
+        entry: uv run ruff format
+        language: system
+        types_or: [python, pyi]
+      - id: pyright
+        name: pyright
+        entry: uv run pyright
+        language: system
+        pass_filenames: false
+        types: [python]
+      - id: ty
+        name: ty
+        entry: uv run ty check src
+        language: system
+        pass_filenames: false
+        types: [python]

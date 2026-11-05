@@ -1,0 +1,45 @@
+name: ci-completo
+
+# O caro, fora do check obrigatório: as versões do Python que o `ci` não roda,
+# o macOS, que conta dez vezes no Actions de um repositório privado, e a
+# cascata com o binário do Tesseract. Roda com o rótulo `ci:completo` num PR
+# (e a cada push nele enquanto tiver o rótulo), por acionamento manual, e toda
+# segunda-feira sobre a main. Vale pedir antes de juntar o que mexe em
+# dependência, leitura de PDF, leitor ou versão do Python.
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+  schedule:
+    - cron: "0 9 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  full:
+    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:completo')
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: "3.12", recipe: test }
+          - { os: ubuntu-latest, python: "3.13", recipe: test }
+          # O que o macOS cobre a mais são as wheels binárias do pdfium.
+          - { os: macos-latest, python: "3.14", recipe: test }
+          - { os: ubuntu-latest, python: "3.14", recipe: integration }
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10.3.3
+        with:
+          version: "0.12.23"
+          enable-cache: true
+      - if: matrix.recipe == 'integration'
+        run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-por
+      - run: uv sync --locked --all-groups --extra tesseract --extra ppocr --extra vlm --extra layout --extra openvino -p ${{ matrix.python }}
+      - run: uv run just ${{ matrix.recipe }}
