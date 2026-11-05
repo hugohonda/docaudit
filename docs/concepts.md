@@ -304,8 +304,10 @@ cabeçalho; a linha cara que lê `15.062.39` onde a barata leu `15.062,39` é
 recusada. Para o valor que falhou e motivou a escalada,
 vale o mesmo veredito da releitura por outra família: a linha cara no mesmo
 lugar com o valor que confere conserta; a que traz o mesmo valor inválido
-confirma o erro do documento, e a barata fica; a que traz outra coisa não
-explicou nada, e a barata fica. `Result.spent.lines_strong_rejected` conta
+não conserta, e a barata fica; a que traz outra coisa não explicou nada, e a
+barata fica. O leitor caro não é declarado de outra família, e a repetição
+dele não marca `Entity.printed`: só `confirm` e a camada oculta provam o erro
+do documento. `Result.spent.lines_strong_rejected` conta
 as recusas, e `steps` diz o porquê de cada uma. O que isso evita: o PaddleOCR-VL
 na página inteira, em 108 páginas, perdia 26 de 106 números CNJ e 92 de 380
 valores que o primeiro nível leu certo.

@@ -1915,10 +1915,15 @@ def test_a_costly_line_that_reads_the_decimal_comma_as_a_point_is_refused(scanne
     assert any("vírgula decimal" in s for s in result.decisions[0].steps)
 
 
-def test_the_same_invalid_value_in_the_costly_read_is_a_document_error(scanned_doc):
+def test_the_same_invalid_value_in_the_costly_read_does_not_prove_a_printed_error(scanned_doc):
+    """O leitor caro não é declarado de outra família: o padrão é o mesmo PP-OCR."""
     result = _strong_outcome("CPF 529.982.247-26", "CPF 529.982.247-26", "evidence", scanned_doc)
     assert [c.source for c in result.chunks] == ["cheap"]
-    assert any("erro do documento" in s for s in result.decisions[0].steps)
+    assert any("leu o mesmo valor inválido" in s for s in result.decisions[0].steps)
+    assert not any("erro do documento" in s for s in result.decisions[0].steps)
+    [cpf] = result.entities
+    assert cpf.state is EntityState.FAILED
+    assert cpf.printed is None
 
 
 def test_a_valid_value_in_place_from_the_costly_read_replaces_the_cheap_line(scanned_doc):
