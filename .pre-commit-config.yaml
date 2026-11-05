@@ -22,7 +22,7 @@ repos:
       - id: actionlint
 
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: a1785f8e81fe9936d828bef574e6db07e8c8c374  # frozen: 0.12.23
+    rev: 46787482b9fb2003c56e0f7592e312ef381829d9  # frozen: 0.13.6
     hooks:
       - id: uv-lock
 
