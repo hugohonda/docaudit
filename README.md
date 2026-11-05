@@ -29,7 +29,7 @@ própria, e tudo roda na sua máquina.
 ## Instalação
 
 ```bash
-uv add "docaudit[ppocr,openvino] @ git+ssh://git@github.com/hugohonda/docaudit"
+uv add "docaudit[ppocr,openvino] @ git+https://github.com/hugohonda/docaudit"
 ```
 
 Python 3.12 a 3.14, em Linux ou macOS. O extra `ppocr` traz o OCR padrão, e os

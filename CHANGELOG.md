@@ -7,6 +7,6 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ## [Não lançado]
 
-Primeira versão pública. O pacote lê documentos digitalizados em português do Brasil, confere
+A primeira versão será `0.1.0.dev0`, em desenvolvimento. O pacote lê documentos digitalizados em português do Brasil, confere
 a leitura com regras que o documento permite checar e devolve cada trecho com a página, a caixa
 e o leitor de origem.
