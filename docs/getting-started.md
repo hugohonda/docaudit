@@ -7,10 +7,10 @@ ligar um leitor caro.
 
 !!! warning "Ainda não publicado"
     Nada foi ao PyPI ainda, então `uv add docaudit` não resolve. Por enquanto a
-    instalação é a partir do repositório, que é privado e pede acesso de leitura.
+    instalação é a partir do repositório.
 
 ```bash
-uv add "docaudit[ppocr,openvino] @ git+ssh://git@github.com/hugohonda/docaudit"
+uv add "docaudit[ppocr,openvino] @ git+https://github.com/hugohonda/docaudit"
 ```
 
 Publicado, será `uv add 'docaudit[ppocr,openvino]'`.
@@ -135,7 +135,7 @@ região dentro de outra é lida uma vez só. Sem o detector, o modelo recebe a
 folha inteira e alucina mais.
 
 ```bash
-uv add "docaudit[ppocr,vlm,layout] @ git+ssh://git@github.com/hugohonda/docaudit"
+uv add "docaudit[ppocr,vlm,layout] @ git+https://github.com/hugohonda/docaudit"
 brew install llama.cpp   # ou a release do GitHub, em Linux
 
 # GLM-OCR, com `--flash-attn off` e um teto de tokens por imagem
