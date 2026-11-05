@@ -1,5 +1,9 @@
 """O nome e a versão de saída do PP-OCR com um reconhecedor próprio, sem carregar o motor."""
 
+import platform
+import subprocess
+import sys
+
 import pytest
 from tests.support import make_pdf
 from tests.support.fixtures import TEXT_CENTRAL
@@ -151,3 +155,22 @@ def test_an_image_that_does_not_resize_fails_only_its_page():
     with pytest.warns(RuntimeWarning, match="resize_w"):
         result = process(make_pdf(TEXT_CENTRAL), policy="all_cheap", cheap=[_stubbed(None)])
     assert result.spent.pages_cheap_failed == 1
+
+
+@pytest.mark.skipif(
+    platform.machine().lower() not in {"arm64", "aarch64"}, reason="o defeito é só de ARM64"
+)
+def test_the_installed_opencv_resizes_a_color_page_just_below_its_size():
+    # Guarda o teto do OpenCV em ARM64, no `pyproject.toml`. A redução de 1826 para 1824 linhas é
+    # a que o detector do RapidOCR faz numa página assim. Roda em outro processo porque, com a
+    # versão defeituosa, ela cai com sinal 11.
+    pytest.importorskip("cv2", reason="precisa do extra `ppocr`")
+    code = (
+        "import cv2, numpy as np; "
+        "out = cv2.resize(np.zeros((1826, 1411, 3), np.uint8), (1408, 1824)); "
+        "print(out.shape)"
+    )
+    run = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+
+    assert run.returncode == 0, f"cv2.resize caiu (código {run.returncode}): {run.stderr}"
+    assert run.stdout.strip() == "(1824, 1408, 3)"

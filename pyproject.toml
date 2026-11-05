@@ -50,11 +50,23 @@ tesseract = ["pytesseract>=0.3"]
 # PP-OCRv5 em ONNX Runtime: os pesos do PaddleOCR sem o paddlepaddle.
 # `ppocr.py` usa métodos do RapidOCR que não são API pública (`preprocess_img`,
 # `detect_and_crop`, `recognize_txt`): o teto segura a versão maior.
-ppocr = ["rapidocr>=3.4,<4", "onnxruntime>=1.20"]
+# Em ARM64, o `cv2.resize` do OpenCV 4.14 e 5.0 lê além do fim da imagem de 3 canais ao
+# reduzir pouco abaixo de 1,0, e o processo cai com sinal 11. O detector do RapidOCR faz essa
+# redução. O teto sai quando o OpenCV trouxer o KleidiCV 26.06 ou mais novo, que tem a correção:
+# https://github.com/opencv/opencv/issues/29794. `tests/unit/test_ppocr.py` guarda o teto.
+ppocr = [
+  "rapidocr>=3.4,<4",
+  "onnxruntime>=1.20",
+  "opencv-python-headless<4.14; platform_machine == 'arm64' or platform_machine == 'aarch64'",
+]
 # O leitor `vlm` fala com o llama-server só com a biblioteca padrão.
 vlm = []
 # O PP-OCR no OpenVINO, na CPU: os mesmos pesos ONNX, e o motor padrão quando instalado.
-openvino = ["rapidocr>=3.4,<4", "openvino>=2025.1"]
+openvino = [
+  "rapidocr>=3.4,<4",
+  "openvino>=2025.1",
+  "opencv-python-headless<4.14; platform_machine == 'arm64' or platform_machine == 'aarch64'",
+]
 # O detector de layout `PPDocLayout`, em ONNX Runtime.
 layout = ["onnxruntime>=1.20", "numpy>=2"]
 
