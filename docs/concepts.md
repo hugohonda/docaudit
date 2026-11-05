@@ -139,8 +139,7 @@ cascata lê o recorte de cada raster com a folga de `RASTER_MARGIN` (0,15 da
 folha), e ficam as linhas cujo centro cai no raster e não cai em nada já
 lido: o rodapé carimbado já veio da camada. A folga, porque o recorte justo
 corta o texto na borda e o detector de linhas parte a linha ali; a partir de
-0,15 a leitura é a da página inteira, e custa 2,6 vezes menos numa página
-composta com um logotipo. `Result.spent.regions_cheap`
+0,15 a leitura é a da página inteira. `Result.spent.regions_cheap`
 conta as páginas lidas assim.
 
 Cada linha lida assim diz em `Chunk.region` o índice do raster em
@@ -194,7 +193,7 @@ código.
 A política decide o tier de cada página. As embutidas, pelo nome, são
 `all_cheap` (só a leitura barata), `all_strong` (tudo com o leitor caro) e
 `evidence`. A linha de base ao acaso, sem a qual o ganho de uma cascata não se
-interpreta, é calculada no harness de avaliação, e não por uma política. O
+interpreta, é calculada por quem avalia, e não por uma política. O
 exemplo de chamada está em [Começando](getting-started.md).
 
 `Budget` é um teto opcional, em páginas, de quantas chegam ao leitor caro numa
@@ -238,8 +237,7 @@ inteira conserta onde a leitura barata errou em série, como numa lista densa
 digitalizada em baixa resolução. Na página com um valor errado, a releitura
 custa a página toda e quase nunca traz o valor. A leitura vazia e o texto mal
 decodificado escalam com uma ocorrência. O padrão é 1, que escala toda falha.
-O mínimo não é calibrado: o valor 2 foi escolhido nas mesmas páginas em que
-foi medido, sem um conjunto separado. Vale
+O mínimo não é calibrado. Vale
 também com `reread="region"`, em que o recorte de uma linha já é barato, e
 ali o mínimo corta essa releitura.
 A página que fica barata guarda o valor que falha em `signals` e nas
@@ -253,8 +251,7 @@ documento que imprime um id ou uma data errados dispara, e reler devolve o
 mesmo valor.
 
 A data que não existe no calendário e a palavra que mistura dois alfabetos
-ficam fora dos sinais padrão: nos conjuntos medidos, não pegaram leitura
-errada que reler consertasse. Um piso de confiança também fica fora: a escala muda de um motor
+ficam fora dos sinais padrão. Um piso de confiança também fica fora: a escala muda de um motor
 para outro, e um piso seria um número sem medição.
 
 Sem evidência a política não escala nada. Quando um teto não cobre todas as

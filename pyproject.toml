@@ -13,7 +13,7 @@ requires-python = ">=3.12,<3.15"
 authors = [{ name = "Hugo Honda" }]
 keywords = ["ocr", "document-ai", "legal", "portuguese", "brazil", "vlm", "provenance"]
 classifiers = [
-  "Development Status :: 3 - Alpha",
+  "Development Status :: 2 - Pre-Alpha",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Legal Industry",
   "Natural Language :: Portuguese (Brazilian)",

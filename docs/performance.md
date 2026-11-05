@@ -21,7 +21,7 @@ caminho. Um leitor que pede outro modo de cor paga a dele.
 
 **Tons de cinza para o Tesseract.** Renderizar em cinza custa menos da
 metade do RGB, e o Tesseract converte para cinza de qualquer forma. O PP-OCR
-e o leitor caro pedem RGB, que é como os pesos deles foram medidos.
+e o leitor caro pedem RGB, que é o formato para o qual os pesos deles foram feitos.
 
 **TIFF no caminho do Tesseract.** O `pytesseract` grava um arquivo
 temporário no formato que a imagem declara. Rotular a imagem como TIFF evita
@@ -49,7 +49,7 @@ entre regiões: `VLM(concurrency=4)` com `llama-server -np 4`.
 ## Leitores
 
 Ordem de grandeza por página, de condições diferentes (threads, conjunto,
-servidor), da nota de leitores:
+servidor):
 
 | leitor | por página |
 |---|---|
@@ -58,17 +58,12 @@ servidor), da nota de leitores:
 | PP-OCRv6 medium | cerca de três segundos |
 | GLM-OCR, por região | cinco a doze segundos |
 
-O PP-OCRv5 é o padrão porque lê melhor que o Tesseract as páginas
-escaneadas, nos autos e nos conjuntos públicos medidos. O `v6-medium` lê um
-pouco melhor nos autos, a cerca de quatro vezes o custo, e empata no
-MDPBench. Na CPU, o OpenVINO roda os mesmos arquivos em cerca de um terço do
-tempo do ONNX Runtime; o custo do detector de layout não foi medido à parte.
+O PP-OCRv5 é o padrão pelo custo. O `v6-medium` custa cerca de quatro vezes mais. Na CPU,
+o OpenVINO roda os mesmos arquivos mais rápido que o ONNX Runtime.
 
-Os modelos de visão e linguagem medidos, quantizados, não alcançaram o
-PP-OCRv5 nas páginas sem camada de texto de autos reais, a três a dez vezes
-o custo; na folha inteira, perdem mais quanto mais valores a página tem.
-Por isso `strong=` não tem padrão, e a densidade da página não é sinal para
-escalar. Para quem queira um, o GLM-OCR por região: ver
+`strong=` não tem padrão, porque o leitor caro certo depende do documento e do orçamento.
+A densidade da página não é sinal para escalar: um modelo de visão e linguagem custa mais,
+e na folha inteira tende a perder valores em página densa. Compare nos seus documentos. Para quem queira um, o GLM-OCR por região: ver
 [Começando](getting-started.md) para o servidor.
 
 ## DPI por página

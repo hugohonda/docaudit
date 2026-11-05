@@ -71,8 +71,9 @@ quebrada falha o build em vez de produzir página com buraco.
 
 ## Versionamento
 
-A versão sai da tag do git. Enquanto a API muda, o pacote fica em `0.y.z`: `y`
-sobe quando algo público quebra, `z` quando não.
+A versão sai da tag do git. A primeira versão é `0.1.0.dev0`, com a tag `v0.1.0.dev0`.
+Enquanto o pacote estiver em desenvolvimento, as versões seguem em `0.1.0.devN`. Depois, o
+pacote fica em `0.y.z` enquanto a API mudar: `y` sobe quando algo público quebra, `z` quando não.
 
 O pacote não vai ao PyPI enquanto não estiver maduro: o workflow `publish`
 roda só à mão, e nenhuma tag o dispara. Quem usa a biblioteca a instala pelo

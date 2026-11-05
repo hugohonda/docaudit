@@ -11,7 +11,7 @@ Os pesos são os do PaddleOCR exportados para ONNX pelo RapidOCR. Assim o
 backend não depende do paddlepaddle, que em CPU é mais de uma ordem de
 grandeza mais lento com os mesmos pesos.
 
-Dois conjuntos de pesos, medidos em português brasileiro:
+Dois conjuntos de pesos:
 
 - `v5-latin`, o barato: detecção `PP-OCRv5_mobile_det` e reconhecimento
   `latin_PP-OCRv5_mobile_rec`, o reconhecedor latino do PaddleOCR. O
@@ -372,7 +372,7 @@ class PPOCR:
 
     def read(self, view: PageView) -> Sequence[Chunk]:
         """Transcreve a página inteira, uma linha por chunk, de cima para baixo."""
-        # Em RGB, que é como os pesos foram medidos. A matriz vai direto ao
+        # Em RGB, o formato para o qual os pesos foram feitos. A matriz vai direto ao
         # motor: o PNG não muda pixel e custava um quarto da página.
         return self._read(view.page, view.pixels(grayscale=False))
 

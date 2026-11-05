@@ -4,8 +4,8 @@ Fala só com a biblioteca padrão. Serve a dois casos, com a mesma classe:
 
 - um `llama-server` na própria máquina, com um modelo de OCR em GGUF. Os
   presets são `glm-ocr` (GLM-OCR, 0,9B, MIT), o padrão, e `paddleocr-vl`
-  (PaddleOCR-VL-1.6, 0,9B, Apache-2.0), os dois medidos e treinados sobre recortes de região, não
-  sobre a folha inteira;
+  (PaddleOCR-VL-1.6, 0,9B, Apache-2.0), os dois treinados sobre recortes de região,
+  não sobre a folha inteira;
 - um modelo hospedado, por qualquer endpoint que aceite o formato de chat da
   OpenAI com imagem embutida: o da própria OpenAI, o compatível do Gemini, o
   da Anthropic, o OpenRouter. O preset é `generic`, com um prompt de
