@@ -125,8 +125,7 @@ Seis métodos dão as outras formas de uso:
 - `result.read_by()` diz, por página, os leitores que deram linhas. A folha
   digitalizada sob uma tarja de texto é `born_digital`, e o corpo vem dos pixels;
 - `result.verification()` conta, por página e por verificação, os valores em
-  cada estado, em `printed` as falhas impressas no documento e em `inferred` as que
-  têm um valor deduzido em `Entity.inferred`;
+  cada estado, e em `printed` as falhas impressas no documento;
 - `result.by_page()` devolve `dict[int, list[Chunk]]`, cada lista na ordem de
   leitura. Um trecho sem `reading_order` vai ao fim, de cima para baixo.
 - `result.refs()` devolve `dict[str, Chunk]`: uma referência curta por

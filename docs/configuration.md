@@ -136,9 +136,9 @@ motor, e com ele a chave do cache, sem aviso.
 uv add 'docaudit[ppocr,openvino]'
 ```
 
-Nas medidas, o texto lido saiu o mesmo; a borda de uma caixa pode andar um ou
-dois pixels, porque o pós-processamento do detector arredonda diferente. Por isso
-o motor também entra em `output_version`.
+A borda de uma caixa pode andar um ou dois pixels entre os motores, porque o
+pós-processamento do detector arredonda diferente. Por isso o motor também entra em
+`output_version`.
 
 ### `TesseractOCR`
 
@@ -189,7 +189,7 @@ Qualquer servidor que fale esse formato serve.
 | SGLang | `python -m sglang.launch_server --model-path <modelo> --port 30000` | `VLM("http://127.0.0.1:30000", "generic", layout=PPDocLayout())` |
 | endpoint hospedado | o do fornecedor | `VLM(url, "generic", served=..., api_key=...)` e `allow_external=True` em `process()` |
 
-Os comandos e os pesos do llama.cpp para os dois presets medidos estão em
+Os comandos e os pesos do llama.cpp para os dois presets estão em
 [Começando](getting-started.md#um-modelo-de-visao-e-linguagem). Num servidor
 local que sirva mais de um modelo, passe `served=`.
 
@@ -219,8 +219,7 @@ está em [Conceitos](concepts.md#a-politica-evidence).
 `AMOUNT_IN_WORDS` confere o valor contra o mesmo valor por extenso entre
 parênteses, `R$ 214.000,00 (duzentos e quatorze mil reais)`. Pega a troca de
 dígito que forma outro valor bem escrito, que a grafia não vê. Fica fora do
-padrão porque ainda não pegou leitura errada nas leituras medidas; entra por
-escolha:
+padrão e entra por escolha:
 
 ```python
 from docaudit.policies import AMOUNT_IN_WORDS, DEFAULT_SIGNALS, EvidenceRouter, FailsCheck

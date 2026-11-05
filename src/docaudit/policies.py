@@ -3,7 +3,7 @@
 `all_cheap` nunca escala e `all_strong` escala tudo: juntos delimitam a faixa de
 qualidade. `evidence` escala só onde a leitura barata provou ter falhado. Os
 três se resolvem pelo nome. A linha de base ao acaso, contra a qual o ganho
-de uma cascata se mede, é calculada no harness, não por uma política.
+de uma cascata se mede por fora, e não por uma política.
 """
 
 from __future__ import annotations
@@ -134,8 +134,6 @@ _ID_PUNCTUATION = re.compile(r"[.,\-/]")
 _CNPJ_WEIGHTS = (5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
 _INTEGER_PART = r"(?:[0-9]{1,3}(?:\.[0-9]{3})*|[0-9]+)"
 _WELL_FORMED_AMOUNT = re.compile(_INTEGER_PART + r",[0-9]{2}")
-_POINT_THOUSANDS_CENTS = re.compile(r"[0-9]{1,3}(?:\.[0-9]{3})+\.[0-9]{2}")
-_CPF_DIGITS = 11
 _WELL_FORMED_PRE_REAL = re.compile(_INTEGER_PART + r"(?:,[0-9]{2})?")
 _PRE_REAL_SYMBOL = re.compile(r"(?:NCr|Cr|CR|NCz|Cz)\$")
 
@@ -220,12 +218,6 @@ class Check:
     A página segue ao leitor caro, e a entidade sai sem `printed`, salvo quando
     o valor está em texto composto.
     """
-    inferred: Callable[[str], str | None] | None = None
-    """O valor que a forma do campo permite deduzir de um valor que falhou, ou `None`.
-
-    Sai em `Entity.inferred`, ao lado do valor literal. Não muda o texto lido, o
-    estado nem a escalada: quem usa o valor decide se aceita a dedução.
-    """
 
 
 def _check_digit(chars: str, weights: Sequence[int]) -> int:
@@ -274,22 +266,6 @@ def _amount_brl_decimal_point(printed: str) -> bool:
     return _amount_brl_is_valid(re.sub(r"\.([0-9]{2})$", r",\1", printed))
 
 
-def _amount_brl_comma(printed: str) -> str | None:
-    """A vírgula no lugar do último ponto, quando só ela explica a forma lida.
-
-    Exige milhar e dois dígitos no fim. Três dígitos depois do último ponto são
-    mais um milhar. Um dígito pode ser centavo que se perdeu, e não há o que deduzir.
-    Sem milhar, `12.50` também é item de lista ou índice. Onze dígitos têm a forma
-    do CPF lido com ponto no lugar do hífen.
-    """
-    number = printed.removeprefix("R$").removeprefix("RS").lstrip()
-    if _POINT_THOUSANDS_CENTS.fullmatch(number) is None:
-        return None
-    if sum(c.isdigit() for c in number) == _CPF_DIGITS:
-        return None
-    return f"{printed[:-3]},{printed[-2:]}"
-
-
 def _amount_pre_real_is_valid(printed: str) -> bool:
     figure = _PRE_REAL_SYMBOL.sub("", printed, count=1).lstrip()
     return _WELL_FORMED_PRE_REAL.fullmatch(figure) is not None
@@ -297,7 +273,7 @@ def _amount_pre_real_is_valid(printed: str) -> bool:
 
 # Nas posições de dígito, a forma impressa de um id aceita também letra: a
 # troca de dígito por letra parecida (`0` lido `o`, `1` lido `l`, `5` lido `S`)
-# é a mais comum nas leituras medidas, e com uma forma só de dígitos o valor
+# é comum, e com uma forma só de dígitos o valor
 # lido errado nem casava. Casando, a regra o recusa, porque nenhum id
 # verdadeiro tem letra ali. O lookahead pede ao menos um dígito de verdade.
 # Os dígitos são `[0-9]`: em Python, `\d` casa também dígitos de outros
@@ -407,7 +383,6 @@ AMOUNT_BRL = Check(
     ),
     _amount_brl_is_valid,
     alike=_amount_brl_decimal_point,
-    inferred=_amount_brl_comma,
 )
 """Valor em reais.
 
@@ -509,10 +484,9 @@ DATE_DMY = Check(
 )
 """Data dd/mm/aaaa que existe no calendário.
 
-Entra em `DEFAULT_ENTITIES`, e não em `DEFAULT_SIGNALS`: nas leituras
-medidas, toda data impossível estava impressa assim no documento, e reler
-devolveria o mesmo valor. Como entidade, diz onde cada data está e se ela
-existe.
+Entra em `DEFAULT_ENTITIES`, e não em `DEFAULT_SIGNALS`: uma data impossível
+costuma estar impressa assim no documento, e reler devolveria o mesmo valor.
+Como entidade, diz onde cada data está e se ela existe.
 """
 
 
@@ -722,8 +696,7 @@ valor por extenso, como `(sem os acréscimos legais)`, e o número mal escrito,
 que é de `AMOUNT_BRL`. Um documento que imprime os dois diferentes também
 dispara: é o falso positivo conhecido.
 
-Não está em `DEFAULT_SIGNALS`: nas leituras medidas, ainda não pegou leitura
-errada. Entra por escolha: `EvidenceRouter([*DEFAULT_SIGNALS,
+Não está em `DEFAULT_SIGNALS`. Entra por escolha: `EvidenceRouter([*DEFAULT_SIGNALS,
 FailsCheck(AMOUNT_IN_WORDS)])`.
 """
 
@@ -1158,7 +1131,6 @@ def entities_of(
                 bbox=BBox.envelope([c.bbox for c in lines]),
                 chunk_ids=tuple(c.id for c in lines),
                 span=(start - begins[lines[0].id], end - begins[lines[0].id]) if spans else None,
-                inferred=check.inferred(value) if check.inferred and not valid else None,
             )
             found.append((start, entity))
     # Estável: na mesma posição, fica a ordem das verificações.
@@ -1455,7 +1427,7 @@ PJE_STAMP = StampFormat(
 )
 """A assinatura do PJe e o número do documento que vem depois dela, até três linhas abaixo.
 
-Ponto de partida: medido em poucas páginas de três tribunais.
+Ponto de partida: confira nos seus documentos.
 """
 
 PROJUDI_PR_STAMP = StampFormat(
@@ -1532,8 +1504,7 @@ DEFAULT_ENTITIES: tuple[Check, ...] = (
 """Os campos de `Result.entities` por omissão: as verificações padrão, datas, folha e códigos.
 
 A chave de acesso, a linha digitável e o código de arrecadação extraem e
-não encaminham: ficam fora de `DEFAULT_SIGNALS` até que uma medição em
-corpus público os pegue em leitura errada. Para encaminhar por eles,
+não encaminham: ficam fora de `DEFAULT_SIGNALS`. Para encaminhar por eles,
 `EvidenceRouter([*DEFAULT_SIGNALS, FailsCheck(NFE_KEY)])`.
 """
 

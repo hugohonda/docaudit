@@ -592,13 +592,6 @@ class Entity(_Frozen):
             "família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura."
         ),
     )
-    inferred: str | None = PField(
-        default=None,
-        description=(
-            "Num valor `failed`, o valor que a forma do campo permite deduzir, ao lado do "
-            "literal em `value`. É dedução, sem leitor que a confirme. `None`: nada a deduzir."
-        ),
-    )
 
 
 class OtherReading(_Frozen):
@@ -913,8 +906,8 @@ class Result(_Frozen):
         """Por página e por verificação, quantos valores em cada `EntityState`.
 
         A chave `printed` conta, entre os que falham, os que outra família leu
-        igual: o erro está no documento, e não na leitura. A chave `inferred` conta os
-        que têm um valor deduzido em `Entity.inferred`. A página sem valor não entra.
+        igual: o erro está no documento, e não na leitura. A página sem valor não
+        entra.
         """
         out: dict[int, dict[str, dict[str, int]]] = {}
         for entity in self.entities:
@@ -922,8 +915,6 @@ class Result(_Frozen):
             counts[entity.state.value] = counts.get(entity.state.value, 0) + 1
             if entity.state is EntityState.FAILED and entity.printed is not None:
                 counts["printed"] = counts.get("printed", 0) + 1
-            if entity.inferred is not None:
-                counts["inferred"] = counts.get("inferred", 0) + 1
         return out
 
     def refs(self) -> dict[str, Chunk]:
@@ -1094,7 +1085,6 @@ class Result(_Frozen):
                 parts.extend(
                     f"- {e.kind}: {e.value} · {e.state}"
                     + (f" (impresso assim: {e.printed})" if e.printed else "")
-                    + (f" (deduzido, sem conferência: {e.inferred})" if e.inferred else "")
                     + f" · {', '.join(refs[c] for c in e.chunk_ids)}"
                     for e in found.get(index, ())
                 )

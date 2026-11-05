@@ -126,7 +126,7 @@ nenhuma página escala, qualquer que seja a política.
 ou por qualquer servidor compatível com a API da OpenAI, como vLLM e SGLang:
 ver [Configuração](configuration.md#servidores-para-o-leitor-vlm).
 Os presets locais são `glm-ocr` (GLM-OCR), o padrão, e `paddleocr-vl`
-(PaddleOCR-VL-1.6), medidos em [Desempenho](performance.md#leitores); o
+(PaddleOCR-VL-1.6); o
 `generic` serve a um modelo hospedado. Os dois modelos locais foram treinados sobre
 recortes de região, e por isso o leitor vem com um detector de layout,
 `PPDocLayout`, que recorta a página em regiões com rótulo, caixa e ordem de
