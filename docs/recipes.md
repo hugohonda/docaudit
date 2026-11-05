@@ -336,7 +336,6 @@ result = docaudit.process("autos.pdf", stamps=[MEU], folhas=[PAGINA])
 | `projudi-go` | Projudi do TJGO | o código de localização |
 | `eproc` | eproc | o evento e o anexo |
 
-Fora o `e-saj`, os formatos são pontos de partida, medidos em poucas
-páginas de cada sistema: confira-os nos seus autos antes de confiar.
+Fora o `e-saj`, os formatos são pontos de partida: confira-os nos seus autos antes de confiar.
 `pagina-projudi` lê a página do processo no pé do Projudi. No eproc, a
 `Página` do rodapé é a do anexo, e ela não é folha.

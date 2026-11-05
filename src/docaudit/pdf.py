@@ -481,7 +481,7 @@ MIN_OUTLINES = 50
 """Quantos contornos de glifo sem texto por cima fazem um corpo desenhado em contornos.
 
 Abaixo disso, os contornos soltos são logotipo, selo ou ícone, e ler não
-traz texto. O corte fica no intervalo medido entre as duas populações.
+traz texto. O corte é um parâmetro nomeado, não calibrado aqui.
 """
 _CELL = 36.0
 """O lado, em pontos, da grade que indexa as caixas de texto da página."""

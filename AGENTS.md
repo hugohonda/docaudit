@@ -67,10 +67,9 @@ Python. O push na main não roda CI.
 - Nada de travessão como aposto no meio da frase. Use vírgula, dois-pontos ou
   ponto.
 - Não argumente com um crítico imaginário ("não é cerimônia", "não é detalhe").
-- Número medido não vai para docstring nem para `docs/`, que fica com o custo e o
-  porquê dos padrões. Na docstring fica a regra; o número envelhece e ninguém o revisa.
-- Esta biblioteca não cita a dissertação que a originou. Quem a instala do PyPI
-  não sabe o que é "documento 2, §4". A substância fica, a citação sai.
+- Número medido não vai para docstring nem para `docs/`. Ali ficam a regra e o porquê:
+  o número envelhece e ninguém o revisa.
+- Não cite o que quem instala o pacote não consegue abrir. A substância fica, a citação sai.
 
 ## O que entra no código
 

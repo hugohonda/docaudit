@@ -115,9 +115,8 @@ result = docaudit.process(
 )
 ```
 
-Por que a data extrai e não encaminha: nas leituras medidas, toda data
-impossível estava impressa assim no documento, e reler devolveria o mesmo
-valor. A data como entidade diz onde está e se existe; como sinal, gastaria
+Por que a data extrai e não encaminha: uma data impossível costuma estar
+impressa assim no documento, e reler devolveria o mesmo valor. A data como entidade diz onde está e se existe; como sinal, gastaria
 o leitor caro sem consertar nada. A mesma pergunta vale para cada campo
 seu: a falha dele aponta leitura errada que reler conserta?
 

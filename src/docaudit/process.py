@@ -111,8 +111,7 @@ RASTER_MARGIN = 0.15
 """A folga, em fração da folha, em volta do recorte de um raster.
 
 Um recorte justo corta o texto na borda, e o detector de linhas parte a linha
-ali. É o ponto a partir do qual a leitura do recorte iguala a da página,
-medido com referência; não um ótimo calibrado.
+ali. É um ponto de partida, não um ótimo calibrado.
 """
 
 
