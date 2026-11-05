@@ -66,11 +66,14 @@ vlm = "docaudit.backends.vlm:VLM"
 
 [dependency-groups]
 test = ["pytest>=9", "pytest-cov>=7", "pytest-randomly>=3.16"]
-lint = ["ruff>=0.15", "pyright>=1.1", "ty>=0.0.84", "prek>=0.4", "rust-just>=1.58"]
+lint = ["ruff>=0.15", "pyright>=1.1", "ty>=0.0.84", "prek>=0.4", "rust-just>=1.58", "zizmor>=1.31"]
 docs = ["mkdocs>=1.6", "mkdocs-material>=9.6", "mkdocstrings[python]>=0.30", "pymdown-extensions>=10"]
 dev  = [{ include-group = "test" }, { include-group = "lint" }, { include-group = "docs" }]
 
 [tool.uv]
+# Nada entra no lock com menos de 7 dias. Uma exceção urgente vai em `exclude-newer-package`,
+# por pacote, com o motivo e a data de retirada num comentário.
+exclude-newer = "7 days"
 required-version = ">=0.12"
 default-groups = ["dev"]
 
