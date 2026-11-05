@@ -1,9 +1,13 @@
 version: 2
 updates:
+  # Nada entra com menos de 7 dias. Sem `cooldown`, o padrão do Dependabot é 3.
+  # O `exclude-newer` do pyproject.toml aplica a mesma janela ao `uv lock`.
   - package-ecosystem: github-actions
     directory: "/"
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       # Um PR por mês com todas as actions. Separadas, cinco bumps viram
       # cinco PRs que se invalidam a cada merge.
@@ -14,6 +18,18 @@ updates:
     directory: "/"
     schedule:
       interval: monthly
+    cooldown:
+      default-days: 7
     groups:
       dev:
-        patterns: ["ruff", "pyright", "ty", "pytest*", "hypothesis", "mkdocs*", "prek"]
+        patterns: ["ruff", "pyright", "ty", "zizmor", "pytest*", "hypothesis", "mkdocs*", "prek"]
+
+  - package-ecosystem: pre-commit
+    directory: "/"
+    schedule:
+      interval: monthly
+    cooldown:
+      default-days: 7
+    groups:
+      hooks:
+        patterns: ["*"]
