@@ -1,7 +1,6 @@
 name: ci
 
-# Os minutos do Actions são contados num repositório privado. Este workflow é
-# o barato, em todo PR: um job só, um runner, uma instalação, na versão do
+# Este workflow é o barato, em todo PR: um job só, um runner, uma instalação, na versão do
 # `.python-version`. O caro, com as outras versões do Python, o macOS e o
 # Tesseract de verdade, é o `ci-completo`, que roda quando pedido.
 #
@@ -45,8 +44,7 @@ jobs:
         run: |
           curl -sSfL -o gitleaks.tgz "https://github.com/gitleaks/gitleaks/releases/download/v$GITLEAKS_VERSION/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           echo "$GITLEAKS_SHA256  gitleaks.tgz" | sha256sum -c -
-          tar -xzf gitleaks.tgz gitleaks
-          ./gitleaks git --no-banner --redact .
-          rm gitleaks gitleaks.tgz
+          tar -xzf gitleaks.tgz -C "$RUNNER_TEMP" gitleaks
+          "$RUNNER_TEMP/gitleaks" git --no-banner --redact .
       # O mesmo que `just ci` no laptop; a receita no justfile diz o que entra.
       - run: uv run just ci

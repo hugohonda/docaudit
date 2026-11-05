@@ -105,7 +105,6 @@ convention = "google"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["D", "ARG", "T20"]
-# O harness imprime tabelas e não é API.
 # Stubs de Protocol: a docstring do contrato está na classe, não em cada `...`.
 "src/docaudit/types.py" = ["D102"]
 

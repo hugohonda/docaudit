@@ -1,7 +1,7 @@
 name: ci-completo
 
 # O caro, fora do check obrigatório: as versões do Python que o `ci` não roda,
-# o macOS, que conta dez vezes no Actions de um repositório privado, e a
+# o macOS e a
 # cascata com o binário do Tesseract. Roda com o rótulo `ci:completo` num PR
 # (e a cada push nele enquanto tiver o rótulo), por acionamento manual, e toda
 # segunda-feira sobre a main. Vale pedir antes de juntar o que mexe em
@@ -22,7 +22,10 @@ concurrency:
 
 jobs:
   full:
-    if: github.event_name != 'pull_request' || contains(github.event.pull_request.labels.*.name, 'ci:completo')
+    if: >-
+      github.event_name != 'pull_request' ||
+      (contains(github.event.pull_request.labels.*.name, 'ci:completo') &&
+      (github.event.action != 'labeled' || github.event.label.name == 'ci:completo'))
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     strategy:
