@@ -1310,9 +1310,11 @@ def _rejected_strong(
     ponto no lugar da vírgula perde o valor. Esse número não tem dígito
     verificador, e a linha barata fica mesmo quando a cara leu outro valor
     bem formado. Para um valor que falhou na leitura barata, a linha cara
-    no mesmo lugar que traz o valor que confere conserta; a que
-    traz o mesmo valor inválido confirma o erro do documento, e a barata
-    fica; a que traz outra coisa não explicou nada, e a barata fica.
+    no mesmo lugar que traz o valor que confere conserta; a que traz o
+    mesmo valor inválido não conserta, e a barata fica; a que traz outra
+    coisa não explicou nada, e a barata fica. O leitor caro não é declarado
+    de outra família, e por isso a repetição dele não prova erro do
+    documento: o padrão é um PP-OCR maior, que erra junto com o barato.
     """
     rejected: set[str] = set()
     # O porquê de cada recusa, uma vez cada, na ordem em que aparece.
@@ -1340,7 +1342,7 @@ def _rejected_strong(
         rejected.update(s.id for s in covering)
         same = any(_repeats(value, s) for s in covering)
         note = (
-            f"erro do documento: leu o mesmo {check.name} inválido ({value})"
+            f"leu o mesmo valor inválido ({value}); os dois leitores podem errar juntos"
             if same
             else f"outro valor no lugar de {check.name} ({value}); não explicou"
         )
@@ -1833,9 +1835,12 @@ def run_pipeline(
     # Só as leituras ao lado de uma linha que ficou: a linha que o leitor
     # caro substituiu já não está no resultado.
     others = [o for o in run.others if o.line in final]
+    # A prova de erro do documento vem de outra família: a releitura por
+    # `confirm` ou a camada oculta. A linha recusada do leitor caro fica em
+    # `others` para quem revisa, e não prova nada.
     same_by_line: dict[str, list[OtherReading]] = {}
     for other in others:
-        if other.same:
+        if other.same and (strong is None or other.reading.source != strong.name):
             same_by_line.setdefault(other.line, []).append(other)
     alike = {c.name: c.alike for c in entity_checks if c.alike is not None}
     found: list[Entity] = []
