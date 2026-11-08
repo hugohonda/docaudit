@@ -1443,7 +1443,7 @@ def _strong_stage(
     reread: Reread,
     workers: int,
     deadline: float | None = None,
-) -> None:
+) -> set[int]:
     """Lê no tier caro cada página escalada, inteira ou só as regiões que falharam.
 
     Um leitor local vai página a página: o paralelismo que compensa nele é
@@ -1454,12 +1454,14 @@ def _strong_stage(
     páginas nos dois casos.
 
     `deadline` é o instante de `time.perf_counter` em que `Budget.max_seconds`
-    vence: a página que começa depois dele não vai ao leitor caro.
+    vence: a página que começa depois dele não vai ao leitor caro. Devolve os
+    índices dessas páginas, para que quem chama garanta a leitura barata delas.
     """
+    deferred: set[int] = set()
     if backend is None:
         for page in pages:
             run.steps[page.index].append("sem leitor caro: fica a leitura barata")
-        return
+        return deferred
     check_names = {c.name for c in checks}
 
     def boxes_of(page: Page) -> dict[BBox, Turn]:
@@ -1493,6 +1495,7 @@ def _strong_stage(
         steps = run.steps[page.index]
         cheap = by_page.get(page.index, ())
         if read.deferred:
+            deferred.add(page.index)
             steps.append("teto de tempo do orçamento atingido antes desta página: fica a barata")
             continue
         if read.error is not None:
@@ -1541,6 +1544,7 @@ def _strong_stage(
                     f"{len(rejected)} linha(s) do leitor caro recusada(s): " + "; ".join(notes)
                 )
         run.spent["pages_layout_cached"] += read.layout_hit
+    return deferred
 
 
 def process(
@@ -1689,6 +1693,8 @@ def process(
         parede de cada etapa, com a detecção de layout das páginas que ela
         renderizou. São relatados, e nada os limita.
     """
+    if not 0.0 <= min_raster_fraction <= 1.0:
+        raise ValueError(f"min_raster_fraction={min_raster_fraction!r} fora de [0, 1]")
     readers = [resolve(r, Reader, get_backend) for r in cheap]
     policy_obj = resolve(policy, TriagePolicy, get_policy)
     strong_backend = resolve(strong, Reader, get_backend) if strong is not None else None
@@ -1815,7 +1821,7 @@ def run_pipeline(
     with run.timed("seconds_strong"):
         by_decision = {d.page: d for d in decisions}
         deadline = started + budget.max_seconds if budget.max_seconds is not None else None
-        _strong_stage(
+        deferred = _strong_stage(
             run,
             escalated,
             by_decision,
@@ -1827,6 +1833,12 @@ def run_pipeline(
             workers,
             deadline,
         )
+    # A página que o teto de tempo tirou do leitor caro numa política que
+    # decide antes de ler ainda não tem leitura nenhuma: ela vai ao barato.
+    unread_pages = [p for p in escalated if p.index in deferred and p.index not in by_page]
+    if unread_pages:
+        by_page.update(_cheap_stage(run, unread_pages, readers, workers, trust_layer))
+        pages_cheap += len(unread_pages)
     run.views.clear()
 
     # A ordem de leitura vem por último, sobre o que ficou de todos os

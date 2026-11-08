@@ -772,9 +772,9 @@ class Budget(_Frozen):
 
     Com as duas formas em páginas, vale a mais restritiva. `max_seconds` é o
     tempo de parede da execução a partir do qual o tier caro não começa
-    página nova: a leitura barata e a releitura por outra família terminam
-    sempre, e a página escalada que o teto alcançou fica com a leitura
-    barata, com o motivo em `RoutingDecision.steps`. Tokens e dólares não
+    página nova: a releitura por outra família termina sempre, e a página
+    escalada que o teto alcançou fica com a leitura barata, feita então se
+    a política a tinha dispensado, com o motivo em `RoutingDecision.steps`. Tokens e dólares não
     têm teto: são relatados em `Result.spent`.
     """
 
@@ -874,6 +874,8 @@ class Run(_Frozen):
     spans: bool = PField(default=False, description="Se `Entity.span` foi pedido.")
     min_raster_fraction: float = PField(
         default=0.0,
+        ge=0.0,
+        le=1.0,
         description=(
             "A fração da página abaixo da qual um raster não lido de uma página nato-digital "
             "não foi ao leitor de pixels; `0.0` leu todos."

@@ -2168,6 +2168,28 @@ def test_the_time_cap_leaves_the_pages_it_reaches_with_the_cheap_read(scanned_do
     assert result.run.budget.max_seconds == 1e-9
 
 
+def test_a_page_the_time_cap_deferred_still_gets_its_cheap_read(scanned_doc):
+    """`all_strong` dispensa a leitura barata; com o teto vencido, a página ainda vai ao barato."""
+    vlm = FakeVLM()
+    result = process(
+        scanned_doc,
+        policy="all_strong",
+        budget=Budget(max_seconds=1e-9),
+        cheap=[FakeOCR()],
+        strong=vlm,
+    )
+    assert vlm.calls == 0
+    assert result.spent.pages_strong == 0
+    assert result.spent.pages_cheap == 5
+    assert {c.source for c in result.chunks} == {FakeOCR.name}
+    assert not any(d.incomplete for d in result.decisions)
+
+
+def test_a_raster_floor_outside_the_unit_interval_is_refused(scanned_doc):
+    with pytest.raises(ValueError, match="min_raster_fraction"):
+        process(scanned_doc, min_raster_fraction=1.5)
+
+
 def test_without_a_time_cap_every_escalated_page_is_read(scanned_doc):
     vlm = FakeVLM()
     process(
