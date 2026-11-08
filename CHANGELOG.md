@@ -7,6 +7,8 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ## [Não lançado]
 
+## [0.1.0.dev1] - 2026-11-08
+
 ### Adicionado
 
 - `MojibakeText`, o sinal da camada de texto decodificada com a codificação errada, no extra
@@ -14,7 +16,6 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 - `RoutingDecision.seconds`: os segundos de cada etapa em cada página.
 - `PPOCR` e `PPDocLayout` com `threads=None` seguem os núcleos disponíveis ao processo quando
   são menos que os da máquina (`cpuset` de contêiner).
-
 - `Result.records()`: as linhas de cada página em fileiras e blocos, só pela posição das
   caixas, com `Record.text` e `Record.tabular`. `Result.pieces()`: as páginas seguidas com a
   mesma tarja, por `Stamp.code`.
@@ -65,5 +66,6 @@ com a página, a caixa e o leitor de origem.
   `Doubt` para uma sessão; `visualize` para a imagem com as caixas.
 - Cache de leituras em SQLite; nada sai da máquina sem `allow_external=True`.
 
-[Não lançado]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev0...HEAD
+[Não lançado]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev1...HEAD
+[0.1.0.dev1]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev0...v0.1.0.dev1
 [0.1.0.dev0]: https://github.com/hugohonda/docaudit/releases/tag/v0.1.0.dev0
