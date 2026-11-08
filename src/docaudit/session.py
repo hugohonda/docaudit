@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 """Um documento aberto, para um agente ler e voltar a pontos dele.
 
 `process` lê um documento de uma vez e devolve o resultado. Quem lê por

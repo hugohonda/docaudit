@@ -33,6 +33,7 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Alterado
 
+- A licença passa de Apache-2.0 para MPL-2.0. Cada arquivo fonte traz o aviso do Anexo A.
 - O leitor caro não prova mais erro do documento: `Entity.printed` sai só da camada de
   texto ou da releitura por outra família (#7).
 - `docaudit` exporta `Run`, `Region` e `Layout`, que já eram parte de `Result` e de
