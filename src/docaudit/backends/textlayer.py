@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 """Leitor da camada de texto embutida no PDF.
 
 É o leitor mais barato que existe: o texto já está no arquivo, com coordenadas,

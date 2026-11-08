@@ -8,5 +8,5 @@ authors:
     given-names: "Hugo"
 version: 0.1.0.dev0
 date-released: "2026-11-05"
-license: Apache-2.0
+license: MPL-2.0
 repository-code: "https://github.com/hugohonda/docaudit"

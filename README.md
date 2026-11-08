@@ -116,4 +116,6 @@ mudanças estão no [CHANGELOG](CHANGELOG.md).
 
 ## Licença
 
-Apache-2.0.
+MPL-2.0 (Mozilla Public License 2.0): quem altera um arquivo da biblioteca
+publica a alteração sob a mesma licença; quem só a usa, inclusive junto de
+código fechado em outros arquivos, não deve nada além do crédito.

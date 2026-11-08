@@ -7,7 +7,7 @@ name = "docaudit"
 dynamic = ["version"]
 description = "Leitura de documentos digitalizados em português com verificação da própria leitura, releitura seletiva e a origem de cada trecho"
 readme = "README.md"
-license = "Apache-2.0"
+license = "MPL-2.0"
 license-files = ["LICENSE"]
 requires-python = ">=3.12,<3.15"
 authors = [{ name = "Hugo Honda" }]

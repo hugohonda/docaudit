@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 """Leitura de documentos digitalizados, com verificação da leitura e a origem de cada trecho.
 
 Tudo o que não está em `__all__` é privado e pode mudar sem aviso.

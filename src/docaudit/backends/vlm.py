@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 """Leitor sobre um modelo de visão e linguagem, por uma API compatível com a da OpenAI.
 
 Fala só com a biblioteca padrão. Serve a dois casos, com a mesma classe:
