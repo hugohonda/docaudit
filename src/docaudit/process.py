@@ -17,7 +17,6 @@ de `Budget` vale para qualquer política.
 from __future__ import annotations
 
 import re
-import threading
 import time
 import warnings
 from bisect import bisect_left, bisect_right
@@ -431,11 +430,12 @@ def _read_cascade(
             continue
         if not chunks:
             continue
-        if rendered or not any(b.area >= min_raster for b in view.page.unread):
+        rasters = [(i, b) for i, b in enumerate(view.page.unread) if b.area >= min_raster]
+        if rendered or not rasters:
             return _Cascade(chunks, hit, 0, failed)
         for filler in readers[position + 1 :]:
             try:
-                extra = _from_rasters(view, filler, cache, chunks, min_raster)
+                extra = _from_rasters(view, filler, cache, chunks, rasters)
             except RuntimeError as exc:
                 failed.append(_warn_failure(filler, view.page, exc))
                 return _Cascade(chunks, hit, 0, failed, lost=True)
@@ -449,9 +449,9 @@ def _from_rasters(
     reader: Reader,
     cache: ModelCallCache | None,
     read: Sequence[Chunk],
-    min_raster: float = 0.0,
+    rasters: Sequence[tuple[int, BBox]],
 ) -> list[Chunk]:
-    """As linhas que `reader` lê nos recortes dos rasters de `view.page.unread`, com `region`.
+    """As linhas que `reader` lê nos recortes de `rasters`, com `region` no índice de cada um.
 
     Cada raster ganha a folga de `RASTER_MARGIN`, e recortes que se tocam
     viram um só, para que o leitor não leia a mesma linha duas vezes. A
@@ -461,8 +461,8 @@ def _from_rasters(
     recorte não toca nele, e nenhuma linha dele vem de lá. O raster que ocupa
     a folha inteira, ou um grupo que a cobre, é a página.
     """
-    kept = [(i, b) for i, b in enumerate(view.page.unread) if b.area >= min_raster]
-    padded = [(i, (p.x0, p.y0, p.x1, p.y1)) for i, b in kept for p in (b.padded(RASTER_MARGIN),)]
+    with_margin = [(i, b.padded(RASTER_MARGIN)) for i, b in rasters]
+    padded = [(i, (p.x0, p.y0, p.x1, p.y1)) for i, p in with_margin]
     found: list[Chunk] = []
     for _, (x0, y0, x1, y1) in merge_touching(padded):
         if (x0, y0, x1, y1) == (0.0, 0.0, 1.0, 1.0):
@@ -474,7 +474,7 @@ def _from_rasters(
     # da digitalização. A linha fica uma vez, na menor região que a contém.
     out: list[Chunk] = []
     taken: set[str] = set()
-    for index, box in sorted(kept, key=lambda pair: pair[1].area):
+    for index, box in sorted(rasters, key=lambda pair: pair[1].area):
         for chunk in _within(found, box):
             if chunk.id in taken or _already_read(chunk.bbox, read):
                 continue
@@ -875,8 +875,6 @@ class _Run:
     """Por página, a nota de cada leitor que falhou, para `RoutingDecision.failures`."""
     incomplete: set[int] = field(default_factory=set[int])
     """As páginas em que um leitor falhou e nenhum outro leu, para `RoutingDecision.incomplete`."""
-    detecting: threading.Lock = field(default_factory=threading.Lock)
-    """Serializa a detecção de layout: as etapas com `workers` a chamam de várias threads."""
 
     def view(self, page: Page) -> PageView:
         """A vista da página, guardada se a página ainda está em curso; senão, uma nova."""
@@ -892,16 +890,17 @@ class _Run:
         """Os blocos de layout da página, uma vez só; True se vieram do cache.
 
         A vista fica com os blocos e a versão do detector: um leitor caro com
-        o mesmo detector os reaproveita em vez de detectar de novo.
+        o mesmo detector os reaproveita em vez de detectar de novo. Cada
+        página passa por aqui numa thread só por etapa, e as etapas são
+        sequenciais: nada disputa a entrada de uma página.
         """
         if self.layout is None:
             return False
         hit = False
-        with self.detecting:
-            if view.page.index not in self.regions:
-                self.regions[view.page.index], hit = _regions_cached(view, self.layout, self.cache)
-            view.regions = self.regions[view.page.index]
-            view.regions_version = self.layout.output_version
+        if view.page.index not in self.regions:
+            self.regions[view.page.index], hit = _regions_cached(view, self.layout, self.cache)
+        view.regions = self.regions[view.page.index]
+        view.regions_version = self.layout.output_version
         return hit
 
     @contextmanager
@@ -1388,9 +1387,7 @@ class _StrongRead(NamedTuple):
     scope: str
     by_region: bool
     error: RuntimeError | None
-    deferred: bool = False
-    """O teto de tempo do orçamento chegou antes desta página: ela fica com a leitura barata."""
-    layout_hit: bool = False
+    layout_hit: bool
     """Se os blocos de layout da página vieram do cache."""
 
 
@@ -1442,7 +1439,7 @@ def _strong_stage(
     checks: Sequence[FailsCheck],
     reread: Reread,
     workers: int,
-    deadline: float | None = None,
+    deadline: float | None,
 ) -> set[int]:
     """Lê no tier caro cada página escalada, inteira ou só as regiões que falharam.
 
@@ -1479,9 +1476,10 @@ def _strong_stage(
             lines.setdefault((check.name, value), []).append(chunk)
         return {BBox.envelope([c.bbox for c in ls]): _turn_of(ls) for ls in lines.values()}
 
-    def one(page: Page) -> _StrongRead:
+    def one(page: Page) -> _StrongRead | None:
+        """A leitura cara da página, ou None quando o teto de tempo chegou antes dela."""
         if deadline is not None and time.perf_counter() >= deadline:
-            return _StrongRead(page, [], False, "", False, None, deferred=True)
+            return None
         turn = _turn_of(by_page.get(page.index, ()))
         return _strong_one(run, page, boxes_of(page), turn, backend)
 
@@ -1490,11 +1488,10 @@ def _strong_stage(
             reads = list(pool.map(one, pages))
     else:
         reads = [one(page) for page in pages]
-    for read in reads:
-        page = read.page
+    for page, read in zip(pages, reads, strict=True):
         steps = run.steps[page.index]
         cheap = by_page.get(page.index, ())
-        if read.deferred:
+        if read is None:
             deferred.add(page.index)
             steps.append("teto de tempo do orçamento atingido antes desta página: fica a barata")
             continue

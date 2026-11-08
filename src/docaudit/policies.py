@@ -13,6 +13,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from docaudit.backends.textlayer import TextLayerReader
 from docaudit.types import BBox, Entity, EntityState, RoutingDecision, Substrate, Tier
@@ -1396,9 +1397,14 @@ class StampFormat:
     tz: str | None = None
 
     def __post_init__(self) -> None:
-        """Recusa o formato sem o grupo `code`: a tarja sem id não aponta peça."""
+        """Recusa o formato sem o grupo `code`, e o fuso que a base IANA não conhece."""
         if "code" not in self.pattern.groupindex:
             raise ValueError(f"a tarja {self.name!r} precisa do grupo `code`")
+        if self.tz is not None:
+            try:
+                ZoneInfo(self.tz)
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError(f"a tarja {self.name!r}: fuso desconhecido {self.tz!r}") from exc
 
 
 _CNJ_PRINTED = r"\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}"

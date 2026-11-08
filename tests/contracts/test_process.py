@@ -2244,6 +2244,13 @@ def test_a_stamp_format_with_a_timezone_gives_an_aware_time():
     assert aware.at.replace(tzinfo=None) == naive.at, "a hora impressa é a mesma; só o fuso entra"
 
 
+def test_an_unknown_timezone_is_refused_when_the_format_is_built():
+    from dataclasses import replace
+
+    with pytest.raises(ValueError, match="fuso"):
+        replace(ESAJ_STAMP, tz="Brasil/Capital")
+
+
 def test_pieces_group_consecutive_pages_by_stamp_code():
     doc = make_pdf(
         _stamped("Peticao inicial", *_strip(_OWN, "AbCd1234")),

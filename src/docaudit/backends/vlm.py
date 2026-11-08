@@ -29,9 +29,9 @@ das chamadas rejeita o próprio texto com um erro 500. O leitor levanta
 `RuntimeError` com o código e o corpo, e a página inteira falha; quem chama
 decide se repete ou segue sem ela. O mesmo vale para o tempo esgotado
 esperando a resposta e para uma resposta que não se lê. Só o servidor
-ausente levanta `ConnectionError`, que interrompe o documento. Um 429 ou 503
-de um servidor hospedado é um erro como os outros: quanto esperar e quantas
-vezes repetir é de quem chama.
+ausente levanta `ConnectionError`, que interrompe o documento. Um 429 ou 5xx,
+o tempo esgotado e a conexão caída são repetidos `retries` vezes antes de a
+página falhar; num servidor fora da máquina, a conexão recusada também.
 
 Instalação e pesos: ver `docs/getting-started.md`.
 """
@@ -266,33 +266,25 @@ class VLM:
         return content
 
     def _post(self, request: urllib.request.Request) -> dict[str, object]:
-        """O corpo da resposta como dicionário, repetindo a falha passageira até `retries` vezes.
+        """O corpo da resposta como dicionário; a falha passageira é repetida `retries` vezes.
 
-        A falha passageira é a que outra tentativa pode resolver: o servidor
-        recusou por carga (429 ou 5xx), o tempo esgotou, a conexão caiu. A
-        espera entre tentativas segue o `Retry-After` do servidor, ou dobra a
-        partir de um segundo. Esgotadas as tentativas, a falha é desta página
-        e sobe como `RuntimeError`.
+        A espera segue o `Retry-After` do servidor, ou dobra a partir de um
+        segundo. A última tentativa deixa a falha subir como veio.
         """
-        for attempt in range(self.retries + 1):
+        for attempt in range(self.retries):
             try:
                 return self._send(request)
             except _TransientError as exc:
-                if attempt == self.retries:
-                    raise RuntimeError(str(exc)) from exc
                 time.sleep(exc.wait if exc.wait is not None else float(2**attempt))
-        raise AssertionError("inalcançável")  # pragma: no cover
+        return self._send(request)
 
     def _send(self, request: urllib.request.Request) -> dict[str, object]:
         """Uma chamada ao servidor: o corpo como dicionário, ou a falha classificada.
 
-        Só a conexão recusada por um servidor local sobe como
-        `ConnectionError`, que interrompe o documento: o servidor não está lá,
-        e repetir não o traz. Num servidor fora da máquina a mesma recusa é
-        passageira. O resto é falha desta página: erro HTTP, tempo esgotado
-        esperando a resposta, conexão cortada no meio dela, corpo que não é
-        JSON. O `urllib` só embrulha em `URLError` o envio do pedido; o que
-        acontece depois chega com o tipo cru.
+        `_TransientError` é a falha que outra tentativa pode resolver; o
+        servidor local ausente é `ConnectionError`, que interrompe o documento.
+        O `urllib` só embrulha em `URLError` o envio do pedido; o que acontece
+        depois chega com o tipo cru.
         """
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as resp:
@@ -395,7 +387,10 @@ class VLM:
 
 
 class _TransientError(RuntimeError):
-    """Uma falha que outra tentativa pode resolver; `wait` é a espera que o servidor pediu."""
+    """Uma falha que outra tentativa pode resolver; `wait` é a espera que o servidor pediu.
+
+    É um `RuntimeError`: esgotadas as tentativas, `process` a trata como a falha da página.
+    """
 
     def __init__(self, message: str, wait: float | None = None) -> None:
         super().__init__(message)

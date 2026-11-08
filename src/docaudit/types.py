@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import functools
 import hashlib
+import itertools
 import math
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -697,8 +698,12 @@ class Piece(_Frozen):
 
     index: int = PField(ge=0, description="A posição da peça no documento.")
     pages: tuple[int, ...] = PField(min_length=1, description="Os índices das páginas, seguidos.")
-    code: str | None = PField(description="O `Stamp.code` comum às páginas; None sem tarja.")
     stamp: Stamp | None = PField(description="A tarja da primeira página da peça; None sem tarja.")
+
+    @property
+    def code(self) -> str | None:
+        """O `Stamp.code` comum às páginas; None sem tarja."""
+        return self.stamp.code if self.stamp is not None else None
 
 
 def _rows_of(lines: Sequence[Chunk]) -> list[list[Chunk]]:
@@ -707,9 +712,9 @@ def _rows_of(lines: Sequence[Chunk]) -> list[list[Chunk]]:
     for chunk in sorted(lines, key=lambda c: (c.bbox.y0, c.bbox.x0)):
         if rows:
             row = rows[-1]
-            top, bottom = min(c.bbox.y0 for c in row), max(c.bbox.y1 for c in row)
+            span = BBox.envelope([c.bbox for c in row])
             shortest = min(c.bbox.y1 - c.bbox.y0 for c in (*row, chunk))
-            if min(bottom, chunk.bbox.y1) - max(top, chunk.bbox.y0) > shortest / 2:
+            if min(span.y1, chunk.bbox.y1) - max(span.y0, chunk.bbox.y0) > shortest / 2:
                 row.append(chunk)
                 continue
         rows.append([chunk])
@@ -772,9 +777,9 @@ class Budget(_Frozen):
 
     Com as duas formas em páginas, vale a mais restritiva. `max_seconds` é o
     tempo de parede da execução a partir do qual o tier caro não começa
-    página nova: a releitura por outra família termina sempre, e a página
-    escalada que o teto alcançou fica com a leitura barata, feita então se
-    a política a tinha dispensado, com o motivo em `RoutingDecision.steps`. Tokens e dólares não
+    página nova. A releitura por outra família termina sempre. A página
+    escalada que o teto alcançou fica com a leitura barata, feita então se a
+    política a tinha dispensado; o motivo vai em `RoutingDecision.steps`. Tokens e dólares não
     têm teto: são relatados em `Result.spent`.
     """
 
@@ -1104,12 +1109,14 @@ class Result(_Frozen):
             heights = sorted(c.bbox.y1 - c.bbox.y0 for c in upright)
             median = heights[len(heights) // 2] if heights else 0.0
             blocks: list[list[list[Chunk]]] = []
+            bottom = 0.0
             for row in _rows_of(upright):
-                top = min(c.bbox.y0 for c in row)
-                if blocks and top - max(c.bbox.y1 for c in blocks[-1][-1]) <= gap * median:
+                span = BBox.envelope([c.bbox for c in row])
+                if blocks and span.y0 - bottom <= gap * median:
                     blocks[-1].append(row)
                 else:
                     blocks.append([row])
+                bottom = span.y1
             blocks.extend([[c]] for c in lines if c.turn != 0)
             for index, block in enumerate(blocks):
                 cells = [c for row in block for c in row]
@@ -1133,14 +1140,15 @@ class Result(_Frozen):
         agrupamento do que a tarja já diz, sem classificar a peça: serve
         para pedir o texto de uma peça em vez do documento inteiro.
         """
-        out: list[Piece] = []
-        for page in self.pages:
-            code = page.stamp.code if page.stamp is not None else None
-            if out and out[-1].code == code:
-                out[-1] = out[-1].model_copy(update={"pages": (*out[-1].pages, page.index)})
-            else:
-                out.append(Piece(index=len(out), pages=(page.index,), code=code, stamp=page.stamp))
-        return out
+
+        def code_of(page: Page) -> str | None:
+            return page.stamp.code if page.stamp is not None else None
+
+        return [
+            Piece(index=index, pages=tuple(p.index for p in run), stamp=run[0].stamp)
+            for index, (_, group) in enumerate(itertools.groupby(self.pages, key=code_of))
+            for run in (list(group),)
+        ]
 
     def to_markdown(self, *, furniture: bool = True, annotated: bool = False) -> str:
         """O texto lido, uma linha por chunk, com um cabeçalho por página.

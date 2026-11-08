@@ -2,14 +2,17 @@
 
 import io
 import json
+from collections.abc import Callable
 from email.message import Message
 
 import pytest
+from tests.support import FakeLayout
 from tests.support.fixtures import EMPTY_PAGE, make_pdf, make_scanned_pdf
 
 import docaudit
 from docaudit.backends.layout import PPDocLayout, Region
 from docaudit.backends.vlm import VLM
+from docaudit.pdf import PageView
 from docaudit.types import BBox, ExternalBackendError
 
 
@@ -250,14 +253,30 @@ def test_a_reader_without_usage_adds_nothing_to_spent(monkeypatch):
     assert result.spent.calls is None
 
 
-def _answering(monkeypatch, *, body: bytes = b"", raises: Exception | None = None) -> list[int]:
-    """Troca a rede: cada pedido devolve `body` ou levanta `raises`; conta os pedidos."""
+def _answering(
+    monkeypatch,
+    *,
+    body: bytes = b"",
+    raises: Exception | None = None,
+    answers: list[bytes | Callable[[], Exception]] | None = None,
+) -> list[int]:
+    """Troca a rede: cada pedido devolve `body` ou levanta `raises`; conta os pedidos.
+
+    Com `answers`, cada pedido consome o item seguinte: um corpo, ou uma função
+    que fabrica a exceção, porque o `HTTPError` lido e fechado não serve duas vezes.
+    """
     import urllib.request
 
     calls: list[int] = []
+    queue = iter(answers or [])
 
     def urlopen(request, timeout):
         calls.append(1)
+        if answers is not None:
+            answer = next(queue)
+            if callable(answer):
+                raise answer()
+            return io.BytesIO(answer)
         if raises is not None:
             raise raises
         return io.BytesIO(body)
@@ -350,30 +369,20 @@ def _hosted_retrying(retries: int) -> VLM:
 def test_retries_repeat_a_server_refusal_and_then_read(monkeypatch):
     """429, 429 e a resposta: três pedidos, uma leitura; a espera segue o Retry-After."""
     import urllib.error
-    import urllib.request
 
     waits: list[float] = []
     monkeypatch.setattr("docaudit.backends.vlm.time.sleep", waits.append)
     asked_to_wait = Message()
     asked_to_wait["Retry-After"] = "0.5"
-    answers = iter(
-        [
-            urllib.error.HTTPError("u", 429, "wait", asked_to_wait, io.BytesIO()),
-            urllib.error.HTTPError("u", 503, "busy", Message(), io.BytesIO()),
-            None,
-        ]
-    )
     body = json.dumps({"choices": [{"message": {"content": "EDITAL"}}]}).encode()
-    calls: list[int] = []
-
-    def urlopen(request, timeout):
-        calls.append(1)
-        error = next(answers)
-        if error is not None:
-            raise error
-        return io.BytesIO(body)
-
-    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    calls = _answering(
+        monkeypatch,
+        answers=[
+            lambda: urllib.error.HTTPError("u", 429, "wait", asked_to_wait, io.BytesIO()),
+            lambda: urllib.error.HTTPError("u", 503, "busy", Message(), io.BytesIO()),
+            body,
+        ],
+    )
     assert _hosted_retrying(2)._ask(b"png", "p") == "EDITAL"
     assert calls == [1, 1, 1]
     assert waits == [0.5, 2.0], "o Retry-After do servidor, depois a espera que dobra"
@@ -381,17 +390,10 @@ def test_retries_repeat_a_server_refusal_and_then_read(monkeypatch):
 
 def test_exhausted_retries_fail_the_page(monkeypatch):
     import urllib.error
-    import urllib.request
 
     monkeypatch.setattr("docaudit.backends.vlm.time.sleep", lambda _: None)
-    calls: list[int] = []
-
-    def urlopen(request, timeout):
-        # Um erro novo por pedido, como na rede: o corpo do anterior já foi lido e fechado.
-        calls.append(1)
-        raise urllib.error.HTTPError("u", 502, "bad", Message(), io.BytesIO(b"gateway"))
-
-    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    gateway = lambda: urllib.error.HTTPError("u", 502, "bad", Message(), io.BytesIO(b"gateway"))  # noqa: E731
+    calls = _answering(monkeypatch, answers=[gateway, gateway])
     with pytest.raises(RuntimeError, match="502"):
         _hosted_retrying(1)._ask(b"png", "p")
     assert calls == [1, 1]
@@ -425,21 +427,7 @@ def test_negative_retries_are_refused():
 
 def test_the_layout_of_the_pipeline_is_not_detected_again_by_the_reader(monkeypatch):
     """`process(layout=)` e `VLM(layout=)` com o mesmo detector: uma detecção por página."""
-    from tests.support import make_scanned_pdf
-
-    from docaudit.types import Region
-
-    class CountingLayout:
-        output_version = "fake-layout:1"
-
-        def __init__(self) -> None:
-            self.calls = 0
-
-        def detect(self, image):
-            self.calls += 1
-            return [Region(label="text", bbox=BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.5))]
-
-    layout = CountingLayout()
+    layout = FakeLayout()
     reader = _stubbed(monkeypatch, {"Text Recognition:": "RELACAO"}, layout=layout)
     result = docaudit.process(
         make_scanned_pdf(["x"]),
@@ -453,20 +441,7 @@ def test_the_layout_of_the_pipeline_is_not_detected_again_by_the_reader(monkeypa
 
 
 def test_a_reader_with_another_detector_detects_on_its_own(monkeypatch):
-    from tests.support import make_scanned_pdf
-
-    from docaudit.types import Region
-
-    class Layout:
-        def __init__(self, version: str) -> None:
-            self.output_version = version
-            self.calls = 0
-
-        def detect(self, image):
-            self.calls += 1
-            return [Region(label="text", bbox=BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.5))]
-
-    pipeline, own = Layout("a"), Layout("b")
+    pipeline, own = FakeLayout("a"), FakeLayout("b")
     reader = _stubbed(monkeypatch, {"Text Recognition:": "RELACAO"}, layout=own)
     docaudit.process(
         make_scanned_pdf(["x"]),
@@ -476,3 +451,20 @@ def test_a_reader_with_another_detector_detects_on_its_own(monkeypatch):
         layout=pipeline,
     )
     assert (pipeline.calls, own.calls) == (1, 1)
+
+
+def test_a_crop_has_no_page_blocks_to_reuse(monkeypatch):
+    """O recorte é outra imagem: o leitor detecta nele, sem herdar os blocos da página."""
+    from docaudit.pdf import load_pages, opened
+
+    layout = FakeLayout()
+    reader = _stubbed(monkeypatch, {"Text Recognition:": "RECORTE"}, layout=layout)
+    doc = make_scanned_pdf(["x"])
+    with opened(doc) as pdf:
+        view = PageView(pdf, load_pages(doc)[0])
+        view.regions, view.regions_version = layout.regions, layout.output_version
+        crop = view.region(BBox(x0=0.0, y0=0.0, x1=1.0, y1=0.5))
+        assert crop.regions is None
+        chunks = reader.read(crop)
+    assert [c.text for c in chunks] == ["RECORTE"]
+    assert layout.calls == 1
