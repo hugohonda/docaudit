@@ -23,7 +23,8 @@ jobs:
         with:
           version: "0.13.6"
           enable-cache: true
-      - run: uv sync --locked --only-group docs
+      # O pacote entra junto: o mkdocstrings importa `docaudit` para gerar a referência.
+      - run: uv sync --locked --no-default-groups --group docs
       - run: uv run mkdocs build --strict
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:

@@ -55,7 +55,7 @@ class TestVLMContract(ReaderContract):
 
 
 def test_layout_finds_the_notice_body_and_drops_nothing_of_it() -> None:
-    pytest.importorskip("onnxruntime", reason="precisa do extra `vlm`")
+    pytest.importorskip("onnxruntime", reason="precisa do extra `layout`")
     from docaudit.backends.layout import PPDocLayout
 
     doc = make_notice_pdf()
@@ -71,7 +71,7 @@ def test_layout_finds_the_notice_body_and_drops_nothing_of_it() -> None:
 
 
 def test_regions_reach_the_creditor_names(server: str) -> None:
-    pytest.importorskip("onnxruntime", reason="precisa do extra `vlm`")
+    pytest.importorskip("onnxruntime", reason="precisa do extra `layout`")
     from docaudit.backends.layout import PPDocLayout
 
     result = docaudit.process(
