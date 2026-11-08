@@ -223,8 +223,10 @@ seguinte retoma do que já foi lido.
 
 `Document` guarda o documento aberto, os leitores e o cache entre chamadas.
 Com ele, uma pessoa ou um agente lê, lista as linhas cujo valor não confere,
-relê só um recorte com o leitor que escolher e vê a imagem dele. O exemplo
-completo está em [Receitas](recipes.md#um-agente-que-confere-o-que-leu).
+relê só um recorte com o leitor que escolher e vê a imagem dele. O que
+entregar a um modelo, em que ordem e como conferir a citação está em
+[Análise por um agente](agent.md); o exemplo com `Document`, em
+[Receitas](recipes.md#um-agente-que-confere-o-que-leu).
 
 ## Próximos passos
 

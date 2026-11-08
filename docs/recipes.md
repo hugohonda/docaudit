@@ -58,35 +58,46 @@ O porquê de `drop=()` está em
 [Configuração](configuration.md#ppdoclayout). Cada linha ganha o rótulo do bloco em
 `Chunk.kind`. O tempo da detecção está em [Desempenho](performance.md#leitores).
 
-## Mascarar CPF na imagem pela caixa
+## Redigir dados pessoais na imagem e no texto
 
-A caixa de cada trecho permite cobrir na imagem a linha que traz um CPF. A
-caixa é da linha inteira, não só dos dígitos.
+Cada entidade sai com a caixa das linhas em que está, e um `Check` com
+dígito verificador acha o valor mesmo quando o OCR trocou a pontuação. É o
+que uma redação precisa: a lista do que cobrir, com a posição na folha e o
+trecho no texto. Os ids opcionais (`IDENTIFIERS`) entram na lista quando o
+tipo de documento os traz.
 
 ```python
 import io
 
 from PIL import Image, ImageDraw
 
-import docaudit
-from docaudit.pdf import opened, render_of
-from docaudit.policies import CPF, fold_lookalikes
+from docaudit import Document
+from docaudit.policies import DEFAULT_ENTITIES, IDENTIFIERS
 
-result = docaudit.process("relatorio.pdf", cheap=["text_layer"])
-page = result.pages[0]
-with opened("relatorio.pdf") as handle:
-    png = render_of(handle, page.index, dpi=page.dimensions.dpi)
-image = Image.open(io.BytesIO(png)).convert("RGB")
+PERSONAL = {"CPF", "CNPJ", "PIS", "título de eleitor", "CNH", "RENAVAM"}
 
-draw = ImageDraw.Draw(image)
-for chunk in result.by_page()[page.index]:
-    if CPF.pattern.search(fold_lookalikes(chunk.text)):
-        draw.rectangle(chunk.bbox.to_pixels(image.width, image.height), fill="black")
-image.save("relatorio-p0-mascarado.png")
+with Document("relatorio.pdf") as doc:
+    result = doc.read(entities=[*DEFAULT_ENTITIES, *IDENTIFIERS])
+    found = [e for e in result.entities if e.kind in PERSONAL]
+    for index in {e.page for e in found}:
+        image = Image.open(io.BytesIO(doc.render(index, grayscale=False)))
+        draw = ImageDraw.Draw(image)
+        for entity in found:
+            if entity.page == index:
+                draw.rectangle(entity.bbox.to_pixels(image.width, image.height), fill="black")
+        image.save(f"relatorio-p{index}-redigido.png")
+
+text = result.to_markdown()
+for entity in found:
+    text = text.replace(entity.value, "[redigido]")
 ```
 
-Um CPF que o leitor não leu fica sem máscara. Para uma folha digitalizada, a
-máscara só cobre o que o OCR achou.
+A caixa da entidade cobre as linhas inteiras em que o valor está, não só os
+dígitos: é a caixa que o leitor devolveu. Um valor que nenhum leitor leu fica
+sem redação, e o mesmo vale para o que não tem forma fixa, como nome e
+endereço: a biblioteca não os procura ([Limites](limits.md)). O texto que
+sai de `to_markdown` ainda traz o valor nas linhas; a troca acima o tira do
+texto, e `entity.chunk_ids` diz que linhas tocar quando a saída é outra.
 
 ## Um agente que confere o que leu
 
@@ -118,35 +129,21 @@ with Document("autos.pdf", cheap=["text_layer", PPOCR()], cache=cache) as doc:
         Path(f"revisao/{n}-p{doubt.chunk.page}.png").write_bytes(png)
 ```
 
-`doubts` lista o que os sinais da política apontam por linha: o valor que
-falha, só em linha escrita por um motor, e o caractere de decodificação
-quebrada, em qualquer linha; o que cada um prova está na docstring de
-`Document.doubts`. Para entregar a leitura a um modelo, com cada conclusão
-presa à linha, ver [Análise por um agente](agent.md).
-Uma linha que a releitura por outra família ou o leitor caro leu de novo, sem
-conserto, traz essas leituras em `doubt.others`. Cada uma diz em `same` se o
-outro leitor viu o mesmo valor inválido, o que aponta o erro impresso no
-documento. A linha lida de dois modos, com o recorte, é o que uma pessoa
-confere, e a resposta dela é um rótulo para treinar o leitor.
-`doc.crop(page, bbox)` devolve o PNG do recorte, para mostrar a quem decide.
-`doc.render(page)` devolve a página inteira, na mesma resolução: as caixas
-normalizadas dos chunks caem nela sem conversão. `docaudit.doc_id_for(caminho)`
-dá o `doc_id` de um arquivo sem abri-lo, para saber se ele já foi lido.
+`doubts` lista o que os sinais da política apontam por linha; o que cada
+dúvida prova, e o que `doubt.others` diz sobre o erro impresso no documento,
+está na referência de `Document`. A linha lida de dois modos, com o recorte,
+é o que uma pessoa confere, e a resposta dela é um rótulo para treinar o
+leitor. Para entregar a leitura a um modelo, com cada conclusão presa à
+linha, ver [Análise por um agente](agent.md).
 
 ## Lote de muitos autos
 
-Threads ajudam pouco num lote: o acesso ao PDF passa por um lock, e o PP-OCR
-roda uma chamada por vez dentro de um processo. O paralelismo que rende é um
-processo por documento. O ONNX Runtime usa todos os núcleos em cada chamada,
-e com vários processos eles disputam os mesmos núcleos: `threads=` divide os
-núcleos entre os processos. O Tesseract lê `OMP_THREAD_LIMIT`. Os processos
-partilham um arquivo de cache: quem grava espera o outro terminar.
-
-Leitores, cache e documento aberto não passam de um processo a outro, e o
-macOS e o Linux a partir do Python 3.14 iniciam cada processo do zero. Por
-isso cada processo monta os seus. Na primeira execução os pesos são baixados,
-e o primeiro auto vai sozinho, antes do pool, para que um processo só faça o
-download.
+Num lote, o paralelismo que rende é um processo por documento, com
+`threads=` dividindo os núcleos entre eles; o porquê está em
+[Desempenho](performance.md#paralelismo). Leitores, cache e documento aberto
+não passam de um processo a outro, e o macOS e o Linux a partir do Python
+3.14 iniciam cada processo do zero: cada processo monta os seus. O primeiro
+auto vai sozinho, antes do pool, para que um processo só baixe os pesos.
 
 ```python
 import os

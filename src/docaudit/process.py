@@ -1604,14 +1604,9 @@ def process(
         workers: threads para o tier barato, e para o tier caro quando o
             leitor é hospedado (`external`). `1`, o padrão, não cria pool
             nenhum. Acima disso cada página barata vira uma tarefa, e as
-            páginas de um leitor hospedado vão em paralelo, porque esperam a
-            rede. O ganho no barato vem do OCR que roda fora dos locks: o
-            Tesseract, num subprocesso por página. O PP-OCR roda uma
-            inferência por vez em cada processo, e uma cascata que só lê a
-            camada de texto passa toda pelo lock do pdfium: nos dois casos,
-            threads quase não aceleram, e o paralelismo que rende é um
-            processo por documento. Um leitor caro local vai página a página.
-            Ver `docs/performance.md` e `docs/recipes.md`.
+            páginas de um leitor hospedado vão em paralelo. A saída é a
+            mesma em qualquer número. Com que leitor isso rende, e por quê,
+            está em `docs/performance.md`.
 
     Returns:
         O `Result` com os chunks lidos, as decisões de roteamento e o gasto.

@@ -60,6 +60,8 @@ markdown_extensions:
   - pymdownx.inlinehilite
   - attr_list
   - tables
+  # `index.md` inclui trechos do README: uma fonte só para o pitch e o exemplo.
+  - pymdownx.snippets: {check_paths: true}
 
 plugins:
   - search: {lang: pt}

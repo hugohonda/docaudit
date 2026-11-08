@@ -89,3 +89,72 @@ O `tracemalloc` não vê a memória nativa do motor nem o alocador. Num serviço
 Linux que lê em várias threads, o glibc dá uma arena a cada thread, e cada arena
 guarda os blocos grandes de pixels já liberados: a memória do processo sobe a
 cada lote e não volta. `MALLOC_ARENA_MAX=2` no ambiente limita as arenas.
+
+## Implantação
+
+As regras abaixo vêm das medições de serviço e de laptop. O número de cada
+uma muda com a máquina; a regra e o porquê ficam.
+
+**Em qualquer plataforma.**
+
+- `PPOCR.prepare()` na construção da imagem ou no início do processo: baixa
+  os pesos e abre as sessões antes da primeira página, e a leitura não
+  depende da rede. O detector de layout baixa na primeira detecção, para
+  `<DOCAUDIT_CACHE_DIR>/models`.
+- Um cache de leituras com caminho explícito, `ModelCallCache(path)`, num
+  volume. Não monte um volume sobre `DOCAUDIT_CACHE_DIR`: é onde ficam
+  também os pesos baixados, e o volume vazio os esconderia.
+- Uma inferência do PP-OCR por vez em cada processo. Para ler mais depressa,
+  mais processos, não mais threads: `threads=` divide os núcleos entre eles
+  ([Lote](recipes.md#lote-de-muitos-autos)).
+- Um leitor hospedado espera a rede: `workers` acima de um só rende nele e no
+  Tesseract.
+
+**Linux em contêiner, CPU.**
+
+- O extra `openvino`: o PP-OCR lê os mesmos arquivos várias vezes mais
+  depressa que no ONNX Runtime, com o mesmo texto; o motor entra em
+  `output_version`, e as leituras de um não servem pelo outro.
+- `threads=` igual ao número de vCPUs do contêiner. Acima disso o motor
+  disputa núcleos que não tem.
+- `MALLOC_ARENA_MAX=2` no ambiente. O glibc dá uma arena a cada thread e
+  guarda nela os blocos grandes de pixels já liberados; sem o limite, a
+  memória do processo sobe a cada lote e não volta ([Memória](#memoria)).
+- O reconhecimento é a maior parte do tempo numa página densa; o DPI quase
+  não o muda. Baixar o DPI não compensa a perda de leitura.
+
+Um `Dockerfile` de referência, para CPU. A versão é um commit; o `tar.gz` do
+GitHub traz a versão pelo `.git_archival.txt`, sem precisar do `git` na
+imagem:
+
+```dockerfile
+FROM python:3.13-slim
+ENV MALLOC_ARENA_MAX=2
+RUN pip install --no-cache-dir \
+    "docaudit[ppocr,openvino] @ https://github.com/hugohonda/docaudit/archive/<commit>.tar.gz"
+# Os pesos entram na imagem: a primeira leitura não depende da rede.
+RUN python -c "from docaudit.backends.ppocr import PPOCR; PPOCR().prepare()"
+VOLUME /var/cache/docaudit-calls
+```
+
+No serviço, `ModelCallCache("/var/cache/docaudit-calls/calls.sqlite")` e
+`PPOCR(threads=<vCPUs>)`.
+
+**macOS com Apple Silicon.**
+
+- O extra `openvino` também rende na CPU do Mac, com o mesmo texto do ONNX
+  Runtime.
+- O OpenCV fica abaixo de 4.14 em ARM64, pelo `pyproject` do pacote: o
+  `resize` das versões 4.14 e 5.0 lê além da imagem e derruba o processo.
+  Não suba o teto à mão.
+- Sem `MALLOC_ARENA_MAX`: o alocador do macOS não tem arenas por thread.
+
+**GPU.**
+
+- `PPOCR(engine="cuda")` com o `onnxruntime-gpu` no lugar do `onnxruntime`,
+  em poucos processos que partilham a placa; a CPU de cada um renderiza e
+  recorta enquanto a placa reconhece. A detecção roda na resolução da página,
+  e a digitalização grande pede memória da placa: a página que falha por
+  falta dela fica em `failures` da decisão, com `incomplete`.
+- Um leitor `vlm` local vai página a página, e o paralelismo dele é entre
+  regiões: `VLM(concurrency=4)` com `llama-server -np 4`.
