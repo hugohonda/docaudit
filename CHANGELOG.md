@@ -7,6 +7,24 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ## [Não lançado]
 
+### Adicionado
+
+- `Result.records()`: as linhas de cada página em fileiras e blocos, só pela posição das
+  caixas, com `Record.text` e `Record.tabular`. `Result.pieces()`: as páginas seguidas com a
+  mesma tarja, por `Stamp.code`.
+- `Budget.max_seconds`: o teto de tempo a partir do qual o leitor caro não começa página nova.
+- `process(min_raster_fraction=)`: o piso de área abaixo do qual um raster de uma página
+  nato-digital não vai ao leitor de pixels. Padrão `0.0`, o comportamento de antes; o valor não
+  está calibrado.
+- `PPOCR(det=)`: um detector ONNX próprio, com o hash no nome e na versão de saída.
+- `VLM(retries=)`: repete a chamada que o servidor recusou por carga, que esgotou o tempo ou
+  cuja conexão caiu. Num servidor fora da máquina, a recusa esgotada é falha da página, e o
+  documento segue.
+- `StampFormat.tz`: o fuso do tribunal, que torna `Stamp.at` ciente do fuso. Sem ele, a hora
+  fica como impressa.
+- Um leitor `vlm` com o mesmo detector de `process(layout=)` reaproveita os blocos já detectados
+  da página, em vez de detectar de novo.
+
 ### Alterado
 
 - O leitor caro não prova mais erro do documento: `Entity.printed` sai só da camada de

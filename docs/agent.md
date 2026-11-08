@@ -48,6 +48,15 @@ valores; com um detector de layout, `blocos` diz em que bloco cada linha
 caiu. É o que diz ao modelo se um trecho é uma fileira de tabela, que se lê
 célula a célula, ou uma frase.
 
+Duas vistas do mesmo resultado poupam contexto antes do texto.
+`result.pieces()` agrupa as páginas seguidas com a mesma tarja: um modelo
+pede o texto de uma peça, `[c for c in result.chunks if c.page in piece.pages]`,
+em vez do auto inteiro. `result.records()` junta as linhas em fileiras e
+blocos só pela posição das caixas: `record.text` dá uma tabela com as
+células separadas por ` | ` e um parágrafo com as linhas juntas, em menos
+trechos que a lista de linhas; `record.chunk_ids` leva de volta a cada
+linha, e a referência `p3:b2` cita o bloco ([Formato da resposta](response.md#record)).
+
 `furniture=False` tira do texto o cabeçalho, o rodapé e a tarja. Num auto,
 as peças de um mesmo cartório repetem no mesmo lugar as linhas do
 formulário, `Processo Digital nº`, `Classe`, `Requerente`, `Juiz(a) de

@@ -331,6 +331,42 @@ digitalizada a folha inteira é imagem, e ela não é figura.
 `Document.crop(figure.page, figure.bbox)` devolve o PNG da figura, no DPI
 em que os leitores a viram.
 
+## `Record`
+
+Um bloco de linhas vizinhas de uma página, agrupadas só pela posição das
+caixas. Não é campo do `Result`: sai de `result.records()`. Duas linhas que
+se sobrepõem na vertical em mais de metade da menor estão na mesma fileira,
+da esquerda para a direita; fileiras seguidas cujo vão não passa de `gap`
+vezes a altura mediana das linhas da página estão no mesmo bloco. `gap`
+não está calibrado, e vale `1.0` por padrão. Nenhum modelo roda.
+
+| campo | o que traz |
+|---|---|
+| `ref` | `p<página>:b<índice>`, o nome com que um modelo cita o bloco |
+| `page` | índice da página |
+| `index` | a posição do bloco na página, de cima para baixo |
+| `bbox` | a caixa que contém as linhas do bloco |
+| `rows` | as fileiras; cada uma, o texto das células, uma só numa linha de prosa |
+| `chunk_ids` | as linhas do bloco, fileira a fileira |
+
+`record.text` dá as fileiras com as células separadas por ` | `;
+`record.tabular` diz se alguma fileira tem mais de uma célula. Numa página
+em duas colunas sem detector de layout, as linhas lado a lado saem como
+células de uma fileira: `process(layout=)` dá a ordem por bloco nesse caso.
+
+## `Piece`
+
+Páginas seguidas com a mesma tarja: a peça como o sistema de processo a
+carimbou. Sai de `result.pieces()`, de `Page.stamp`. As páginas seguidas sem
+tarja formam uma peça com `code` None. A biblioteca não diz que peça é.
+
+| campo | o que traz |
+|---|---|
+| `index` | a posição da peça no documento |
+| `pages` | os índices das páginas, seguidos |
+| `code` | o `Stamp.code` comum às páginas; `None` sem tarja |
+| `stamp` | a tarja da primeira página; `None` sem tarja |
+
 ## `OtherReading`
 
 A mesma área da folha lida por dois leitores. Sai em `result.others`, e

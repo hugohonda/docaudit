@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from docaudit.types import BBox, Chunk
+from docaudit.types import BBox, Chunk, Region
 
-__all__ = ["FakeVLM"]
+__all__ = ["FakeLayout", "FakeVLM"]
 
 
 class FakeVLM:
@@ -30,3 +30,16 @@ class FakeVLM:
         page = view.page
         text = self.text or f"vlm pagina {page.index}"
         return [Chunk.make(page, self.box, self.name, text, confidence=0.95)]
+
+
+class FakeLayout:
+    """Detector falso: devolve sempre as mesmas regiões e conta as chamadas."""
+
+    def __init__(self, version: str = "fake-layout:1", regions: list[Region] | None = None):
+        self.output_version = version
+        self.calls = 0
+        self.regions = regions or [Region(label="text", bbox=BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.5))]
+
+    def detect(self, image):
+        self.calls += 1
+        return list(self.regions)

@@ -9,7 +9,7 @@ autos judiciais. Classifica o substrato de cada página, lê tudo com uma
 cascata de leitores baratos, aponta com verificações por regra onde a
 leitura está provadamente errada, relê essas linhas com outra família de OCR
 ou com um leitor caro. Não extrai campos, não decide por modelo e não
-segmenta o auto em peças: isso é de quem a chama.
+classifica as peças do auto: isso é de quem a chama.
 
 ## Estrutura
 

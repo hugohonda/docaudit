@@ -26,6 +26,7 @@ docaudit.process(
     dpi=None,
     workers=1,
     pages=None,
+    min_raster_fraction=0.0,
 )
 ```
 
@@ -33,7 +34,7 @@ docaudit.process(
 |---|---|---|---|
 | `document` | `Path`, `str` ou `bytes` | obrigatório | um PDF, ou uma imagem PNG, JPEG, TIFF, BMP ou WebP. A imagem vira um PDF de uma página por quadro, no DPI que ela declara |
 | `policy` | `TriagePolicy` ou nome | `"all_cheap"` | quem decide as páginas que escalam. `"all_cheap"` não escala nenhuma, `"all_strong"` escala todas, `"evidence"` escala só onde a leitura barata falhou numa verificação |
-| `budget` | `Budget` | sem teto | quantas páginas podem chegar ao leitor caro |
+| `budget` | `Budget` | sem teto | quantas páginas, e até que segundo da execução, podem chegar ao leitor caro |
 | `cheap` | lista de `Reader` ou nomes | `("text_layer", "ppocr")` | a cascata barata, em ordem. A primeira leitura não vazia vence |
 | `strong` | `Reader` ou nome | `None` | o leitor caro. Pode ser qualquer `Reader`, inclusive um OCR. `None` desliga a escalada |
 | `confirm` | `Reader` ou nome | `None` | leitor de outra família que relê a página encaminhada por uma verificação, antes do leitor caro |
@@ -49,6 +50,7 @@ docaudit.process(
 | `dpi` | `int` | por página | fixa o DPI de renderização. Sem ele, cada página com imagem é renderizada na resolução da imagem, presa a `[150, 300]`, e uma sem imagem a 200 |
 | `workers` | `int` | `1` | threads no tier barato, e no tier caro quando o leitor é hospedado (`external`). O ganho vem de um motor que solta o GIL fora do lock do PDF, como o Tesseract; ver [Desempenho](performance.md) |
 | `pages` | conjunto de `int` | todas | os índices a processar, a partir de zero. As outras páginas nem são carregadas |
+| `min_raster_fraction` | `float` | `0.0` | numa página nato-digital, a fração da página abaixo da qual um raster que nenhuma camada leu não vai ao leitor de pixels. `0.0` lê todos. O valor que separa o logotipo de uma figura com texto não está calibrado e depende do acervo; o raster fica em `Page.unread` e em `figures()`, sem linha |
 
 `Document` recebe os mesmos leitores, `layout`, `trust_layer`, `cache`, `dpi` e
 `allow_external` no construtor, e `policy`, `budget`, `reread`, `workers`,
@@ -93,10 +95,13 @@ O detector baixa também com `rec=`.
 
 Um reconhecedor próprio, como o de um ajuste fino, entra por `rec=` e
 `keys=`: o ONNX e o dicionário de caracteres com que ele foi treinado. O
-detector continua o de `models=`.
+detector continua o de `models=`, a não ser que `det=` traga outro arquivo
+ONNX: é o que uma imagem de contêiner guarda para que nada seja baixado na
+primeira leitura. Cada arquivo próprio entra no nome e na versão de saída
+pelo hash dele.
 
 ```python
-PPOCR(rec="ajuste/rec.onnx", keys="ajuste/ppocrv5_latin_dict.txt")
+PPOCR(rec="ajuste/rec.onnx", keys="ajuste/ppocrv5_latin_dict.txt", det="pesos/det.onnx")
 ```
 
 O nome do leitor ganha o começo do hash dos pesos, `ppocr-v5-latin+79bb133dca00`,
@@ -161,6 +166,7 @@ VLM(
     timeout=600.0,
     max_tokens=4096,
     reasoning=None,
+    retries=0,
 )
 ```
 
@@ -174,6 +180,7 @@ VLM(
 | `layout` | um `PPDocLayout`. Com ele, uma chamada e um trecho por região, e a região dentro de outra é lida uma vez; sem ele, a página inteira numa chamada |
 | `concurrency` | chamadas simultâneas por página, uma por região |
 | `timeout` | segundos por chamada |
+| `retries` | quantas vezes repetir uma chamada que o servidor recusou por carga (429 ou 5xx), que esgotou o `timeout` ou cuja conexão caiu. `0` não repete. A espera segue o `Retry-After` do servidor ou dobra a partir de um segundo. Esgotadas, a página falha e o documento segue; só um servidor local ausente interrompe o documento |
 | `max_tokens` | teto de tokens de saída por chamada. Uma resposta cortada no teto falha a página |
 | `reasoning` | o esforço de pensamento, enviado como `reasoning_effort` (`"none"`, `"low"`, ...); `None` deixa o padrão do servidor. Entra em `output_version` |
 
@@ -304,17 +311,24 @@ usa o mede contra os próprios dados.
 ## Orçamento
 
 ```python
-Budget(max_strong_pages=None, max_strong_fraction=None)
+Budget(max_strong_pages=None, max_strong_fraction=None, max_seconds=None)
 ```
 
-Um teto opcional, em páginas, de quantas páginas chegam ao leitor caro numa
-chamada. Com as duas unidades, vale a mais restritiva. A fração é
-arredondada para baixo: `max_strong_fraction=0.2` num documento de quatro
-páginas permite zero escaladas. Sem nenhuma das duas, a política decide sem
+Um teto opcional de quantas páginas chegam ao leitor caro numa chamada, em
+número ou em fração. Com as duas unidades, vale a mais restritiva. A fração é
+arredondada para cima: `max_strong_fraction=0.2` num documento de quatro
+páginas permite uma escalada. Sem nenhuma das duas, a política decide sem
 teto. A política `evidence` não escala página sem evidência, e um teto
 folgado sobra.
 
-Tempo, tokens e dólares não têm teto: são relatados em `Result.spent`, e quem
+`max_seconds` é um teto de tempo de parede, contado do início da chamada: a
+página escalada que o leitor caro começaria depois dele fica com a leitura
+barata, com o motivo em `RoutingDecision.steps`. A leitura barata e a
+releitura por outra família terminam sempre; o teto corta só o tier caro,
+que é o que custa. A decisão da política fica como está, e
+`spent.pages_strong` conta o que rodou.
+
+Tokens e dólares não têm teto: são relatados em `Result.spent`, e quem
 chama decide o que fazer com eles. A prioridade entre documentos também é de
 quem chama.
 

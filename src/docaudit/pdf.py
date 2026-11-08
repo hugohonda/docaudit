@@ -42,6 +42,7 @@ from docaudit.types import (
     FormKind,
     Page,
     PageDimensions,
+    Region,
     Signature,
     Substrate,
     Turn,
@@ -84,6 +85,15 @@ class PageView:
     Cada leitor pede só o que usa: a camada de texto não paga renderização, e um
     motor de OCR não paga a extração de linhas.
     """
+
+    regions: Sequence[Region] | None = None
+    """Os blocos de layout já detectados na página, para um leitor com o mesmo detector.
+
+    `process(layout=)` os põe na vista da página inteira; um recorte não os tem,
+    porque os blocos são da página e o recorte é outra imagem.
+    """
+    regions_version: str | None = None
+    """O `output_version` do detector que produziu `regions`."""
 
     def __init__(self, pdf: pdfium.PdfDocument, page: Page, *, dpi: int | None = None) -> None:
         """Guarda o documento aberto e a página; nada é lido até alguém pedir."""
@@ -156,7 +166,8 @@ class RegionView(PageView):
 
     `box` é o recorte na página, e `rasters` os rasters de `Page.unread` cujo
     centro cai nele, também na página: é por eles que um leitor decide se a
-    região vale a leitura, como o logotipo que não vale.
+    região vale a leitura. O raster menor que `process(min_raster_fraction=)`
+    nem chega ao leitor.
 
     Com `turn`, o leitor vê o recorte girado, e `page` tem as dimensões dele
     em pé. `box` e `rasters` seguem no sistema da imagem.

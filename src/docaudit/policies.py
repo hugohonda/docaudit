@@ -13,6 +13,7 @@ import re
 import unicodedata
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from docaudit.backends.textlayer import TextLayerReader
 from docaudit.types import BBox, Entity, EntityState, RoutingDecision, Substrate, Tier
@@ -1374,10 +1375,13 @@ class StampFormat:
     quebra de linha na ordem do arquivo, e nomeia o que ela traz: `code`, o
     id da peça, sempre; e, quando a tarja os imprime, `process`, `signer`,
     `date`, `time` e `protocol`. `date_format` e `time_format` leem a data e
-    a hora, no formato de `datetime.strptime`. `process_check` confere o
-    número do processo, o dígito do CNJ por omissão; a tarja que não passa
-    não é tarja, como a de data que não existe. `process(stamps=)` recebe o
-    formato ou o nome dele em `STAMP_FORMATS`:
+    a hora, no formato de `datetime.strptime`. `tz`, um nome da base IANA
+    como `America/Sao_Paulo`, dá fuso a `Stamp.at`; sem ele, a hora fica
+    como impressa, sem fuso, porque a tarja não diz o tribunal.
+    `process_check` confere o número do processo, o dígito do CNJ por
+    omissão; a tarja que não passa não é tarja, como a de data que não
+    existe. `process(stamps=)` recebe o formato ou o nome dele em
+    `STAMP_FORMATS`:
 
     ```python
     MEU = StampFormat("meu-sistema", re.compile(r"Documento (?P<code>\d{12})"))
@@ -1390,11 +1394,17 @@ class StampFormat:
     date_format: str = "%d/%m/%Y"
     time_format: str = "%H:%M"
     process_check: Check | None = CNJ
+    tz: str | None = None
 
     def __post_init__(self) -> None:
-        """Recusa o formato sem o grupo `code`: a tarja sem id não aponta peça."""
+        """Recusa o formato sem o grupo `code`, e o fuso que a base IANA não conhece."""
         if "code" not in self.pattern.groupindex:
             raise ValueError(f"a tarja {self.name!r} precisa do grupo `code`")
+        if self.tz is not None:
+            try:
+                ZoneInfo(self.tz)
+            except ZoneInfoNotFoundError as exc:
+                raise ValueError(f"a tarja {self.name!r}: fuso desconhecido {self.tz!r}") from exc
 
 
 _CNJ_PRINTED = r"\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}"

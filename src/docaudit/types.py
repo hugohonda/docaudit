@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import functools
 import hashlib
+import itertools
 import math
 from collections.abc import Mapping, Sequence
 from datetime import datetime
@@ -41,7 +42,9 @@ __all__ = [
     "OtherReading",
     "Page",
     "PageDimensions",
+    "Piece",
     "Reader",
+    "Record",
     "Region",
     "Reread",
     "Result",
@@ -258,7 +261,8 @@ class Stamp(_Frozen):
     at: datetime | None = PField(
         default=None,
         description=(
-            "Quando a peça foi protocolada ou liberada nos autos: a hora local impressa, sem fuso."
+            "Quando a peça foi protocolada ou liberada nos autos: a hora local impressa, sem fuso, "
+            "salvo quando o `StampFormat` declara `tz`."
         ),
     )
     protocol: str | None = PField(
@@ -653,6 +657,70 @@ class Figure(_Frozen):
     )
 
 
+class Record(_Frozen):
+    """Um bloco de linhas vizinhas de uma página, agrupado só pela geometria das caixas.
+
+    Sai de `Result.records()`. Cada fileira traz as células da esquerda para
+    a direita: uma só numa linha de prosa, várias numa fileira de tabela ou
+    de lista em colunas. Não há coluna, cabeçalho nem célula mesclada: isso
+    pede a estrutura da tabela, que a biblioteca não monta.
+    """
+
+    ref: str = PField(description="`p<página>:b<índice>`, o nome com que um modelo cita o bloco.")
+    page: int = PField(ge=0, description="zero-based, como em Page.index")
+    index: int = PField(ge=0, description="A posição do bloco na página, de cima para baixo.")
+    bbox: BBox
+    rows: tuple[tuple[str, ...], ...] = PField(
+        min_length=1, description="As fileiras, cada uma com o texto das células."
+    )
+    chunk_ids: tuple[str, ...] = PField(
+        min_length=1, description="As linhas do bloco, fileira a fileira, célula a célula."
+    )
+
+    @property
+    def tabular(self) -> bool:
+        """Se alguma fileira tem mais de uma célula."""
+        return any(len(row) > 1 for row in self.rows)
+
+    @property
+    def text(self) -> str:
+        """As fileiras, uma por linha, com as células separadas por ` | `."""
+        return "\n".join(" | ".join(row) for row in self.rows)
+
+
+class Piece(_Frozen):
+    """Páginas seguidas com a mesma tarja: a peça como o sistema de processo a carimbou.
+
+    Sai de `Result.pieces()`, de `Page.stamp`. Páginas seguidas sem tarja
+    formam uma peça com `code` None. A biblioteca não diz que peça é, petição,
+    decisão ou certidão: isso é de quem lê.
+    """
+
+    index: int = PField(ge=0, description="A posição da peça no documento.")
+    pages: tuple[int, ...] = PField(min_length=1, description="Os índices das páginas, seguidos.")
+    stamp: Stamp | None = PField(description="A tarja da primeira página da peça; None sem tarja.")
+
+    @property
+    def code(self) -> str | None:
+        """O `Stamp.code` comum às páginas; None sem tarja."""
+        return self.stamp.code if self.stamp is not None else None
+
+
+def _rows_of(lines: Sequence[Chunk]) -> list[list[Chunk]]:
+    """As linhas em fileiras: as que se sobrepõem na vertical em mais de metade da menor."""
+    rows: list[list[Chunk]] = []
+    for chunk in sorted(lines, key=lambda c: (c.bbox.y0, c.bbox.x0)):
+        if rows:
+            row = rows[-1]
+            span = BBox.envelope([c.bbox for c in row])
+            shortest = min(c.bbox.y1 - c.bbox.y0 for c in (*row, chunk))
+            if min(span.y1, chunk.bbox.y1) - max(span.y0, chunk.bbox.y0) > shortest / 2:
+                row.append(chunk)
+                continue
+        rows.append([chunk])
+    return [sorted(row, key=lambda c: c.bbox.x0) for row in rows]
+
+
 def reading_order_key(chunk: Chunk) -> tuple[bool, int, float, float]:
     """A ordem de leitura da página: a do leitor, e a linha sem ordem ao fim, de cima para baixo."""
     return (chunk.reading_order is None, chunk.reading_order or 0, chunk.bbox.y0, chunk.bbox.x0)
@@ -705,14 +773,19 @@ class RoutingDecision(_Frozen):
 
 
 class Budget(_Frozen):
-    """Teto opcional de páginas que chegam ao leitor forte.
+    """Teto opcional do leitor forte, em páginas e em segundos.
 
-    Com as duas formas, vale a mais restritiva. Tempo, tokens e dólares não
+    Com as duas formas em páginas, vale a mais restritiva. `max_seconds` é o
+    tempo de parede da execução a partir do qual o tier caro não começa
+    página nova. A releitura por outra família termina sempre. A página
+    escalada que o teto alcançou fica com a leitura barata, feita então se a
+    política a tinha dispensado; o motivo vai em `RoutingDecision.steps`. Tokens e dólares não
     têm teto: são relatados em `Result.spent`.
     """
 
     max_strong_pages: int | None = PField(default=None, ge=0)
     max_strong_fraction: float | None = PField(default=None, ge=0.0, le=1.0)
+    max_seconds: float | None = PField(default=None, gt=0.0)
 
     def page_allowance(self, total_pages: int) -> int | None:
         """Quantas páginas o orçamento permite escalar, dado o total do documento.
@@ -804,6 +877,15 @@ class Run(_Frozen):
         default=(), description="Os nomes das formas de folha procuradas, na ordem."
     )
     spans: bool = PField(default=False, description="Se `Entity.span` foi pedido.")
+    min_raster_fraction: float = PField(
+        default=0.0,
+        ge=0.0,
+        le=1.0,
+        description=(
+            "A fração da página abaixo da qual um raster não lido de uma página nato-digital "
+            "não foi ao leitor de pixels; `0.0` leu todos."
+        ),
+    )
     versions: dict[str, str] = PField(
         description=(
             "O `output_version` de cada leitor que leu alguma linha do resultado, pelo "
@@ -1002,6 +1084,70 @@ class Result(_Frozen):
             for page in self.pages
             if page.substrate is Substrate.BORN_DIGITAL
             for index, box in enumerate(page.unread)
+        ]
+
+    def records(self, *, furniture: bool = True, gap: float = 1.0) -> list[Record]:
+        """As linhas de cada página em fileiras e blocos, só pela geometria das caixas.
+
+        Duas linhas que se sobrepõem na vertical em mais de metade da menor
+        estão na mesma fileira, da esquerda para a direita: as células de
+        uma tabela, ou as colunas de uma lista. Fileiras seguidas cujo vão
+        vertical não passa de `gap` vezes a altura mediana das linhas da
+        página estão no mesmo bloco: um parágrafo, ou uma tabela inteira.
+        `gap` não está calibrado: é a razão entre o vão que separa dois
+        parágrafos e a altura de uma linha, e muda com o entrelinhamento do
+        documento. Nenhum modelo roda aqui. Numa página em duas colunas sem
+        detector de layout, as linhas lado a lado saem como células de uma
+        fileira; `process(layout=)` dá a ordem por bloco nesse caso. A linha
+        lida de lado sai sozinha no bloco dela. Com `furniture=False`, as
+        linhas de elemento fixo ficam de fora.
+        """
+        out: list[Record] = []
+        for page, chunks in self.by_page().items():
+            lines = [c for c in chunks if furniture or not c.furniture]
+            upright = [c for c in lines if c.turn == 0]
+            heights = sorted(c.bbox.y1 - c.bbox.y0 for c in upright)
+            median = heights[len(heights) // 2] if heights else 0.0
+            blocks: list[list[list[Chunk]]] = []
+            bottom = 0.0
+            for row in _rows_of(upright):
+                span = BBox.envelope([c.bbox for c in row])
+                if blocks and span.y0 - bottom <= gap * median:
+                    blocks[-1].append(row)
+                else:
+                    blocks.append([row])
+                bottom = span.y1
+            blocks.extend([[c]] for c in lines if c.turn != 0)
+            for index, block in enumerate(blocks):
+                cells = [c for row in block for c in row]
+                out.append(
+                    Record(
+                        ref=f"p{page}:b{index}",
+                        page=page,
+                        index=index,
+                        bbox=BBox.envelope([c.bbox for c in cells]),
+                        rows=tuple(tuple(c.text for c in row) for row in block),
+                        chunk_ids=tuple(c.id for c in cells),
+                    )
+                )
+        return out
+
+    def pieces(self) -> list[Piece]:
+        """As páginas em peças, pelo código da tarja, na ordem do documento.
+
+        Uma peça é uma sequência de páginas com o mesmo `Stamp.code`; as
+        páginas seguidas sem tarja formam uma peça sem código. É um
+        agrupamento do que a tarja já diz, sem classificar a peça: serve
+        para pedir o texto de uma peça em vez do documento inteiro.
+        """
+
+        def code_of(page: Page) -> str | None:
+            return page.stamp.code if page.stamp is not None else None
+
+        return [
+            Piece(index=index, pages=tuple(p.index for p in run), stamp=run[0].stamp)
+            for index, (_, group) in enumerate(itertools.groupby(self.pages, key=code_of))
+            for run in (list(group),)
         ]
 
     def to_markdown(self, *, furniture: bool = True, annotated: bool = False) -> str:

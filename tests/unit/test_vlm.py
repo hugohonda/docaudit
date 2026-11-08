@@ -2,14 +2,17 @@
 
 import io
 import json
+from collections.abc import Callable
 from email.message import Message
 
 import pytest
+from tests.support import FakeLayout
 from tests.support.fixtures import EMPTY_PAGE, make_pdf, make_scanned_pdf
 
 import docaudit
 from docaudit.backends.layout import PPDocLayout, Region
 from docaudit.backends.vlm import VLM
+from docaudit.pdf import PageView
 from docaudit.types import BBox, ExternalBackendError
 
 
@@ -250,14 +253,30 @@ def test_a_reader_without_usage_adds_nothing_to_spent(monkeypatch):
     assert result.spent.calls is None
 
 
-def _answering(monkeypatch, *, body: bytes = b"", raises: Exception | None = None) -> list[int]:
-    """Troca a rede: cada pedido devolve `body` ou levanta `raises`; conta os pedidos."""
+def _answering(
+    monkeypatch,
+    *,
+    body: bytes = b"",
+    raises: Exception | None = None,
+    answers: list[bytes | Callable[[], Exception]] | None = None,
+) -> list[int]:
+    """Troca a rede: cada pedido devolve `body` ou levanta `raises`; conta os pedidos.
+
+    Com `answers`, cada pedido consome o item seguinte: um corpo, ou uma função
+    que fabrica a exceção, porque o `HTTPError` lido e fechado não serve duas vezes.
+    """
     import urllib.request
 
     calls: list[int] = []
+    queue = iter(answers or [])
 
     def urlopen(request, timeout):
         calls.append(1)
+        if answers is not None:
+            answer = next(queue)
+            if callable(answer):
+                raise answer()
+            return io.BytesIO(answer)
         if raises is not None:
             raise raises
         return io.BytesIO(body)
@@ -341,3 +360,111 @@ def test_usage_adds_up_when_regions_are_counted_from_several_threads():
     assert reader.usage["calls"] == 40.0
     assert reader.usage["tokens_in"] == 40.0
     assert reader.usage["usd"] == pytest.approx(40 * 3 / 1e6)
+
+
+def _hosted_retrying(retries: int) -> VLM:
+    return VLM("https://api.exemplo.com", "generic", served="m", retries=retries)
+
+
+def test_retries_repeat_a_server_refusal_and_then_read(monkeypatch):
+    """429, 429 e a resposta: três pedidos, uma leitura; a espera segue o Retry-After."""
+    import urllib.error
+
+    waits: list[float] = []
+    monkeypatch.setattr("docaudit.backends.vlm.time.sleep", waits.append)
+    asked_to_wait = Message()
+    asked_to_wait["Retry-After"] = "0.5"
+    body = json.dumps({"choices": [{"message": {"content": "EDITAL"}}]}).encode()
+    calls = _answering(
+        monkeypatch,
+        answers=[
+            lambda: urllib.error.HTTPError("u", 429, "wait", asked_to_wait, io.BytesIO()),
+            lambda: urllib.error.HTTPError("u", 503, "busy", Message(), io.BytesIO()),
+            body,
+        ],
+    )
+    assert _hosted_retrying(2)._ask(b"png", "p") == "EDITAL"
+    assert calls == [1, 1, 1]
+    assert waits == [0.5, 2.0], "o Retry-After do servidor, depois a espera que dobra"
+
+
+def test_exhausted_retries_fail_the_page(monkeypatch):
+    import urllib.error
+
+    monkeypatch.setattr("docaudit.backends.vlm.time.sleep", lambda _: None)
+    gateway = lambda: urllib.error.HTTPError("u", 502, "bad", Message(), io.BytesIO(b"gateway"))  # noqa: E731
+    calls = _answering(monkeypatch, answers=[gateway, gateway])
+    with pytest.raises(RuntimeError, match="502"):
+        _hosted_retrying(1)._ask(b"png", "p")
+    assert calls == [1, 1]
+
+
+def test_a_client_error_is_not_retried(monkeypatch):
+    import urllib.error
+
+    error = urllib.error.HTTPError("u", 400, "bad request", Message(), io.BytesIO(b"schema"))
+    calls = _answering(monkeypatch, raises=error)
+    with pytest.raises(RuntimeError, match="400"):
+        _hosted_retrying(3)._ask(b"png", "p")
+    assert calls == [1]
+
+
+def test_a_refused_connection_to_a_hosted_server_is_a_page_failure_after_retries(monkeypatch):
+    """Fora da máquina a recusa é passageira; esgotada, é da página, e o documento segue."""
+    import urllib.error
+
+    monkeypatch.setattr("docaudit.backends.vlm.time.sleep", lambda _: None)
+    calls = _answering(monkeypatch, raises=urllib.error.URLError(ConnectionRefusedError(61, "x")))
+    with pytest.raises(RuntimeError, match="sem servidor"):
+        _hosted_retrying(1)._ask(b"png", "p")
+    assert calls == [1, 1]
+
+
+def test_negative_retries_are_refused():
+    with pytest.raises(ValueError, match="retries"):
+        VLM("http://127.0.0.1:8089", "generic", retries=-1)
+
+
+def test_the_layout_of_the_pipeline_is_not_detected_again_by_the_reader(monkeypatch):
+    """`process(layout=)` e `VLM(layout=)` com o mesmo detector: uma detecção por página."""
+    layout = FakeLayout()
+    reader = _stubbed(monkeypatch, {"Text Recognition:": "RELACAO"}, layout=layout)
+    result = docaudit.process(
+        make_scanned_pdf(["x"]),
+        policy="all_strong",
+        cheap=["text_layer"],
+        strong=reader,
+        layout=layout,
+    )
+    assert [c.text for c in result.chunks] == ["RELACAO"]
+    assert layout.calls == 1
+
+
+def test_a_reader_with_another_detector_detects_on_its_own(monkeypatch):
+    pipeline, own = FakeLayout("a"), FakeLayout("b")
+    reader = _stubbed(monkeypatch, {"Text Recognition:": "RELACAO"}, layout=own)
+    docaudit.process(
+        make_scanned_pdf(["x"]),
+        policy="all_strong",
+        cheap=["text_layer"],
+        strong=reader,
+        layout=pipeline,
+    )
+    assert (pipeline.calls, own.calls) == (1, 1)
+
+
+def test_a_crop_has_no_page_blocks_to_reuse(monkeypatch):
+    """O recorte é outra imagem: o leitor detecta nele, sem herdar os blocos da página."""
+    from docaudit.pdf import load_pages, opened
+
+    layout = FakeLayout()
+    reader = _stubbed(monkeypatch, {"Text Recognition:": "RECORTE"}, layout=layout)
+    doc = make_scanned_pdf(["x"])
+    with opened(doc) as pdf:
+        view = PageView(pdf, load_pages(doc)[0])
+        view.regions, view.regions_version = layout.regions, layout.output_version
+        crop = view.region(BBox(x0=0.0, y0=0.0, x1=1.0, y1=0.5))
+        assert crop.regions is None
+        chunks = reader.read(crop)
+    assert [c.text for c in chunks] == ["RECORTE"]
+    assert layout.calls == 1

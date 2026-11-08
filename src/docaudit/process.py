@@ -28,6 +28,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, NamedTuple, cast
+from zoneinfo import ZoneInfo
 
 from docaudit import pdf as _pdf
 from docaudit.backends.textlayer import TextLayerReader
@@ -383,6 +384,7 @@ def _read_cascade(
     readers: Sequence[Reader],
     cache: ModelCallCache | None,
     trust_layer: TrustLayer = "visible",
+    min_raster: float = 0.0,
 ) -> _Cascade:
     """Primeiro leitor da cascata que devolve algo, e o que faltar ler.
 
@@ -412,6 +414,10 @@ def _read_cascade(
     encaminha ao segundo nível.
 
     A página lida por um leitor depois da falha de outro não fica incompleta.
+
+    Um raster com área menor que `min_raster` da página não vai ao leitor
+    seguinte: o logotipo e o brasão do cabeçalho custariam uma leitura de
+    pixels para nada. O raster fica em `Page.unread`, sem linha.
     """
     failed: list[str] = []
     if trust_layer == "visible" and view.page.substrate is Substrate.SEARCHABLE_SCAN:
@@ -424,11 +430,12 @@ def _read_cascade(
             continue
         if not chunks:
             continue
-        if rendered or not view.page.unread:
+        rasters = [(i, b) for i, b in enumerate(view.page.unread) if b.area >= min_raster]
+        if rendered or not rasters:
             return _Cascade(chunks, hit, 0, failed)
         for filler in readers[position + 1 :]:
             try:
-                extra = _from_rasters(view, filler, cache, chunks)
+                extra = _from_rasters(view, filler, cache, chunks, rasters)
             except RuntimeError as exc:
                 failed.append(_warn_failure(filler, view.page, exc))
                 return _Cascade(chunks, hit, 0, failed, lost=True)
@@ -438,9 +445,13 @@ def _read_cascade(
 
 
 def _from_rasters(
-    view: PageView, reader: Reader, cache: ModelCallCache | None, read: Sequence[Chunk]
+    view: PageView,
+    reader: Reader,
+    cache: ModelCallCache | None,
+    read: Sequence[Chunk],
+    rasters: Sequence[tuple[int, BBox]],
 ) -> list[Chunk]:
-    """As linhas que `reader` lê nos recortes dos rasters de `view.page.unread`, com `region`.
+    """As linhas que `reader` lê nos recortes de `rasters`, com `region` no índice de cada um.
 
     Cada raster ganha a folga de `RASTER_MARGIN`, e recortes que se tocam
     viram um só, para que o leitor não leia a mesma linha duas vezes. A
@@ -450,10 +461,8 @@ def _from_rasters(
     recorte não toca nele, e nenhuma linha dele vem de lá. O raster que ocupa
     a folha inteira, ou um grupo que a cobre, é a página.
     """
-    unread = view.page.unread
-    padded = [
-        (i, (p.x0, p.y0, p.x1, p.y1)) for i, p in enumerate(b.padded(RASTER_MARGIN) for b in unread)
-    ]
+    with_margin = [(i, b.padded(RASTER_MARGIN)) for i, b in rasters]
+    padded = [(i, (p.x0, p.y0, p.x1, p.y1)) for i, p in with_margin]
     found: list[Chunk] = []
     for _, (x0, y0, x1, y1) in merge_touching(padded):
         if (x0, y0, x1, y1) == (0.0, 0.0, 1.0, 1.0):
@@ -465,7 +474,7 @@ def _from_rasters(
     # da digitalização. A linha fica uma vez, na menor região que a contém.
     out: list[Chunk] = []
     taken: set[str] = set()
-    for index, box in sorted(enumerate(unread), key=lambda pair: pair[1].area):
+    for index, box in sorted(rasters, key=lambda pair: pair[1].area):
         for chunk in _within(found, box):
             if chunk.id in taken or _already_read(chunk.bbox, read):
                 continue
@@ -612,10 +621,12 @@ def _stamp_of(form: StampFormat, match: re.Match[str], lines: Sequence[Chunk]) -
         if groups.get("time"):
             printed, layout = f"{printed} {groups['time']}", f"{layout} {form.time_format}"
         try:
-            # A hora local que a tarja imprime, sem fuso: ela não diz qual.
+            # A hora local que a tarja imprime. O fuso só entra quando o formato o declara.
             at = datetime.strptime(printed, layout)
         except ValueError:
             return None
+        if form.tz is not None:
+            at = at.replace(tzinfo=ZoneInfo(form.tz))
     process = groups.get("process")
     if process and form.process_check is not None and not form.process_check.is_valid(process):
         return None
@@ -851,6 +862,8 @@ class _Run:
     cache: ModelCallCache | None
     dpi: int | None
     layout: Layout | None
+    min_raster: float = 0.0
+    """A fração da página abaixo da qual um raster não lido não vai ao leitor de pixels."""
     spent: defaultdict[str, float] = field(default_factory=_float_counter)
     steps: defaultdict[int, list[str]] = field(default_factory=_step_lists)
     regions: dict[int, list[Region]] = field(default_factory=dict[int, list[Region]])
@@ -874,10 +887,20 @@ class _Run:
             del self.views[index]
 
     def detect(self, view: PageView) -> bool:
-        """Os blocos de layout da página, uma vez só; True se vieram do cache."""
-        if self.layout is None or view.page.index in self.regions:
+        """Os blocos de layout da página, uma vez só; True se vieram do cache.
+
+        A vista fica com os blocos e a versão do detector: um leitor caro com
+        o mesmo detector os reaproveita em vez de detectar de novo. Cada
+        página passa por aqui numa thread só por etapa, e as etapas são
+        sequenciais: nada disputa a entrada de uma página.
+        """
+        if self.layout is None:
             return False
-        self.regions[view.page.index], hit = _regions_cached(view, self.layout, self.cache)
+        hit = False
+        if view.page.index not in self.regions:
+            self.regions[view.page.index], hit = _regions_cached(view, self.layout, self.cache)
+        view.regions = self.regions[view.page.index]
+        view.regions_version = self.layout.output_version
         return hit
 
     @contextmanager
@@ -909,7 +932,7 @@ def _cheap_stage(
         page: Page,
     ) -> tuple[PageView | None, _Cascade, bool]:
         view = run.view(page)
-        read = _read_cascade(view, readers, run.cache, trust_layer)
+        read = _read_cascade(view, readers, run.cache, trust_layer, run.min_raster)
         layout_hit = run.detect(view)
         # A vista sai daqui só se fica guardada; a lista de resultados não
         # segura a renderização de todas as páginas até o fim da etapa.
@@ -1364,6 +1387,8 @@ class _StrongRead(NamedTuple):
     scope: str
     by_region: bool
     error: RuntimeError | None
+    layout_hit: bool
+    """Se os blocos de layout da página vieram do cache."""
 
 
 def _strong_one(
@@ -1376,9 +1401,12 @@ def _strong_one(
     """Lê uma página no tier caro: os recortes de `boxes`, ou a página inteira sem eles.
 
     O leitor vê em pé o que a leitura barata leu de lado: cada recorte com o
-    giro dele, e a página inteira com `turn`.
+    giro dele, e a página inteira com `turn`. Os blocos de layout são
+    detectados antes da leitura, na mesma renderização, para que um leitor
+    com o mesmo detector os reaproveite.
     """
     view = run.view(page)
+    layout_hit = run.detect(view)
     try:
         if boxes:
             strong: list[Chunk] = []
@@ -1387,9 +1415,8 @@ def _strong_one(
                 found, found_hit = read_region(view, box, backend, run.cache, turn=box_turn)
                 strong.extend(_within(found, box))
                 hit = hit and found_hit
-            return _StrongRead(
-                page, strong, hit, f"{len(boxes)} recorte(s) das linhas que falharam", True, None
-            )
+            scope = f"{len(boxes)} recorte(s) das linhas que falharam"
+            return _StrongRead(page, strong, hit, scope, True, None, layout_hit=layout_hit)
         if turn:
             whole = BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0)
             found, hit = read_region(view, whole, backend, run.cache, turn=turn)
@@ -1397,9 +1424,9 @@ def _strong_one(
         else:
             cached, hit, _ = _read_cached(view, backend, run.cache)
             read = list(cached)
-        return _StrongRead(page, read, hit, "a página inteira", False, None)
+        return _StrongRead(page, read, hit, "a página inteira", False, None, layout_hit=layout_hit)
     except RuntimeError as exc:
-        return _StrongRead(page, [], False, "", bool(boxes), exc)
+        return _StrongRead(page, [], False, "", bool(boxes), exc, layout_hit=layout_hit)
 
 
 def _strong_stage(
@@ -1412,7 +1439,8 @@ def _strong_stage(
     checks: Sequence[FailsCheck],
     reread: Reread,
     workers: int,
-) -> None:
+    deadline: float | None,
+) -> set[int]:
     """Lê no tier caro cada página escalada, inteira ou só as regiões que falharam.
 
     Um leitor local vai página a página: o paralelismo que compensa nele é
@@ -1421,11 +1449,16 @@ def _strong_stage(
     mesma GPU. Um leitor hospedado (`external`) espera a rede, e as páginas
     vão em paralelo, `workers` de cada vez. O resultado entra na ordem das
     páginas nos dois casos.
+
+    `deadline` é o instante de `time.perf_counter` em que `Budget.max_seconds`
+    vence: a página que começa depois dele não vai ao leitor caro. Devolve os
+    índices dessas páginas, para que quem chama garanta a leitura barata delas.
     """
+    deferred: set[int] = set()
     if backend is None:
         for page in pages:
             run.steps[page.index].append("sem leitor caro: fica a leitura barata")
-        return
+        return deferred
     check_names = {c.name for c in checks}
 
     def boxes_of(page: Page) -> dict[BBox, Turn]:
@@ -1443,7 +1476,10 @@ def _strong_stage(
             lines.setdefault((check.name, value), []).append(chunk)
         return {BBox.envelope([c.bbox for c in ls]): _turn_of(ls) for ls in lines.values()}
 
-    def one(page: Page) -> _StrongRead:
+    def one(page: Page) -> _StrongRead | None:
+        """A leitura cara da página, ou None quando o teto de tempo chegou antes dela."""
+        if deadline is not None and time.perf_counter() >= deadline:
+            return None
         turn = _turn_of(by_page.get(page.index, ()))
         return _strong_one(run, page, boxes_of(page), turn, backend)
 
@@ -1452,10 +1488,13 @@ def _strong_stage(
             reads = list(pool.map(one, pages))
     else:
         reads = [one(page) for page in pages]
-    for read in reads:
-        page = read.page
+    for page, read in zip(pages, reads, strict=True):
         steps = run.steps[page.index]
         cheap = by_page.get(page.index, ())
+        if read is None:
+            deferred.add(page.index)
+            steps.append("teto de tempo do orçamento atingido antes desta página: fica a barata")
+            continue
         if read.error is not None:
             # O leitor caro recusou esta página: ela fica com a leitura
             # barata, quando houve, e o auto segue. Um servidor ausente
@@ -1501,7 +1540,8 @@ def _strong_stage(
                 steps.append(
                     f"{len(rejected)} linha(s) do leitor caro recusada(s): " + "; ".join(notes)
                 )
-        run.spent["pages_layout_cached"] += run.detect(run.view(page))
+        run.spent["pages_layout_cached"] += read.layout_hit
+    return deferred
 
 
 def process(
@@ -1524,6 +1564,7 @@ def process(
     dpi: int | None = None,
     workers: int = 1,
     pages: Container[int] | None = None,
+    min_raster_fraction: float = 0.0,
 ) -> Result:
     """Lê um documento, confere a leitura e devolve os trechos lidos.
 
@@ -1606,6 +1647,13 @@ def process(
         pages: restringe o processamento a esses índices, zero-based. `None`
             processa o documento inteiro. As páginas de fora nem chegam a ser
             carregadas.
+        min_raster_fraction: numa página nato-digital, a fração da página
+            abaixo da qual um raster que nenhuma camada leu não vai ao leitor
+            de pixels. `0.0`, o padrão, lê todos. O logotipo e o brasão do
+            cabeçalho custam uma leitura de pixels que não traz linha útil;
+            o valor que os separa de uma figura com texto não está calibrado,
+            e depende do acervo. O raster fica em `Page.unread` e em
+            `Result.figures()`, sem linha.
         workers: threads para o tier barato, e para o tier caro quando o
             leitor é hospedado (`external`). `1`, o padrão, não cria pool
             nenhum. Acima disso cada página barata vira uma tarefa, e as
@@ -1637,6 +1685,8 @@ def process(
         parede de cada etapa, com a detecção de layout das páginas que ela
         renderizou. São relatados, e nada os limita.
     """
+    if not 0.0 <= min_raster_fraction <= 1.0:
+        raise ValueError(f"min_raster_fraction={min_raster_fraction!r} fora de [0, 1]")
     readers = [resolve(r, Reader, get_backend) for r in cheap]
     policy_obj = resolve(policy, TriagePolicy, get_policy)
     strong_backend = resolve(strong, Reader, get_backend) if strong is not None else None
@@ -1663,6 +1713,7 @@ def process(
             spans=spans,
             cache=cache,
             dpi=dpi,
+            min_raster_fraction=min_raster_fraction,
             workers=workers,
             pages=pages,
         )
@@ -1690,6 +1741,7 @@ def run_pipeline(
     folhas: Sequence[Check | str] | None = None,
     spans: bool = False,
     facts: DocumentFacts | None = None,
+    min_raster_fraction: float = 0.0,
 ) -> Result:
     """As etapas de `process` sobre um documento já aberto e leitores já resolvidos.
 
@@ -1711,7 +1763,7 @@ def run_pipeline(
         if "number" not in check.pattern.groupindex:
             raise ValueError(f"a folha {check.name!r} precisa do grupo `number`")
 
-    run = _Run(handle, cache, dpi, layout)
+    run = _Run(handle, cache, dpi, layout, min_raster=min_raster_fraction)
     if classified is None:
         selected = _pdf.pages_of(handle, doc_id, dpi=dpi, only=pages)
     else:
@@ -1760,9 +1812,25 @@ def run_pipeline(
     pages_cheap = len(by_page)
     with run.timed("seconds_strong"):
         by_decision = {d.page: d for d in decisions}
-        _strong_stage(
-            run, escalated, by_decision, by_page, failures, strong, checks, reread, workers
+        deadline = started + budget.max_seconds if budget.max_seconds is not None else None
+        deferred = _strong_stage(
+            run,
+            escalated,
+            by_decision,
+            by_page,
+            failures,
+            strong,
+            checks,
+            reread,
+            workers,
+            deadline,
         )
+    # A página que o teto de tempo tirou do leitor caro numa política que
+    # decide antes de ler ainda não tem leitura nenhuma: ela vai ao barato.
+    unread_pages = [p for p in escalated if p.index in deferred and p.index not in by_page]
+    if unread_pages:
+        by_page.update(_cheap_stage(run, unread_pages, readers, workers, trust_layer))
+        pages_cheap += len(unread_pages)
     run.views.clear()
 
     # A ordem de leitura vem por último, sobre o que ficou de todos os
@@ -1888,6 +1956,7 @@ def run_pipeline(
             stamps=tuple(f.name for f in stamp_formats),
             folhas=tuple(c.name for c in folha_checks),
             spans=spans,
+            min_raster_fraction=min_raster_fraction,
             versions=_versions(
                 [*readers, layer, confirm, strong],
                 {c.source for c in (*chunks, *(o.reading for o in others))},
