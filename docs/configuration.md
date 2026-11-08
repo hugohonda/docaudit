@@ -334,22 +334,15 @@ quem chama.
 
 ## Cache
 
-```python
-from pathlib import Path
-
-from docaudit import ModelCallCache
-
-cache = ModelCallCache(Path(".cache/docaudit.sqlite"))
-```
-
-Sem caminho, o cache grava em `<DOCAUDIT_CACHE_DIR>/calls.sqlite`. Vários
-processos podem partilhar o mesmo arquivo: quem abre ou grava espera o outro
-terminar. A chave e o que ela protege estão em
-[Conceitos](concepts.md#cache).
+`cache=ModelCallCache(path)`. Sem caminho, o cache grava em
+`<DOCAUDIT_CACHE_DIR>/calls.sqlite`. O que ele guarda, a chave e o exemplo
+estão em [Conceitos](concepts.md#cache); o que isso significa para os dados,
+em [Segurança dos dados](security.md#o-que-fica-no-disco).
 
 ## Variáveis de ambiente
 
-Lidas a cada chamada.
+`DOCAUDIT_CACHE_DIR` é lida a cada chamada; `DOCAUDIT_OCR_LANG`, quando o
+`TesseractOCR` é construído.
 
 | variável | padrão | efeito |
 |---|---|---|
