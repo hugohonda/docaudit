@@ -1,7 +1,7 @@
 # Uma receita por tarefa; a CI chama as mesmas. `just` lista tudo.
 # O `just` vem do uv.lock (`rust-just`): `uv run just <receita>` sem instalar nada.
 
-extras := "--extra tesseract --extra ppocr --extra vlm --extra layout --extra openvino"
+extras := "--extra tesseract --extra ppocr --extra vlm --extra layout --extra openvino --extra mojibake"
 
 [private]
 default:

@@ -34,6 +34,8 @@ própria, e tudo roda na sua máquina.
 uv add "docaudit[ppocr,openvino] @ git+https://github.com/hugohonda/docaudit"
 ```
 
+Uma tag `v*` publicada não muda, e a `main` não recebe push forçado: o
+repositório recusa os dois. Fixe o commit ou a tag e ela estará lá.
 Python 3.12 a 3.14, em Linux ou macOS. O extra `ppocr` traz o OCR padrão, e os
 pesos baixam na primeira leitura. Com o extra `openvino`, o PP-OCR roda mais depressa na
 CPU. O extra `tesseract` pede também o binário

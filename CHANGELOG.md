@@ -9,6 +9,12 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `MojibakeText`, o sinal da camada de texto decodificada com a codificação errada, no extra
+  `mojibake` (ftfy). Fora de `DEFAULT_SIGNALS`.
+- `RoutingDecision.seconds`: os segundos de cada etapa em cada página.
+- `PPOCR` e `PPDocLayout` com `threads=None` seguem os núcleos disponíveis ao processo quando
+  são menos que os da máquina (`cpuset` de contêiner).
+
 - `Result.records()`: as linhas de cada página em fileiras e blocos, só pela posição das
   caixas, com `Record.text` e `Record.tabular`. `Result.pieces()`: as páginas seguidas com a
   mesma tarja, por `Stamp.code`.

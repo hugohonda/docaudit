@@ -774,6 +774,15 @@ class RoutingDecision(_Frozen):
             "leitor caro falhou e a leitura barata ficou."
         ),
     )
+    seconds: dict[str, float] = PField(
+        default_factory=dict,
+        description=(
+            "Os segundos de parede de cada etapa nesta página: `cheap` (a cascata barata e a "
+            "detecção de layout), `confirm` (a releitura por outra família) e `strong` (o "
+            "leitor caro). Só as etapas que tocaram a página; uma leitura do cache conta o "
+            "tempo que levou."
+        ),
+    )
 
 
 class Budget(_Frozen):

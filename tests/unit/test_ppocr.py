@@ -190,3 +190,14 @@ def test_an_own_detector_names_its_hash_and_leaves_the_recognizer(tmp_path):
 def test_a_missing_detector_fails_at_construction(tmp_path):
     with pytest.raises(FileNotFoundError):
         PPOCR(det=tmp_path / "nao-existe.onnx")
+
+
+def test_threads_follow_the_cpus_available_to_the_process(monkeypatch):
+    """Com menos núcleos disponíveis que os da máquina, o cpuset de um contêiner, eles valem."""
+    from docaudit.backends import process_cpus
+
+    monkeypatch.setattr("os.cpu_count", lambda: 16)
+    monkeypatch.setattr("os.process_cpu_count", lambda: 2, raising=False)
+    assert process_cpus() == 2
+    monkeypatch.setattr("os.process_cpu_count", lambda: 16, raising=False)
+    assert process_cpus() is None, "sem restrição, fica o padrão do motor"

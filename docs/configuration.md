@@ -84,7 +84,10 @@ distintos.
 O custo de cada um está em [Desempenho](performance.md#leitores). Os
 pesos baixam na primeira leitura para `<DOCAUDIT_CACHE_DIR>/models`.
 `threads=` fixa as threads do motor dentro de uma inferência; `None`, o
-padrão, usa todos os núcleos, o certo para um processo só. Com vários
+padrão, deixa o padrão do motor, todos os núcleos da máquina, salvo quando o
+processo tem menos núcleos disponíveis que a máquina, o `cpuset` de um
+contêiner, que então vale. A cota de CPU de um contêiner sem `cpuset` não é
+vista por ninguém: passe o número de vCPUs. Com vários
 processos lendo ao mesmo tempo, cada um disputa todos os núcleos: ver
 [a receita de lote](recipes.md#lote-de-muitos-autos). Não entra em `output_version`: muda o
 tempo, não a leitura.

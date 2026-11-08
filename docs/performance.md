@@ -78,6 +78,13 @@ menos que 200 dpi para todas, com a mesma leitura.
 carregadas: a triagem custa por página carregada, não por página do
 documento.
 
+## Tempo por página
+
+`RoutingDecision.seconds` traz, por página, os segundos de cada etapa que a
+tocou. Uma página densa que custa muito mais que as vizinhas na etapa barata
+aponta para o reconhecedor; a mesma diferença em `strong` aponta para o
+leitor caro ou para a rede.
+
 ## Memória
 
 A renderização fica guardada depois da leitura barata só quando a página

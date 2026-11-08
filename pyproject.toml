@@ -69,6 +69,8 @@ openvino = [
 ]
 # O detector de layout `PPDocLayout`, em ONNX Runtime.
 layout = ["onnxruntime>=1.20", "numpy>=2"]
+# O sinal `MojibakeText`: o ftfy reconhece o texto decodificado com a codificação errada.
+mojibake = ["ftfy>=6.3"]
 
 [project.entry-points."docaudit.backends"]
 text_layer = "docaudit.backends.textlayer:TextLayerReader"

@@ -37,6 +37,7 @@ import threading
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal, get_args
 
+from docaudit.backends import process_cpus
 from docaudit.cache import default_cache_path
 from docaudit.types import BBox, Chunk
 
@@ -231,7 +232,10 @@ class PPOCR:
                 detector é baixado: é o arquivo que uma imagem de contêiner
                 guarda para não depender da rede na primeira leitura.
             threads: threads do motor dentro de uma inferência. `None`
-                usa todos os núcleos, o certo para um processo só. Com vários
+                usa o padrão do motor, todos os núcleos da máquina, salvo
+                quando o processo tem menos núcleos disponíveis que a
+                máquina (`process_cpus`): o `cpuset` de um contêiner. A cota
+                de CPU sem `cpuset` não é vista: passe o número. Com vários
                 processos lendo ao mesmo tempo, cada um disputa todos os
                 núcleos; ver a receita de lote em `docs/recipes.md`. Não entra
                 em `output_version`: muda o tempo, não a leitura.
@@ -338,8 +342,8 @@ class PPOCR:
 
                 params["Det.engine_type"] = params["Rec.engine_type"] = EngineType.OPENVINO
                 threads = "EngineConfig.openvino.inference_num_threads"
-            if self.threads is not None:
-                params[threads] = self.threads
+            if (count := self.threads if self.threads is not None else process_cpus()) is not None:
+                params[threads] = count
             if self.engine == "cuda":
                 import onnxruntime
 

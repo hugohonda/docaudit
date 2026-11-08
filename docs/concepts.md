@@ -223,6 +223,7 @@ ocorrências primeiro. Os padrões são categóricos, sem limiar ajustado:
 |---|---|
 | `EmptyRead()` | nada foi lido |
 | `GarbledText()` | caracteres que só uma decodificação quebrada produz: o de substituição, os da área de uso privado, que saem de uma fonte sem tabela ToUnicode, e os de controle. Vale também em texto composto, porque reler os pixels conserta o que a decodificação quebrou |
+| `MojibakeText()` (fora do padrão; extra `mojibake`) | texto decodificado com a codificação errada, `honor·rios` por `honorários`: a tabela ToUnicode errada numa camada que extrai sem erro e parece texto. O ftfy reconhece o UTF-8 lido como Latin-1; o Latin-1 lido como Mac Roman sai da releitura da linha pelos codecs da biblioteca padrão, quando um símbolo entre duas letras vira letra. Entra por `EvidenceRouter([*DEFAULT_SIGNALS, MojibakeText()])`, e com um OCR em `strong=` a página vai aos pixels |
 | `FailsCheck(CPF)`, `FailsCheck(CNPJ)`, `FailsCheck(CNJ)` | id na pontuação canônica com dígito verificador errado; vírgula no lugar de ponto casa. Só um documento imprimindo um id produz essa forma. O CNPJ pode ser alfanumérico |
 | `FailsCheck(AMOUNT_BRL)` | valor que a grafia brasileira não permite: duas vírgulas, espaço entre grupos de milhar, letra no lugar de dígito, grupo sem três dígitos |
 | `FailsCheck(AMOUNT_PRE_REAL)` | o mesmo, no valor em cruzeiro, cruzado ou cruzeiro real (`Cr$`, `NCr$`, `Cz$`, `NCz$`, `CR$`) |

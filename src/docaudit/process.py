@@ -852,6 +852,10 @@ def _step_lists() -> defaultdict[int, list[str]]:
     return defaultdict(list)
 
 
+def _page_seconds() -> defaultdict[int, dict[str, float]]:
+    return defaultdict(dict)
+
+
 @dataclass
 class _Run:
     """O estado que as etapas de `process` partilham sobre um documento aberto.
@@ -879,6 +883,8 @@ class _Run:
     """Por página, a nota de cada leitor que falhou, para `RoutingDecision.failures`."""
     incomplete: set[int] = field(default_factory=set[int])
     """As páginas em que um leitor falhou e nenhum outro leu, para `RoutingDecision.incomplete`."""
+    seconds: defaultdict[int, dict[str, float]] = field(default_factory=_page_seconds)
+    """Por página, os segundos de cada etapa que a tocou, para `RoutingDecision.seconds`."""
 
     def view(self, page: Page) -> PageView:
         """A vista da página, guardada se a página ainda está em curso; senão, uma nova."""
@@ -935,9 +941,11 @@ def _cheap_stage(
     def read_one(
         page: Page,
     ) -> tuple[PageView | None, _Cascade, bool]:
+        tick = time.perf_counter()
         view = run.view(page)
         read = _read_cascade(view, readers, run.cache, trust_layer, run.min_raster)
         layout_hit = run.detect(view)
+        run.seconds[page.index]["cheap"] = time.perf_counter() - tick
         # A vista sai daqui só se fica guardada; a lista de resultados não
         # segura a renderização de todas as páginas até o fim da etapa.
         kept = view if keep is not None and keep(page, read.chunks) else None
@@ -1061,6 +1069,7 @@ def _confirm_stage(
             for b in (layer if page.substrate is Substrate.SEARCHABLE_SCAN else None, confirm)
             if b is not None
         ]
+        tick = time.perf_counter()
         view = run.view(page)
         steps = run.steps[page.index]
         values = ", ".join(dict.fromkeys(value for _, value, _ in before))
@@ -1119,6 +1128,7 @@ def _confirm_stage(
         else:
             if families:
                 steps.append("nenhuma releitura explicou o valor; segue ao leitor caro")
+        run.seconds[page.index]["confirm"] = time.perf_counter() - tick
 
 
 def _valid_values(check: FailsCheck, chunk: Chunk) -> set[str]:
@@ -1482,10 +1492,13 @@ def _strong_stage(
 
     def one(page: Page) -> _StrongRead | None:
         """A leitura cara da página, ou None quando o teto de tempo chegou antes dela."""
-        if deadline is not None and time.perf_counter() >= deadline:
+        tick = time.perf_counter()
+        if deadline is not None and tick >= deadline:
             return None
         turn = _turn_of(by_page.get(page.index, ()))
-        return _strong_one(run, page, boxes_of(page), turn, backend)
+        read = _strong_one(run, page, boxes_of(page), turn, backend)
+        run.seconds[page.index]["strong"] = time.perf_counter() - tick
+        return read
 
     if backend.external and workers > 1 and len(pages) > 1:
         with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -1937,6 +1950,7 @@ def run_pipeline(
             d.model_copy(
                 update={
                     "steps": tuple(run.steps[d.page]),
+                    "seconds": dict(run.seconds.get(d.page, {})),
                     "failures": tuple(run.failures.get(d.page, ())),
                     "incomplete": d.page in run.incomplete,
                 }

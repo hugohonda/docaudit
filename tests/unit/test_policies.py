@@ -433,3 +433,54 @@ def test_words_out_of_the_order_portuguese_writes_are_not_a_number(words):
 def test_a_misread_word_that_still_forms_a_number_is_caught():
     assert failures(AMOUNT_IN_WORDS, "R$ 50,00 (cinco reais)") == 1
     assert failures(AMOUNT_IN_WORDS, "R$ 112,00 (cento e doze reais)") == 0
+
+
+class TestMojibake:
+    """O texto decodificado com a codificação errada, nas duas famílias que o sinal vê."""
+
+    def test_latin1_read_as_mac_roman_is_caught_inside_a_word(self):
+        from docaudit.policies import mojibake_in
+
+        pytest.importorskip("ftfy", reason="precisa do extra `mojibake`")
+        assert mojibake_in("honor·rios advocatÌcios") == "Latin-1 lido como Mac Roman"
+
+    def test_utf8_read_as_latin1_is_caught_by_ftfy(self):
+        from docaudit.policies import mojibake_in
+
+        pytest.importorskip("ftfy", reason="precisa do extra `mojibake`")
+        assert mojibake_in("SÃƒO PAULO, DECIS√ÉO") == "UTF-8 lido como Latin-1"
+
+    @pytest.mark.parametrize(
+        "text",
+        [
+            "honorários advocatícios",
+            "SÃO PAULO",
+            "R$ 4.000,00 (quatro mil reais)",
+            "Fls. 16 — Autos nº 0001234-56.2020.8.26.0100",
+            "E-mail: a@b.c · tel. (11) 1234",
+            "“aspas” e ‘outras’, § 1º – art. 5°, inciso II",  # noqa: RUF001 - a tipografia é o teste
+            "Ação de Execução – 2ª Vara, d'água, guarda-chuva",  # noqa: RUF001
+            "Caixa D’Água, SAÚDE–GERAL, EPI’S, Cotriguaçu–MT, alínea“a”",  # noqa: RUF001
+        ],
+    )
+    def test_legitimate_portuguese_is_not_flagged(self, text):
+        from docaudit.policies import mojibake_in
+
+        pytest.importorskip("ftfy", reason="precisa do extra `mojibake`")
+        assert mojibake_in(text) is None
+
+    def test_the_signal_routes_the_page_and_names_the_line(self):
+        from tests.support import make_pdf
+
+        from docaudit import process
+        from docaudit.policies import DEFAULT_SIGNALS, EvidenceRouter, MojibakeText
+
+        pytest.importorskip("ftfy", reason="precisa do extra `mojibake`")
+        doc = make_pdf(
+            "BT /F1 12 Tf 60 700 Td (Condeno ao pagamento de honor\\267rios advocat\\315cios) Tj ET"
+        )
+        policy = EvidenceRouter([*DEFAULT_SIGNALS, MojibakeText()])
+        result = process(doc, policy=policy, cheap=["text_layer"])
+        (decision,) = result.decisions
+        assert decision.tier is Tier.STRONG
+        assert decision.signals.get(MojibakeText.name) == 1
