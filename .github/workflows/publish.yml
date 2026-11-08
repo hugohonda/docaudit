@@ -10,6 +10,9 @@ permissions:
 
 jobs:
   build:
+    # Disparado de um ramo, `$GITHUB_REF_NAME` seria o nome do ramo, e a release
+    # se chamaria `main`. O workflow só segue a partir de uma tag `v*`.
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

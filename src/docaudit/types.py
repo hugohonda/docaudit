@@ -1,7 +1,7 @@
 """Tipos de dados públicos.
 
-Todos são `BaseModel` congelados: atravessam fronteiras de serialização (cache,
-Parquet, JSON de saída) e a validação na construção pega erros de backend cedo.
+Todos são `BaseModel` congelados: atravessam fronteiras de serialização (o cache,
+o JSON de saída) e a validação na construção pega erros de backend cedo.
 """
 
 from __future__ import annotations

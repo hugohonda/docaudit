@@ -1326,7 +1326,13 @@ def pixels_of(
     scale = (dpi or DEFAULT_DPI) / 72.0
     with _locked_page(pdf, index) as page:
         bitmap = page.render(scale=scale, grayscale=grayscale)  # pyright: ignore[reportArgumentType]
-        return bitmap.to_pil()
+        with closing(bitmap):
+            # Em cinza, o Pillow aponta para o buffer do bitmap em vez de copiar;
+            # em RGB ele copia ao reordenar os canais. A cópia solta a imagem do
+            # bitmap, e o `closing` destrói o bitmap aqui, sob o lock, em vez de
+            # deixá-lo para o coletor, que o destruiria de qualquer thread.
+            image = bitmap.to_pil()
+            return image.copy() if grayscale else image
 
 
 def render_of(
