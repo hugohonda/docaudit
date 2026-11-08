@@ -1,5 +1,6 @@
 # docaudit
 
+<!-- --8<-- [start:pitch] -->
 Leitura de documentos digitalizados em português do Brasil, com verificação
 da leitura e a origem de cada trecho.
 
@@ -25,6 +26,7 @@ própria, e tudo roda na sua máquina.
 > OpenAI-compatible endpoint you explicitly allow. Every chunk carries page, normalized bounding
 > box, reader and confidence. Documentation is in Brazilian Portuguese;
 > identifiers and the API are in English.
+<!-- --8<-- [end:pitch] -->
 
 ## Instalação
 
@@ -40,6 +42,7 @@ do Tesseract. O extra `layout` traz o detector de layout. Ver
 
 ## Uso
 
+<!-- --8<-- [start:uso] -->
 ```python
 import docaudit
 from docaudit import Budget
@@ -65,6 +68,7 @@ print(result.spent.pages_strong, "páginas foram ao leitor caro")
 Sem argumentos além do documento, `process` lê a camada de texto onde houver,
 manda o resto ao PP-OCR e não escala nada. Uma imagem PNG, JPEG, TIFF, BMP ou WebP é
 lida como um PDF de uma página por quadro.
+<!-- --8<-- [end:uso] -->
 
 ## O que volta
 

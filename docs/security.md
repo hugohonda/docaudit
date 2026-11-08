@@ -47,12 +47,19 @@ quem usa a biblioteca.
 | cache de leituras | `ModelCallCache(path)`, ou `<DOCAUDIT_CACHE_DIR>/calls.sqlite` | o texto lido de cada página, em claro, com as caixas, num SQLite |
 | pesos dos modelos | `<DOCAUDIT_CACHE_DIR>/models` | os arquivos dos modelos |
 
-O cache guarda o conteúdo dos documentos. Trate o arquivo com o mesmo cuidado
-que os próprios documentos: mesmas permissões, mesmo backup, mesmo descarte.
-Apagar o arquivo apaga as leituras; nada mais depende dele.
+O cache guarda o conteúdo dos documentos, e não expira: uma leitura fica até
+o arquivo ser apagado. Trate o arquivo com o mesmo cuidado que os próprios
+documentos: mesmas permissões, mesmo backup, mesmo descarte. Não há como
+apagar um documento só; apagar o arquivo apaga as leituras, e nada mais
+depende dele. Quem precisa de um prazo de retenção por lote dá a cada lote o
+seu arquivo de cache.
 
 ## Dados pessoais
 
 Autos judiciais trazem nomes, CPF e outros dados pessoais. Tratá-los está
 sujeito à Lei Geral de Proteção de Dados (Lei 13.709/2018), e a
-responsabilidade pelo tratamento é de quem usa a biblioteca.
+responsabilidade pelo tratamento é de quem usa a biblioteca. O que ela dá
+para isso é a lista de entidades com a caixa de cada uma: a receita
+[Redigir dados pessoais](recipes.md#redigir-dados-pessoais-na-imagem-e-no-texto)
+cobre na imagem e tira do texto cada id com dígito verificador que a leitura
+achou.

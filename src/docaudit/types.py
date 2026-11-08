@@ -1011,16 +1011,12 @@ class Result(_Frozen):
         para busca; a proveniência fina fica em `chunks`. Com `annotated`,
         o cabeçalho traz também o documento e a folha da página
         (`Page.stamp`, `Page.folha`), cada linha começa pela referência de
-        `refs()`, e cada página termina
-        com a decisão da cascata e as entidades achadas nela, com estado e
-        referência: é a forma de entregar a leitura a um modelo, que cita a
-        referência e tem a citação conferida sem modelo. As figuras com texto
-        lido entram na mesma lista, com a área e as linhas delas, para que o
-        modelo saiba que há uma imagem ali e possa pedi-la; as sem texto
-        entram como uma contagem. A linha com mais de um valor do mesmo tipo
-        sai listada como linha de lista, e, com um detector de layout, cada
-        bloco sai com as linhas que caíram nele: é o que diz ao modelo se o
-        trecho é uma fileira de tabela ou uma frase.
+        `refs()`, e cada página termina com a decisão da cascata, as
+        entidades achadas nela com estado e referência, as linhas com mais
+        de um valor do mesmo tipo, os blocos do detector de layout quando há
+        um, e as figuras. É a forma de entregar a leitura a um modelo; o que
+        cada parte lhe diz, e como a citação é conferida, está em
+        `docs/agent.md`.
         """
         parts: list[str] = []
         if annotated and self.document is not None:
