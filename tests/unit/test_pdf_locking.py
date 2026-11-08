@@ -63,3 +63,31 @@ def test_filtered_pages_are_never_loaded(counting):
     # páginas, carregar todas para descartar 998 é o custo que `pages=` promete
     # não cobrar.
     assert counting["loaded"] == 0
+
+
+@pytest.fixture
+def closing_bitmaps(monkeypatch):
+    """Instrumenta o fechamento do bitmap, exigindo o lock."""
+    counts = {"closed": 0}
+    real_close = pdfium.PdfBitmap.close
+
+    def close(self, *args, **kwargs):
+        assert pdf_mod._PDFIUM.locked(), "bitmap destruído sem o lock"
+        counts["closed"] += 1
+        return real_close(self, *args, **kwargs)
+
+    monkeypatch.setattr(pdfium.PdfBitmap, "close", close)
+    return counts
+
+
+@pytest.mark.parametrize("grayscale", [True, False])
+def test_rendering_destroys_the_bitmap_under_the_lock(closing_bitmaps, grayscale):
+    # O bitmap tem finalizador como a página: deixado ao coletor, `FPDFBitmap_Destroy`
+    # roda de qualquer thread. A imagem devolvida tem de viver sem ele.
+    document = make_scanned_pdf(["LINHA UM"])
+    with pdf_mod.opened(document) as handle:
+        image = pdf_mod.pixels_of(handle, 0, dpi=72, grayscale=grayscale)
+
+    assert closing_bitmaps["closed"] == 1
+    assert image.load() is not None
+    assert image.getbbox() is not None

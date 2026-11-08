@@ -1,0 +1,38 @@
+name: Leitura errada ou falha
+description: Uma página lida errado, uma verificação que não disparou, um leitor que falhou.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Nenhum documento com dados pessoais entra aqui. Reproduza num PDF público ou num
+        PDF mínimo construído com `tests/support`, e cole o texto, não a imagem da página.
+  - type: input
+    id: version
+    attributes:
+      label: Versão
+      description: "`python -c 'import docaudit; print(docaudit.__version__)'` e o commit, se instalado do git."
+    validations:
+      required: true
+  - type: textarea
+    id: call
+    attributes:
+      label: A chamada
+      description: "`process(...)` ou `Document(...)` com os argumentos, inclusive o leitor e a política."
+      render: python
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: O que esperava e o que saiu
+      description: "O trecho, a entidade ou a decisão (`result.decisions[i].steps`) que divergiu."
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Ambiente
+      description: "Sistema, arquitetura, Python, extras instalados (`ppocr`, `openvino`, `tesseract`, `layout`)."
+    validations:
+      required: true

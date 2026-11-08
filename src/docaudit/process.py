@@ -88,12 +88,17 @@ if TYPE_CHECKING:
     from docaudit.policies import Check, FailsCheck
 
 __all__ = [
+    "DEFAULT_CASCADE",
     "RASTER_MARGIN",
     "Reread",
     "TrustLayer",
     "folhas_of",
     "mark_furniture",
     "process",
+    "read_region",
+    "refuse_external",
+    "resolve",
+    "run_pipeline",
     "stamps_of",
 ]
 

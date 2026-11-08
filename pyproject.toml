@@ -13,7 +13,7 @@ requires-python = ">=3.12,<3.15"
 authors = [{ name = "Hugo Honda" }]
 keywords = ["ocr", "document-ai", "legal", "portuguese", "brazil", "vlm", "provenance"]
 classifiers = [
-  "Development Status :: 2 - Pre-Alpha",
+  "Development Status :: 3 - Alpha",
   "Intended Audience :: Science/Research",
   "Intended Audience :: Legal Industry",
   "Natural Language :: Portuguese (Brazilian)",
@@ -173,8 +173,9 @@ filterwarnings = ["error"]
 source = ["docaudit"]
 branch = true
 # O ppocr só é exercitado pelo teste `slow`, que baixa os pesos; a suíte rápida
-# não o alcança e não deve fingir que alcança.
-omit = ["src/docaudit/_version.py", "src/docaudit/backends/ppocr.py", "src/docaudit/backends/layout.py"]
+# não o alcança e não deve fingir que alcança. O detector de layout tem teste
+# unitário com um modelo falso e conta como o resto.
+omit = ["src/docaudit/_version.py", "src/docaudit/backends/ppocr.py"]
 
 [tool.coverage.report]
 fail_under = 85

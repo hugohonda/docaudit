@@ -1,0 +1,26 @@
+name: Leitor ou verificação nova
+description: Um motor de OCR, um modelo ou um campo com regra de validade que ainda não entra.
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: O que entra
+      description: "O leitor (família, licença, como roda na máquina) ou o campo (forma impressa e regra: dígito verificador, calendário, grafia)."
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Onde ele erra ou acerta hoje
+      description: "Um PDF público em que a leitura atual falha e o novo acerta, ou a medição que mostra a diferença, com o `n` e a condição."
+    validations:
+      required: true
+  - type: checkboxes
+    id: fit
+    attributes:
+      label: Encaixe
+      options:
+        - label: Um leitor herda `ReaderContract` de `tests/support` (docs/writing-a-reader.md).
+        - label: Um campo tem `pattern` que casa só a forma dele e `is_valid` que aceita todo valor verdadeiro (docs/entities.md).
+        - label: Roda na máquina de quem chama, ou declara `external=True`.
