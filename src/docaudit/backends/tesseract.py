@@ -1,3 +1,7 @@
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 """Backend de OCR barato sobre o Tesseract.
 
 Roda em CPU, em qualquer máquina, sem peso de modelo para baixar. Pede o extra
