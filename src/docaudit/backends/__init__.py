@@ -1,7 +1,23 @@
-"""Backends concretos.
+"""Os leitores que acompanham o pacote, um por extra, e o que eles partilham."""
 
-Cada módulo importa sua dependência pesada tardiamente, dentro da classe, para
-que `import docaudit` continue custando só Pydantic, pypdfium2 e Pillow. Um backend
-ausente vira `ImportError` com o nome do extra a instalar, em
-`docaudit.registry.get_backend`.
-"""
+from __future__ import annotations
+
+import os
+
+__all__ = ["process_cpus"]
+
+
+def process_cpus() -> int | None:
+    """Os núcleos disponíveis ao processo, quando são menos que os da máquina; senão None.
+
+    `os.process_cpu_count` respeita a afinidade do processo, que um contêiner
+    com `cpuset` restringe; o motor de inferência conta os núcleos da
+    máquina e abriria threads a mais. A cota de CPU de um contêiner sem
+    `cpuset` não aparece em lugar nenhum: nesse caso, quem chama passa o
+    número em `threads=`. None deixa o padrão do motor.
+    """
+    available = getattr(os, "process_cpu_count", os.cpu_count)()
+    total = os.cpu_count()
+    if available is None or total is None or available >= total:
+        return None
+    return available

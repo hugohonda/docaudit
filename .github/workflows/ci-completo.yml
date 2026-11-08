@@ -48,5 +48,5 @@ jobs:
           enable-cache: true
       - if: matrix.recipe == 'integration'
         run: sudo apt-get update && sudo apt-get install -y tesseract-ocr tesseract-ocr-por
-      - run: uv sync --locked --all-groups --extra tesseract --extra ppocr --extra vlm --extra layout --extra openvino -p ${{ matrix.python }}
+      - run: uv sync --locked --all-groups --extra tesseract --extra ppocr --extra vlm --extra layout --extra openvino --extra mojibake -p ${{ matrix.python }}
       - run: uv run just ${{ matrix.recipe }}

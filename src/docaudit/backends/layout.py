@@ -37,6 +37,7 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
+from docaudit.backends import process_cpus
 from docaudit.cache import default_cache_path
 from docaudit.types import BBox, Region
 
@@ -236,8 +237,8 @@ class PPDocLayout:
                 _download(WEIGHTS_URL, path, WEIGHTS_SHA256)
             options = ort.SessionOptions()
             options.log_severity_level = 3
-            if self.threads is not None:
-                options.intra_op_num_threads = self.threads
+            if (count := self.threads if self.threads is not None else process_cpus()) is not None:
+                options.intra_op_num_threads = count
             self._session = ort.InferenceSession(
                 str(path), sess_options=options, providers=["CPUExecutionProvider"]
             )

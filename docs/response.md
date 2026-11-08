@@ -404,6 +404,10 @@ trecho. `Document.doubts()` deixa as substituídas de fora.
 estar em `strong` e ter sido lida só no tier barato: é o modo de ensaio de uma
 política. `spent.pages_strong` conta o que de fato rodou.
 
+Cada decisão traz também `seconds`: os segundos de parede de cada etapa que
+tocou a página, `cheap`, `confirm` e `strong`. É o que diz onde está o custo
+de uma página sem medir por fora; o total da execução está em `spent`.
+
 ## `spent`
 
 O que a chamada gastou, relatado e não limitado. Todas as chaves abaixo saem

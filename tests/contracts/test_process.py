@@ -2319,3 +2319,12 @@ def test_records_group_lines_into_rows_and_blocks_by_geometry():
     assert len(records[0].chunk_ids) == 4
     assert records[0].bbox.y1 <= records[1].bbox.y0, "os blocos saem de cima para baixo"
     assert len(result.records(gap=100.0)) == 1, "um vão folgado junta a página num bloco"
+
+
+def test_each_decision_carries_the_seconds_of_the_stages_that_touched_its_page(scanned_doc):
+    vlm = FakeVLM()
+    result = process(scanned_doc, policy="evidence", cheap=[FakeOCR()], strong=vlm)
+    for decision in result.decisions:
+        assert decision.seconds["cheap"] >= 0.0
+        assert ("strong" in decision.seconds) == (decision.tier is Tier.STRONG)
+    assert "confirm" not in result.decisions[0].seconds, "sem confirm= nem camada, a etapa não toca"

@@ -78,3 +78,8 @@ pacote fica em `0.y.z` enquanto a API mudar: `y` sobe quando algo público quebr
 O pacote não vai ao PyPI enquanto não estiver maduro: o workflow `publish`
 roda só à mão, e nenhuma tag o dispara. Quem usa a biblioteca a instala pelo
 git, fixada num commit.
+
+Uma tag `v*` publicada é imutável, e a `main` não recebe push forçado nem é
+apagada: as regras do repositório no GitHub recusam os dois, sem exceção para
+ninguém. Uma tag errada fica, e a próxima a corrige. Quem fixa um commit ou
+uma tag pode confiar que o que fixou continua lá.

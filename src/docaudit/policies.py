@@ -1348,6 +1348,78 @@ class GarbledText:
         return out
 
 
+def mojibake_in(text: str) -> str | None:
+    """Por que o texto parece decodificado com a codificação errada, ou None.
+
+    Duas famílias. O texto gravado em UTF-8 e lido como Latin-1 ou
+    Windows-1252 (`SÃƒO` por `SÃO`) é o que o ftfy reconhece. O texto em
+    Latin-1 lido como Mac Roman (`honor·rios` por `honorários`) o ftfy não
+    cobre: a linha é relida pelos dois codecs da biblioteca padrão, e um
+    símbolo entre duas letras que vira letra na releitura é a evidência.
+    Categórico, sem limiar; um símbolo solto, como o ponto mediano de uma
+    lista, fica de fora porque não está entre letras. O traço, o apóstrofo
+    e as aspas tipográficas ficam de fora porque vivem coladas a letras
+    (`SAUDE-GERAL` com meia-risca, `D'Agua` com apóstrofo curvo, a alínea
+    entre aspas sem espaço).
+    """
+    try:
+        from ftfy.badness import is_bad
+    except ModuleNotFoundError as exc:  # pragma: no cover - depende do ambiente
+        raise ModuleNotFoundError(
+            "o sinal MojibakeText precisa do extra: uv add 'docaudit[mojibake]'"
+        ) from exc
+    if is_bad(text):
+        return "UTF-8 lido como Latin-1"
+    try:
+        other = text.encode("mac_roman").decode("latin-1")
+    except UnicodeError:
+        return None
+    for i in range(1, len(text) - 1):
+        a, b = text[i], other[i]
+        if a == b or a.isalnum() or a.isspace() or not b.isalpha():
+            continue
+        if a == "'" or unicodedata.category(a) in _IN_WORD_PUNCTUATION:
+            continue
+        if text[i - 1].isalpha() and text[i + 1].isalpha():
+            return "Latin-1 lido como Mac Roman"
+    return None
+
+
+_IN_WORD_PUNCTUATION = frozenset({"Pd", "Pi", "Pf"})
+"""Traços e aspas de abertura e de fecho, que o uso cola a letras; o apóstrofo curvo é `Pf`."""
+
+
+class MojibakeText:
+    """Texto decodificado com a codificação errada: `honor·rios` por `honorários`.
+
+    É a camada de texto cuja tabela ToUnicode está errada, que extrai sem
+    erro e parece texto. `GarbledText` não a vê: nenhum caractere é de
+    substituição ou de controle. Pede o extra `mojibake`; o que cada família
+    prova está em `mojibake_in`. Fora de `DEFAULT_SIGNALS` até que uma
+    medição em corpus público conte os falsos alarmes:
+    `EvidenceRouter([*DEFAULT_SIGNALS, MojibakeText()])`. Com um OCR em
+    `strong=`, a página vai aos pixels.
+    """
+
+    name = "texto com codificação trocada"
+    field = name
+
+    def __call__(self, page: Page, chunks: Sequence[Chunk]) -> int:
+        """Quantas linhas da página parecem decodificadas com a codificação errada."""
+        del page
+        return sum(1 for c in chunks if mojibake_in(c.text) is not None)
+
+    def failing(self, page: Page, chunks: Sequence[Chunk]) -> list[tuple[str, Chunk]]:
+        """Cada linha suspeita, com a família de troca que a denuncia."""
+        del page
+        out: list[tuple[str, Chunk]] = []
+        for chunk in chunks:
+            reason = mojibake_in(chunk.text)
+            if reason is not None:
+                out.append((reason, chunk))
+        return out
+
+
 DEFAULT_SIGNALS: tuple[Signal, ...] = (
     EmptyRead(),
     GarbledText(),
