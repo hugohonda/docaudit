@@ -43,6 +43,7 @@ import io
 import json
 import re
 import threading
+import time
 import urllib.error
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
@@ -132,6 +133,7 @@ class VLM:
         timeout: float = 600.0,
         max_tokens: int = 4096,
         reasoning: str | None = None,
+        retries: int = 0,
     ) -> None:
         """Aponta para um servidor e escolhe o preset.
 
@@ -155,6 +157,15 @@ class VLM:
             concurrency: chamadas simultâneas por página, uma por região.
                 Acima de 1 pede `llama-server -np <n>`.
             timeout: segundos por chamada.
+            retries: quantas vezes repetir uma chamada que o servidor recusou
+                por carga (HTTP 429 ou 5xx), que esgotou o `timeout` ou cuja
+                conexão caiu, antes de a página falhar. `0`, o padrão, não
+                repete. A espera dobra a cada tentativa a partir de um
+                segundo, ou segue o `Retry-After` que o servidor mandar. Um
+                servidor local ausente não é repetido: sobe como
+                `ConnectionError` e interrompe o documento; num servidor fora
+                da máquina, a conexão recusada é mais uma falha a repetir, e
+                depois é falha da página.
             max_tokens: teto de tokens de saída por chamada. Uma folha densa
                 cabe em 4096; o teto corta uma repetição em laço.
             reasoning: o esforço de pensamento, enviado como
@@ -175,6 +186,9 @@ class VLM:
         self.timeout = timeout
         self.max_tokens = max_tokens
         self.reasoning = reasoning
+        if retries < 0:
+            raise ValueError("retries não pode ser negativo")
+        self.retries = retries
         self.external = urlparse(self.url).hostname not in _LOOPBACK
         if self.external and served is None:
             raise ValueError("served= é obrigatório num servidor fora da máquina")
@@ -252,13 +266,33 @@ class VLM:
         return content
 
     def _post(self, request: urllib.request.Request) -> dict[str, object]:
-        """O corpo da resposta como dicionário, ou a falha classificada.
+        """O corpo da resposta como dicionário, repetindo a falha passageira até `retries` vezes.
 
-        Só a conexão recusada sobe como `ConnectionError`, que interrompe o
-        documento. O resto é falha desta página e sobe como `RuntimeError`:
-        erro HTTP, tempo esgotado esperando a resposta, conexão cortada no
-        meio dela, corpo que não é JSON. O `urllib` só embrulha em `URLError`
-        o envio do pedido; o que acontece depois chega com o tipo cru.
+        A falha passageira é a que outra tentativa pode resolver: o servidor
+        recusou por carga (429 ou 5xx), o tempo esgotou, a conexão caiu. A
+        espera entre tentativas segue o `Retry-After` do servidor, ou dobra a
+        partir de um segundo. Esgotadas as tentativas, a falha é desta página
+        e sobe como `RuntimeError`.
+        """
+        for attempt in range(self.retries + 1):
+            try:
+                return self._send(request)
+            except _TransientError as exc:
+                if attempt == self.retries:
+                    raise RuntimeError(str(exc)) from exc
+                time.sleep(exc.wait if exc.wait is not None else float(2**attempt))
+        raise AssertionError("inalcançável")  # pragma: no cover
+
+    def _send(self, request: urllib.request.Request) -> dict[str, object]:
+        """Uma chamada ao servidor: o corpo como dicionário, ou a falha classificada.
+
+        Só a conexão recusada por um servidor local sobe como
+        `ConnectionError`, que interrompe o documento: o servidor não está lá,
+        e repetir não o traz. Num servidor fora da máquina a mesma recusa é
+        passageira. O resto é falha desta página: erro HTTP, tempo esgotado
+        esperando a resposta, conexão cortada no meio dela, corpo que não é
+        JSON. O `urllib` só embrulha em `URLError` o envio do pedido; o que
+        acontece depois chega com o tipo cru.
         """
         try:
             with urllib.request.urlopen(request, timeout=self.timeout) as resp:
@@ -267,13 +301,20 @@ class VLM:
             # Subclasse de URLError, separada para que um erro do servidor não
             # se apresente como servidor ausente.
             body = exc.read().decode(errors="replace")[:300]
+            retry_after = exc.headers.get("Retry-After")
             exc.close()
-            raise RuntimeError(f"o servidor respondeu {exc.code}: {body}") from exc
+            message = f"o servidor respondeu {exc.code}: {body}"
+            if exc.code == 429 or exc.code >= 500:
+                raise _TransientError(message, _seconds(retry_after)) from exc
+            raise RuntimeError(message) from exc
         except urllib.error.URLError as exc:
-            raise ConnectionError(
-                f"sem servidor em {self.url}; ver docs/getting-started.md"
-            ) from exc
-        except (OSError, ValueError) as exc:
+            message = f"sem servidor em {self.url}; ver docs/getting-started.md"
+            if self.external:
+                raise _TransientError(message) from exc
+            raise ConnectionError(message) from exc
+        except OSError as exc:
+            raise _TransientError(f"a resposta do servidor não pôde ser lida: {exc!r}") from exc
+        except ValueError as exc:
             raise RuntimeError(f"a resposta do servidor não pôde ser lida: {exc!r}") from exc
         if not isinstance(data, dict):
             raise RuntimeError(f"a resposta do servidor não é um objeto JSON: {str(data)[:300]}")
@@ -317,7 +358,14 @@ class VLM:
         prompts = PRESETS[self.model]
         # Num escaneamento degradado o detector devolve a folha como uma
         # imagem só, ou nada: a página inteira é a única região que resta.
-        regions = self.layout.detect(image) if self.layout is not None else ()
+        regions: Sequence[Region]
+        if self.layout is None:
+            regions = ()
+        elif view.regions is not None and view.regions_version == self.layout.output_version:
+            # `process(layout=)` com o mesmo detector já detectou nesta renderização.
+            regions = view.regions
+        else:
+            regions = self.layout.detect(image)
         if not regions:
             text = _clean(self._ask(image, prompts["text"]))
             return [self._chunk(page, _FULL_PAGE, text, 0)] if text else []
@@ -344,6 +392,24 @@ class VLM:
         self, page: Page, bbox: BBox, text: str, order: int, kind: str | None = None
     ) -> Chunk:
         return Chunk.make(page, bbox, self.name, text, reading_order=order, kind=kind)
+
+
+class _TransientError(RuntimeError):
+    """Uma falha que outra tentativa pode resolver; `wait` é a espera que o servidor pediu."""
+
+    def __init__(self, message: str, wait: float | None = None) -> None:
+        super().__init__(message)
+        self.wait = wait
+
+
+def _seconds(retry_after: str | None) -> float | None:
+    """Os segundos de um `Retry-After` numérico; a forma em data, rara, fica com a espera padrão."""
+    if retry_after is None:
+        return None
+    try:
+        return max(0.0, float(retry_after))
+    except ValueError:
+        return None
 
 
 def _crops(img: Image.Image, regions: Sequence[Region]) -> list[bytes]:

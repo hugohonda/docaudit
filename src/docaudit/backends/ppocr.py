@@ -210,6 +210,7 @@ class PPOCR:
         *,
         rec: Path | str | None = None,
         keys: Path | str | None = None,
+        det: Path | str | None = None,
         threads: int | None = None,
         engine: Engine = "auto",
     ) -> None:
@@ -223,6 +224,9 @@ class PPOCR:
                 ordem do treino. O RapidOCR prefere a lista gravada no
                 próprio ONNX quando ela existe; o export do PaddleOCR não a
                 grava, e então vale este arquivo.
+            det: um detector ONNX no lugar do de `models`. Com ele, nada do
+                detector é baixado: é o arquivo que uma imagem de contêiner
+                guarda para não depender da rede na primeira leitura.
             threads: threads do motor dentro de uma inferência. `None`
                 usa todos os núcleos, o certo para um processo só. Com vários
                 processos lendo ao mesmo tempo, cada um disputa todos os
@@ -241,7 +245,7 @@ class PPOCR:
         Raises:
             ValueError: `models` ou `engine` desconhecido, ou só um de `rec` e
                 `keys`.
-            FileNotFoundError: `rec` ou `keys` não existe.
+            FileNotFoundError: `rec`, `keys` ou `det` não existe.
         """
         if models not in _WEIGHTS:
             raise ValueError(f"models={models!r} desconhecido; aceitos: {sorted(_WEIGHTS)}")
@@ -255,16 +259,21 @@ class PPOCR:
             engine = "openvino" if importlib.util.find_spec("openvino") else "onnxruntime"
         self.engine: Engine = engine
         self.own = (Path(rec), Path(keys)) if rec is not None and keys is not None else None
+        self.own_det = Path(det) if det is not None else None
         self.name = f"ppocr-{models}"
         # Os nomes dos pesos entram na versão de saída, e com ela na chave do
         # cache: trocar de modelo não pode servir a leitura do anterior. Um
-        # reconhecedor próprio entra pelo hash do arquivo e do dicionário, que
-        # muda a cada treino sem mudar o caminho.
-        weights = "+".join(_WEIGHTS[models])
+        # peso próprio entra pelo hash do arquivo, que muda a cada treino sem
+        # mudar o caminho; o do reconhecedor leva também o do dicionário.
+        det_name, rec_name = _WEIGHTS[models]
+        if self.own_det is not None:
+            det_name = f"det={_sha256(self.own_det)}"
+            self.name += f"+{det_name}"
         if self.own is not None:
             rec_hash, keys_hash = (_sha256(p) for p in self.own)
             self.name += f"+{rec_hash}"
-            weights = f"{_WEIGHTS[models][0]}+rec={rec_hash}:keys={keys_hash}"
+            rec_name = f"rec={rec_hash}:keys={keys_hash}"
+        weights = f"{det_name}+{rec_name}"
         self.output_version = f"3:{weights}:rapidocr={_rapidocr_version()}"
         if engine != "onnxruntime":
             self.output_version += f":{engine}"
@@ -302,6 +311,8 @@ class PPOCR:
                 }
             if self.own is not None:
                 weights["Rec.model_path"], weights["Rec.rec_keys_path"] = map(str, self.own)
+            if self.own_det is not None:
+                weights["Det.model_path"] = str(self.own_det)
             # O classificador de orientação de linha fica desligado: ele julga
             # toda linha, e vira linhas horizontais que estavam certas. A linha
             # vertical é tratada em `_read`.
@@ -365,7 +376,8 @@ class PPOCR:
 
         Quem chama no início do processo, ou na construção da imagem, fica sem
         depender da rede ao ler: com o arquivo no lugar e o hash certo, o RapidOCR
-        não baixa nada. Inclui o detector, que `rec=` não substitui.
+        não baixa nada. Inclui o detector de `models=`, que `rec=` não
+        substitui e `det=` sim.
         """
         with _ENGINE:
             self._load()

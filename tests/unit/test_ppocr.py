@@ -174,3 +174,19 @@ def test_the_installed_opencv_resizes_a_color_page_just_below_its_size():
 
     assert run.returncode == 0, f"cv2.resize caiu (código {run.returncode}): {run.stderr}"
     assert run.stdout.strip() == "(1824, 1408, 3)"
+
+
+def test_an_own_detector_names_its_hash_and_leaves_the_recognizer(tmp_path):
+    det = tmp_path / "det.onnx"
+    det.write_bytes(b"detector")
+    own = PPOCR(det=det)
+
+    assert own.name.startswith("ppocr-v5-latin+det=")
+    assert "PP-OCRv5_mobile_det" not in own.output_version
+    assert "latin_PP-OCRv5_mobile_rec" in own.output_version, "o reconhecedor segue o de models="
+    assert own.output_version != PPOCR().output_version
+
+
+def test_a_missing_detector_fails_at_construction(tmp_path):
+    with pytest.raises(FileNotFoundError):
+        PPOCR(det=tmp_path / "nao-existe.onnx")

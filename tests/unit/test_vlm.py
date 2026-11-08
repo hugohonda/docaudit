@@ -341,3 +341,138 @@ def test_usage_adds_up_when_regions_are_counted_from_several_threads():
     assert reader.usage["calls"] == 40.0
     assert reader.usage["tokens_in"] == 40.0
     assert reader.usage["usd"] == pytest.approx(40 * 3 / 1e6)
+
+
+def _hosted_retrying(retries: int) -> VLM:
+    return VLM("https://api.exemplo.com", "generic", served="m", retries=retries)
+
+
+def test_retries_repeat_a_server_refusal_and_then_read(monkeypatch):
+    """429, 429 e a resposta: três pedidos, uma leitura; a espera segue o Retry-After."""
+    import urllib.error
+    import urllib.request
+
+    waits: list[float] = []
+    monkeypatch.setattr("docaudit.backends.vlm.time.sleep", waits.append)
+    asked_to_wait = Message()
+    asked_to_wait["Retry-After"] = "0.5"
+    answers = iter(
+        [
+            urllib.error.HTTPError("u", 429, "wait", asked_to_wait, io.BytesIO()),
+            urllib.error.HTTPError("u", 503, "busy", Message(), io.BytesIO()),
+            None,
+        ]
+    )
+    body = json.dumps({"choices": [{"message": {"content": "EDITAL"}}]}).encode()
+    calls: list[int] = []
+
+    def urlopen(request, timeout):
+        calls.append(1)
+        error = next(answers)
+        if error is not None:
+            raise error
+        return io.BytesIO(body)
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    assert _hosted_retrying(2)._ask(b"png", "p") == "EDITAL"
+    assert calls == [1, 1, 1]
+    assert waits == [0.5, 2.0], "o Retry-After do servidor, depois a espera que dobra"
+
+
+def test_exhausted_retries_fail_the_page(monkeypatch):
+    import urllib.error
+    import urllib.request
+
+    monkeypatch.setattr("docaudit.backends.vlm.time.sleep", lambda _: None)
+    calls: list[int] = []
+
+    def urlopen(request, timeout):
+        # Um erro novo por pedido, como na rede: o corpo do anterior já foi lido e fechado.
+        calls.append(1)
+        raise urllib.error.HTTPError("u", 502, "bad", Message(), io.BytesIO(b"gateway"))
+
+    monkeypatch.setattr(urllib.request, "urlopen", urlopen)
+    with pytest.raises(RuntimeError, match="502"):
+        _hosted_retrying(1)._ask(b"png", "p")
+    assert calls == [1, 1]
+
+
+def test_a_client_error_is_not_retried(monkeypatch):
+    import urllib.error
+
+    error = urllib.error.HTTPError("u", 400, "bad request", Message(), io.BytesIO(b"schema"))
+    calls = _answering(monkeypatch, raises=error)
+    with pytest.raises(RuntimeError, match="400"):
+        _hosted_retrying(3)._ask(b"png", "p")
+    assert calls == [1]
+
+
+def test_a_refused_connection_to_a_hosted_server_is_a_page_failure_after_retries(monkeypatch):
+    """Fora da máquina a recusa é passageira; esgotada, é da página, e o documento segue."""
+    import urllib.error
+
+    monkeypatch.setattr("docaudit.backends.vlm.time.sleep", lambda _: None)
+    calls = _answering(monkeypatch, raises=urllib.error.URLError(ConnectionRefusedError(61, "x")))
+    with pytest.raises(RuntimeError, match="sem servidor"):
+        _hosted_retrying(1)._ask(b"png", "p")
+    assert calls == [1, 1]
+
+
+def test_negative_retries_are_refused():
+    with pytest.raises(ValueError, match="retries"):
+        VLM("http://127.0.0.1:8089", "generic", retries=-1)
+
+
+def test_the_layout_of_the_pipeline_is_not_detected_again_by_the_reader(monkeypatch):
+    """`process(layout=)` e `VLM(layout=)` com o mesmo detector: uma detecção por página."""
+    from tests.support import make_scanned_pdf
+
+    from docaudit.types import Region
+
+    class CountingLayout:
+        output_version = "fake-layout:1"
+
+        def __init__(self) -> None:
+            self.calls = 0
+
+        def detect(self, image):
+            self.calls += 1
+            return [Region(label="text", bbox=BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.5))]
+
+    layout = CountingLayout()
+    reader = _stubbed(monkeypatch, {"Text Recognition:": "RELACAO"}, layout=layout)
+    result = docaudit.process(
+        make_scanned_pdf(["x"]),
+        policy="all_strong",
+        cheap=["text_layer"],
+        strong=reader,
+        layout=layout,
+    )
+    assert [c.text for c in result.chunks] == ["RELACAO"]
+    assert layout.calls == 1
+
+
+def test_a_reader_with_another_detector_detects_on_its_own(monkeypatch):
+    from tests.support import make_scanned_pdf
+
+    from docaudit.types import Region
+
+    class Layout:
+        def __init__(self, version: str) -> None:
+            self.output_version = version
+            self.calls = 0
+
+        def detect(self, image):
+            self.calls += 1
+            return [Region(label="text", bbox=BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.5))]
+
+    pipeline, own = Layout("a"), Layout("b")
+    reader = _stubbed(monkeypatch, {"Text Recognition:": "RELACAO"}, layout=own)
+    docaudit.process(
+        make_scanned_pdf(["x"]),
+        policy="all_strong",
+        cheap=["text_layer"],
+        strong=reader,
+        layout=pipeline,
+    )
+    assert (pipeline.calls, own.calls) == (1, 1)

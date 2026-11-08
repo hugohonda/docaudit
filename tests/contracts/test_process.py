@@ -2148,3 +2148,145 @@ def test_a_page_read_upright_is_reread_as_it_is():
     vlm = _RecordingVLM(text="CPF 529.982.247-25")
     process(doc, policy="evidence", cheap=["text_layer"], strong=vlm, trust_layer="always")
     assert not isinstance(vlm.views[0], RegionView)
+
+
+def test_the_time_cap_leaves_the_pages_it_reaches_with_the_cheap_read(scanned_doc):
+    """Cinco páginas escaladas, um teto já vencido: nenhuma vai ao leitor caro, e a decisão fica."""
+    vlm = FakeVLM()
+    result = process(
+        scanned_doc,
+        policy="evidence",
+        budget=Budget(max_seconds=1e-9),
+        cheap=[FakeOCR()],
+        strong=vlm,
+    )
+    assert vlm.calls == 0
+    assert result.spent.pages_strong == 0
+    assert sum(d.tier is Tier.STRONG for d in result.decisions) == 5, "o veredito da política fica"
+    assert all("teto de tempo" in d.steps[-1] for d in result.decisions if d.tier is Tier.STRONG)
+    assert result.run is not None
+    assert result.run.budget.max_seconds == 1e-9
+
+
+def test_without_a_time_cap_every_escalated_page_is_read(scanned_doc):
+    vlm = FakeVLM()
+    process(
+        scanned_doc,
+        policy="evidence",
+        budget=Budget(max_seconds=3600),
+        cheap=[FakeOCR()],
+        strong=vlm,
+    )
+    assert vlm.calls == 5
+
+
+def test_a_raster_below_the_floor_is_not_sent_to_the_pixel_reader():
+    """O logotipo fica em `Page.unread`, sem linha; a página fica com a camada numa leitura só."""
+    reader = _SeesTheCrop()
+    doc = make_scanned_pdf(["acima"], render_mode=0, raster_box=(0.1, 0.4, 0.3, 0.5), text_y=780)
+
+    result = process(
+        doc, policy="all_cheap", cheap=["text_layer", reader], min_raster_fraction=0.05
+    )
+
+    assert reader.seen == [], "o recorte abaixo do piso não é lido"
+    assert [c.source for c in result.chunks] == ["text_layer"]
+    assert len(result.pages[0].unread) == 1, "o raster continua declarado"
+    assert result.run is not None
+    assert result.run.min_raster_fraction == 0.05
+
+
+def test_the_default_floor_reads_every_raster():
+    reader = _SeesTheCrop()
+    doc = make_scanned_pdf(["acima"], render_mode=0, raster_box=(0.1, 0.4, 0.3, 0.5), text_y=780)
+    process(doc, policy="all_cheap", cheap=["text_layer", reader])
+    assert len(reader.seen) == 1
+
+
+def test_a_stamp_format_with_a_timezone_gives_an_aware_time():
+    from dataclasses import replace
+    from zoneinfo import ZoneInfo
+
+    with_tz = replace(ESAJ_STAMP, tz="America/Sao_Paulo")
+    doc = make_pdf(_stamped("Peticao inicial", *_strip(_OWN, "AbCd1234")))
+
+    naive = process(doc, policy="all_cheap", cheap=["text_layer"]).pages[0].stamp
+    aware = process(doc, policy="all_cheap", cheap=["text_layer"], stamps=[with_tz]).pages[0].stamp
+
+    assert naive is not None
+    assert aware is not None
+    assert naive.at is not None
+    assert aware.at is not None
+    assert naive.at.tzinfo is None
+    assert aware.at.tzinfo == ZoneInfo("America/Sao_Paulo")
+    assert aware.at.replace(tzinfo=None) == naive.at, "a hora impressa é a mesma; só o fuso entra"
+
+
+def test_pieces_group_consecutive_pages_by_stamp_code():
+    doc = make_pdf(
+        _stamped("Peticao inicial", *_strip(_OWN, "AbCd1234")),
+        _stamped("Pagina dois da peticao", *_strip(_OWN, "AbCd1234")),
+        _stamped("Documento", *_strip(_OWN, "EfGh5678")),
+        _stamped("Folha sem tarja"),
+        _stamped("Outra folha sem tarja"),
+        _stamped("Decisao", *_strip(_OWN, "AbCd1234")),
+    )
+    result = process(doc, policy="all_cheap", cheap=["text_layer"])
+    pieces = result.pieces()
+
+    assert [(p.code, p.pages) for p in pieces] == [
+        ("AbCd1234", (0, 1)),
+        ("EfGh5678", (2,)),
+        (None, (3, 4)),
+        ("AbCd1234", (5,)),
+    ]
+    assert [p.index for p in pieces] == [0, 1, 2, 3]
+    assert pieces[0].stamp is not None
+    assert pieces[0].stamp.code == "AbCd1234"
+    assert pieces[2].stamp is None
+
+
+class _Boxes:
+    """Um leitor que devolve linhas com as caixas dadas, como um OCR as detecta."""
+
+    name = "boxes"
+    external = False
+    output_version = "1"
+
+    def __init__(self, lines: list[tuple[str, tuple[float, float, float, float]]]) -> None:
+        self.lines = lines
+
+    def read(self, view):
+        return [
+            Chunk.make(
+                view.page, BBox(x0=x0, y0=y0, x1=x1, y1=y1), self.name, text, reading_order=n
+            )
+            for n, (text, (x0, y0, x1, y1)) in enumerate(self.lines)
+        ]
+
+
+def test_records_group_lines_into_rows_and_blocks_by_geometry():
+    """Duas células na mesma altura são uma fileira; um vão maior que a entrelinha separa blocos."""
+    reader = _Boxes(
+        [
+            ("Nome", (0.10, 0.100, 0.30, 0.115)),
+            ("Valor", (0.50, 0.101, 0.70, 0.116)),
+            ("ALFA LTDA", (0.10, 0.120, 0.30, 0.135)),
+            ("R$ 10,00", (0.50, 0.120, 0.70, 0.135)),
+            ("Paragrafo isolado, uma linha so.", (0.10, 0.300, 0.80, 0.315)),
+            ("Segunda linha do paragrafo.", (0.10, 0.320, 0.60, 0.335)),
+        ]
+    )
+    result = process(make_scanned_pdf(), policy="all_cheap", cheap=[reader])
+    records = result.records()
+
+    assert [r.rows for r in records] == [
+        (("Nome", "Valor"), ("ALFA LTDA", "R$ 10,00")),
+        (("Paragrafo isolado, uma linha so.",), ("Segunda linha do paragrafo.",)),
+    ]
+    assert [r.ref for r in records] == ["p0:b0", "p0:b1"]
+    assert [r.tabular for r in records] == [True, False]
+    assert records[0].text == "Nome | Valor\nALFA LTDA | R$ 10,00"
+    assert len(records[0].chunk_ids) == 4
+    assert records[0].bbox.y1 <= records[1].bbox.y0, "os blocos saem de cima para baixo"
+    assert len(result.records(gap=100.0)) == 1, "um vão folgado junta a página num bloco"

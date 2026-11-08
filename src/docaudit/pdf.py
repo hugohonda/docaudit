@@ -42,6 +42,7 @@ from docaudit.types import (
     FormKind,
     Page,
     PageDimensions,
+    Region,
     Signature,
     Substrate,
     Turn,
@@ -97,6 +98,10 @@ class PageView:
         """A caixa do recorte, numa `RegionView`; `None` é a página inteira."""
         self.turn: Turn = 0
         """Graus, no sentido anti-horário, que a vista gira o que mostra."""
+        self.regions: Sequence[Region] | None = None
+        """Os blocos de layout já detectados nesta página, para um leitor com o mesmo detector."""
+        self.regions_version: str | None = None
+        """O `output_version` do detector que produziu `regions`."""
 
     @property
     def page(self) -> Page:

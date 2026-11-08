@@ -7,8 +7,10 @@ precisa saber antes de confiar num resultado.
 
 - **Tabela como células.** A tabela sai como linhas, com as células separadas
   por ` | ` quando o leitor `vlm` a leu, e sem separador quando a leitura foi
-  do tier barato. Não há linha, coluna nem célula mesclada. Montar a tabela a
-  partir das linhas é passo de quem usa a biblioteca.
+  do tier barato. `Result.records()` junta em fileiras as linhas lado a lado
+  e em blocos as fileiras vizinhas, só pela posição das caixas; não há
+  coluna, cabeçalho nem célula mesclada. Montar a tabela a partir disso é
+  passo de quem usa a biblioteca.
 - **Extração de campos por esquema.** A biblioteca devolve texto com
   proveniência. Ela não preenche um esquema de campos, e não liga um valor
   extraído à caixa de onde ele veio além da caixa do trecho.
@@ -26,6 +28,8 @@ precisa saber antes de confiar num resultado.
 - **Consistência entre páginas.** Os sinais veem uma página por vez. Conferir
   que o número do processo é o mesmo em todas as folhas exige olhar o
   documento inteiro, e não há gancho para isso além de uma política própria.
+- **Que peça é cada peça.** `Result.pieces()` agrupa as páginas seguidas com a
+  mesma tarja; dizer se a peça é petição, decisão ou certidão é de quem lê.
 - **Exportação além de JSON e markdown simples.** Não há DocTags, HTML de
   documento nem formato de layout.
 - **Idioma por página.** O idioma do OCR é um só por chamada.
@@ -34,10 +38,11 @@ precisa saber antes de confiar num resultado.
 
 ## Comportamentos conhecidos
 
-- **Um servidor `vlm` que não responde à conexão interrompe o documento.** É
-  o caso do servidor ausente, e também do tempo esgotado ao conectar num
-  endpoint hospedado lento: o `urllib` relata os dois do mesmo jeito. Com
-  `cache`, a segunda execução retoma do que já foi lido.
+- **Um servidor `vlm` local que não responde à conexão interrompe o
+  documento.** O servidor não está lá, e repetir não o traz. Num servidor
+  fora da máquina a mesma recusa, o tempo esgotado e o 429 ou 5xx são falha
+  da página, repetida `retries` vezes antes. Com `cache`, a segunda execução
+  retoma do que já foi lido.
 - **Uma resposta cortada no teto de tokens falha a página.** É o caso de um
   modelo que entra em laço de repetição. A página fica com a leitura barata.
 - **O leitor `vlm` sem detector devolve a página como um trecho só.** A
