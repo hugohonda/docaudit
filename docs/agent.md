@@ -80,8 +80,8 @@ fração do texto, e a imagem de duas vezes e meia a quatro vezes o texto.
 Três coisas justificam a ordem, além do custo:
 
 - **o texto já foi conferido.** Uma entidade `confirmed` passou por um
-  dígito verificador; uma `failed` já foi relida por outra família e a
-  página diz se o erro é do documento. Mandar a imagem para o modelo decidir
+  dígito verificador; com `confirm=`, uma `failed` já foi relida por outra
+  família, e `Entity.printed` diz se o erro é do documento. Mandar a imagem para o modelo decidir
   de novo o que a regra já decidiu é pagar duas vezes pela resposta pior;
 - **o modelo lê melhor menos texto.** Em avaliação de perguntas sobre
   documentos, recuperar só os trechos relevantes do texto reconhecido

@@ -73,6 +73,10 @@ numa leitura. Para encaminhar por eles,
 | `well_formed` | a forma é possível | que os dígitos estão certos: `R$ 4.000,00` lido de `R$ 1.000,00` é bem escrito |
 | `failed` | a regra falhou: ou a leitura errou, ou o documento imprimiu errado | qual dos dois |
 
+O que não casa com a forma de nenhum campo não tem estado: um valor que a
+leitura deformou não aparece em `Result.entities`, e o silêncio de uma página
+não diz que ela está certa ([Limites](limits.md#comportamentos-conhecidos)).
+
 `Entity.printed` separa os dois casos quando a cascata tem prova:
 `text_layer` se o valor veio de linha composta, o nome do leitor se outra
 família leu o mesmo valor no mesmo lugar, `None` se pode ser leitura.

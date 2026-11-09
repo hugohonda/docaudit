@@ -38,6 +38,19 @@ precisa saber antes de confiar num resultado.
 
 ## Comportamentos conhecidos
 
+- **O valor que perde a forma não é verificado.** Uma verificação só olha o
+  texto que casa com a forma impressa do campo. Um CNPJ que o leitor
+  devolveu sem a barra, um `R$` lido como `R5`, um número de processo que
+  sumiu de uma tarja inclinada: nenhum casa, nenhum vira entidade, nenhum
+  sinal dispara, e a página não é encaminhada por eles. A página sem valor
+  `failed` não é página conferida. Quem precisa de um campo em toda folha
+  confere a presença dele por conta própria, com `Result.entities` e
+  `Page.stamp`.
+- **Um valor errado pode fechar o dígito.** O dígito verificador prova que o
+  valor é possível, não que é o impresso. No CPF e no CNPJ, que escrevem o
+  resto 10 como 0, uma troca de um só dígito fecha de vez em quando; no
+  número de processo, em módulo 97, nenhuma fecha, mas duas trocas podem.
+  O estado `confirmed` é evidência forte, e não prova.
 - **Um servidor `vlm` local que não responde à conexão interrompe o
   documento.** O servidor não está lá, e repetir não o traz. Num servidor
   fora da máquina a mesma recusa, o tempo esgotado e o 429 ou 5xx são falha
