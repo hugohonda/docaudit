@@ -41,9 +41,11 @@ precisa conhecer antes de confiar num resultado.
   a forma de um campo, e uma página sem valor `failed` não foi conferida.
 - **Foto de celular.** A página fotografada, com perspectiva, sombra e dobra,
   é lida com mais erro que a digitalizada. O Tesseract cai muito mais que o
-  PP-OCR nesse caso. Com `confirm=` no Tesseract, a releitura tende a não
-  resolver o valor que falhou numa foto, e a página segue para o leitor
-  caro. O PP-OCR maior não lê a foto melhor que o padrão.
+  PP-OCR nesse caso. Com `confirm=` no Tesseract, a
+  [releitura](glossary.md#releitura-por-outra-familia) de uma foto tende a
+  não trazer nem o mesmo valor inválido nem um válido no lugar. A página
+  segue então para o leitor caro. O PP-OCR maior não lê a foto melhor que o
+  padrão.
 - **Idioma por página.** O idioma do OCR é um só por chamada.
 - **API assíncrona.** `process()` é síncrono. Num servidor assíncrono,
   rode-o numa thread ou num processo à parte.
