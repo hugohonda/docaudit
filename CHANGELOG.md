@@ -14,6 +14,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   instalação por plataforma, problemas comuns e a página de versões. `Record` e `Piece` são
   exportados por `docaudit`.
 
+### Corrigido
+
+- O pacote volta a construir num commit depois de uma tag `.devN`: a versão é a da tag mais o
+  commit (`0.1.0.dev1+g<commit>`).
+
 ## [0.1.0.dev1] - 2026-11-08
 
 ### Adicionado

@@ -93,6 +93,12 @@ default-groups = ["dev"]
 
 [tool.hatch.version]
 source = "vcs"
+# As tags da fase de desenvolvimento são `v0.1.0.devN`, e o esquema padrão do
+# setuptools-scm não numera um commit depois de uma tag `.devN`: o build falha.
+# Com `only-version`, o commit da tag tem a versão dela, e um commit depois dela
+# tem a versão da tag mais o commit (`0.1.0.dev1+g3b1d331`). Ao sair da fase de
+# desenvolvimento, com tags `vX.Y.Z`, este esquema sai e volta o padrão.
+raw-options = { version_scheme = "only-version" }
 
 [tool.hatch.build.hooks.vcs]
 version-file = "src/docaudit/_version.py"
