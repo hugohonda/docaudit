@@ -140,12 +140,13 @@ verificação casou, com as linhas de origem e um de três estados:
 | `failed` | a regra falha: erro de leitura ou erro impresso no documento |
 
 A diferença entre os dois primeiros é a redundância (`Check.redundant`). Um
-valor em reais bem escrito pode ter um dígito trocado. Um CPF com um dígito
-trocado falha o dígito verificador.
+valor em reais bem escrito pode ter um dígito trocado. Num CPF, a maioria
+das trocas de um dígito falha o dígito verificador, mas não todas: o estado
+`confirmed` é evidência forte, não prova ([Limites](../limits.md#comportamentos-conhecidos)).
 
 Num valor `failed`, `Entity.printed` diz quem mostra que o erro é do
-documento. `text_layer` quer dizer que o valor veio da camada composta, que
-não tem leitor a errar. O nome de um leitor quer dizer que outra família
+documento. `text_layer` quer dizer que o valor veio da camada de texto de uma página
+nato-digital, que não tem leitor a errar. O nome de um leitor quer dizer que outra família
 leu o mesmo valor inválido no mesmo lugar. `None` quer dizer que o erro
 pode ser de leitura.
 

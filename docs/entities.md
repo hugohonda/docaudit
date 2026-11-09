@@ -87,6 +87,10 @@ O [estado](glossary.md#estado) diz o que a regra provou sobre o valor.
 | `well_formed` | a forma é possível | que os dígitos estão certos: `R$ 4.000,00` lido de `R$ 1.000,00` também é bem escrito |
 | `failed` | a regra falhou: a leitura errou, ou o documento imprimiu errado | qual dos dois |
 
+O que não casa com a forma de nenhum campo não tem estado. Um valor que a
+leitura deformou não aparece em `Result.entities`, e uma página sem valor
+`failed` não está por isso certa ([Limites](limits.md#comportamentos-conhecidos)).
+
 `Entity.printed` separa os dois casos de `failed` quando há prova:
 
 | `printed` | quer dizer |

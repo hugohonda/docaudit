@@ -41,6 +41,18 @@ precisa conhecer antes de confiar num resultado.
 
 ## Comportamentos conhecidos
 
+- **O valor que perde a forma não é verificado.** Uma verificação só olha o
+  texto que casa com a forma impressa do campo. Um CNPJ que a leitura
+  devolveu sem a barra, um `R$` lido como `R5`, um número de processo que
+  sumiu de uma tarja inclinada: nenhum casa e nenhum vira entidade. Nenhum
+  sinal dispara por eles, e a página não é encaminhada. Uma página sem valor
+  `failed` não é uma página conferida. Quem precisa de um campo em toda
+  folha confere a presença dele com `Result.entities` e `Page.stamp`.
+- **Um valor errado pode passar no dígito verificador.** O dígito prova que
+  o valor é possível, não que é o impresso. No CPF e no CNPJ, que escrevem o
+  resto 10 como 0, a troca de um só dígito passa em alguns casos. No número
+  de processo, em módulo 97, nenhuma troca de um dígito passa, mas duas
+  trocas podem passar. O estado `confirmed` é evidência forte, não prova.
 - **Um servidor `vlm` local ausente interrompe o documento.** Quando a
   conexão é recusada num servidor da própria máquina, o leitor levanta
   `ConnectionError`. O servidor não está lá, e repetir não o traz. Num

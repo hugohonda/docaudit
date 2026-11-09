@@ -114,8 +114,8 @@ princípio da cascata de leitores.
 Três razões sustentam a ordem, além do custo:
 
 - **O texto já foi conferido.** Uma entidade `confirmed` passou por um dígito
-  verificador. Uma `failed` já foi relida por outra família, e a página diz
-  se o erro é do documento. Pedir ao modelo que decida de novo, olhando a
+  verificador. Com `confirm=`, uma `failed` já foi relida por outra família,
+  e `Entity.printed` diz se o erro é do documento. Pedir ao modelo que decida de novo, olhando a
   imagem, paga duas vezes por uma resposta pior.
 - **O modelo responde melhor com menos texto.** Em perguntas sobre
   documentos, recuperar só os trechos relevantes do texto reconhecido
