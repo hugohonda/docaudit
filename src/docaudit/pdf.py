@@ -1191,7 +1191,11 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
     o `-` impresso, e o índice dele fica em `hyphens`, porque o pdfium não
     distingue o hífen de translineação do hífen de uma URL ou de um nome
     composto partido na margem. Juntar as metades é decisão de quem lê, com
-    o índice à mão; apagar o hífen não teria volta. O marcador de lista que o
+    o índice à mão; apagar o hífen não teria volta. O pdfium faz a mesma
+    junção quando o resto da palavra está noutra coluna ou mais adiante na
+    página; aí a caixa da linha atravessaria a coluna, e a junção é desfeita:
+    cada lado sai como linha própria, o primeiro terminando no hífen impresso
+    (`_split_jumps`). O marcador de lista que o
     Word desenha com a fonte Symbol vem na área de uso privado, U+F0B7, e sai
     como "•".
 
@@ -1226,6 +1230,8 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
             marks: set[int] = set()
             box: tuple[float, float, float, float] | None = None
             first: list[tuple[int, bool]] = []
+            drawn_at: dict[int, tuple[int, bool]] = {}
+            hyphenated: list[tuple[int, list[_Half]]] = []
 
             def flush() -> None:
                 drawn = min(at for at, _ in first) if first else -1
@@ -1239,30 +1245,31 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
                     return
                 # Cada trecho entre hífens marcados é normalizado à parte: o NFC
                 # pode encurtar um trecho ("c" mais cedilha vira "ç"), e o índice
-                # do hífen tem de valer no texto que sai.
-                parts: list[str] = []
-                current: list[str] = []
-                for j, ch in enumerate(chars):
-                    if j in marks:
-                        parts.append(unicodedata.normalize("NFC", "".join(current)))
-                        current = []
-                    else:
-                        current.append(ch)
-                parts.append(unicodedata.normalize("NFC", "".join(current)))
-                joined = "-".join(parts)
-                text_value = joined.strip()
-                lead = len(joined) - len(joined.lstrip())
-                hyphens: list[int] = []
-                position = 0
-                for part in parts[:-1]:
-                    position += len(part)
-                    hyphens.append(position - lead)
-                    position += 1
-                if text_value and box is not None:
-                    inside = tuple(h for h in hyphens if 0 <= h < len(text_value))
+                # do hífen tem de valer no texto que sai. Cada metade guarda a
+                # própria caixa e a própria ordem de desenho, para o caso de a
+                # junção do pdfium não ser a da linha seguinte (`_split_jumps`).
+                halves: list[_Half] = []
+                start = 0
+                for end in [*sorted(marks), len(chars)]:
+                    part = unicodedata.normalize("NFC", "".join(chars[start:end]))
+                    boxes = [g.box for g in glyphs[start:end] if g is not None]
+                    at = [drawn_at[j] for j in range(start, end) if j in drawn_at]
+                    halves.append(
+                        _Half(
+                            part,
+                            displayed(_union(boxes)) if boxes else None,
+                            min(a for a, _ in at) if at else -1,
+                            bool(at) and all(v for _, v in at),
+                        )
+                    )
+                    start = end + 1
+                line = _hyphen_line([h.text for h in halves])
+                if line is not None and box is not None:
+                    text_value, inside = line
                     out.append(
                         DrawnLine(TextLine(displayed(box), text_value, inside), drawn, visible)
                     )
+                    hyphenated.append((len(out) - 1, halves))
 
             high = 0
             for i in range(textpage.count_chars()):
@@ -1294,11 +1301,13 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
                 if char in _LINE_BREAKS:
                     flush()
                     chars, glyphs, marks, box, first = [], [], set(), None, []
+                    drawn_at = {}
                     continue
                 chars.append(char)
                 obj = pdfium_c.FPDFText_GetTextObject(textpage.raw, i)
                 if (at := drawing.get(ctypes.cast(obj, ctypes.c_void_p).value or 0)) is not None:
                     first.append(at)
+                    drawn_at[len(chars) - 1] = at
                 if char.isspace() or pdfium_c.FPDFText_IsGenerated(textpage.raw, i) == 1:
                     glyphs.append(None)
                     continue
@@ -1324,7 +1333,116 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
                     )
                 )
             flush()
-        return out
+        return _split_jumps(out, hyphenated)
+
+
+class _Half(NamedTuple):
+    """Um trecho de uma linha entre hífens de quebra, com a caixa e a ordem de desenho dele."""
+
+    text: str
+    bbox: BBox | None
+    drawn: int
+    visible: bool
+
+
+def _union(boxes: Sequence[_Box]) -> _Box:
+    """A menor caixa, em pontos, que contém todas."""
+    return (
+        min(b[0] for b in boxes),
+        min(b[1] for b in boxes),
+        max(b[2] for b in boxes),
+        max(b[3] for b in boxes),
+    )
+
+
+def _hyphen_line(
+    parts: Sequence[str], *, trailing: bool = False
+) -> tuple[str, tuple[int, ...]] | None:
+    """Os trechos unidos pelo hífen impresso, sem espaços nas pontas, e o índice de cada hífen.
+
+    Com `trailing`, a linha termina no hífen da quebra que foi desfeita.
+    """
+    joined = "-".join(parts) + ("-" if trailing else "")
+    text = joined.strip()
+    if not text:
+        return None
+    lead = len(joined) - len(joined.lstrip())
+    hyphens: list[int] = []
+    position = 0
+    for part in parts if trailing else parts[:-1]:
+        position += len(part)
+        hyphens.append(position - lead)
+        position += 1
+    return text, tuple(h for h in hyphens if 0 <= h < len(text))
+
+
+def _not_next(above: BBox, below: BBox, others: Sequence[BBox]) -> bool:
+    """Se `below` não é a linha seguinte de `above`: sobe na página, ou há outra linha entre elas.
+
+    A linha seguinte começa abaixo do fim da anterior. A metade que sobe é a
+    continuação noutra coluna, ou noutro lugar acima, e a que tem outra linha
+    no meio pulou um trecho. Nos dois casos, juntá-las faz uma caixa que
+    atravessa a coluna. Uma linha conta como no meio quando o centro dela fica
+    entre as duas metades e ela se sobrepõe, na horizontal, a uma delas.
+    """
+    center = (below.y0 + below.y1) / 2
+    if center <= above.y1:
+        return True
+    x0, x1 = min(above.x0, below.x0), max(above.x1, below.x1)
+    return any(
+        above.y1 < (o.y0 + o.y1) / 2 < below.y0 and min(o.x1, x1) > max(o.x0, x0) for o in others
+    )
+
+
+def _split_jumps(
+    lines: list[DrawnLine], hyphenated: Sequence[tuple[int, list[_Half]]]
+) -> list[DrawnLine]:
+    """As linhas com cada junção de hífen que não é a da linha seguinte desfeita em duas.
+
+    O pdfium junta numa linha as duas metades de uma palavra partida no fim da
+    linha, e faz o mesmo quando a continuação está no topo da coluna seguinte.
+    A linha que sai cobre a coluna inteira, e a caixa dela não serve para
+    recortar, citar nem ordenar. A junção fica só onde a metade de baixo é a
+    linha seguinte (`_not_next`); nas outras, cada lado sai como linha própria,
+    com a própria caixa, terminando no hífen impresso.
+    """
+    if not hyphenated:
+        return lines
+    out: list[DrawnLine] = []
+    by_index = dict(hyphenated)
+    boxes = [d.line.bbox for d in lines]
+    for k, drawn in enumerate(lines):
+        halves = by_index.get(k)
+        if halves is None:
+            out.append(drawn)
+            continue
+        others = [b for j, b in enumerate(boxes) if j != k]
+        groups: list[list[_Half]] = [[halves[0]]]
+        for half in halves[1:]:
+            last = groups[-1][-1]
+            above, below = last.bbox, half.bbox
+            if above is not None and below is not None and _not_next(above, below, others):
+                groups.append([half])
+            else:
+                groups[-1].append(half)
+        if len(groups) == 1:
+            out.append(drawn)
+            continue
+        for n, group in enumerate(groups):
+            line = _hyphen_line([h.text for h in group], trailing=n < len(groups) - 1)
+            found = [h.bbox for h in group if h.bbox is not None]
+            if line is None or not found:
+                continue
+            text, hyphens = line
+            at = [h.drawn for h in group if h.drawn >= 0]
+            out.append(
+                DrawnLine(
+                    TextLine(BBox.envelope(found), text, hyphens),
+                    min(at) if at else -1,
+                    all(h.visible for h in group),
+                )
+            )
+    return out
 
 
 def pixels_of(
