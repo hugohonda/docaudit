@@ -1,16 +1,26 @@
 site_name: docaudit
-site_description: Leitura de documentos digitalizados com verificação da leitura e a origem de cada trecho
+site_description: Leitura de documentos digitalizados com conferência da leitura e a origem de cada trecho
+site_url: https://hugohonda.github.io/docaudit/
 repo_url: https://github.com/hugohonda/docaudit
-edit_uri: ""
+repo_name: hugohonda/docaudit
+edit_uri: edit/main/docs/
 
 theme:
   name: material
   language: pt-BR
   features:
+    - navigation.tabs
     - navigation.sections
+    - navigation.indexes
+    - navigation.footer
+    - navigation.instant
     - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.tabs.link
     - content.code.copy
     - content.code.annotate
+    - content.action.edit
     - toc.follow
   palette:
     - media: "(prefers-color-scheme: light)"
@@ -21,47 +31,76 @@ theme:
       toggle: {icon: material/weather-sunny, name: Modo claro}
 
 nav:
-  - Visão geral: index.md
-  - Começando: getting-started.md
+  - Início: index.md
+  - Aprender:
+      - Instalação: install.md
+      - Primeira leitura: tutorial.md
   - Guias:
-      - Conceitos: concepts.md
-      - Formato da resposta: response.md
-      - Entidades: entities.md
-      - Análise por um agente: agent.md
-      - Configuração: configuration.md
-      - Receitas: recipes.md
-      - Escrevendo um leitor: writing-a-reader.md
-  - Desempenho: performance.md
-  - Limites e dados:
+      - Escalar só o que falhou: how-to/escalate.md
+      - Declarar os campos do seu documento: how-to/checks.md
+      - Ligar um modelo de visão e linguagem: how-to/vlm.md
+      - Entregar a leitura a um agente: agent.md
+      - Escrever um leitor: writing-a-reader.md
+      - Implantar num serviço: how-to/deploy.md
+      - Receitas:
+          - recipes/index.md
+          - Relação de nome e valor: recipes/name-value-list.md
+          - Diário oficial em duas colunas: recipes/two-columns.md
+          - Redigir dados pessoais: recipes/redact.md
+          - Ler muitos processos em lote: recipes/batch.md
+          - Guardar a leitura para treinar: recipes/training-pairs.md
+          - Notas fiscais e boletos: recipes/invoices.md
+          - Tarja e folha de outro sistema: recipes/stamps.md
+      - Problemas comuns: troubleshooting.md
+  - Explicação:
+      - Como a leitura funciona: concepts/index.md
+      - Substrato: concepts/substrate.md
+      - Cascata e elementos fixos: concepts/cascade.md
+      - Política, conferência e escalada: concepts/policy.md
+      - Origem e cache: concepts/provenance.md
+      - Desempenho: performance.md
       - Limites: limits.md
       - Segurança dos dados: security.md
       - Comparação: comparison.md
   - Referência:
-      - docaudit: reference/docaudit.md
-      - docaudit.types: reference/types.md
-      - docaudit.pdf: reference/pdf.md
-      - docaudit.process: reference/process.md
-      - docaudit.policies: reference/policies.md
-      - docaudit.registry: reference/registry.md
-      - docaudit.cache: reference/cache.md
-      - docaudit.visualize: reference/visualize.md
-      - docaudit.session: reference/session.md
-      - docaudit.backends.textlayer: reference/backends-textlayer.md
-      - docaudit.backends.tesseract: reference/backends-tesseract.md
-      - docaudit.backends.ppocr: reference/backends-ppocr.md
-      - docaudit.backends.vlm: reference/backends-vlm.md
-      - docaudit.backends.layout: reference/backends-layout.md
+      - Configuração: configuration.md
+      - Formato da resposta: response/index.md
+      - Campos do resultado: response/fields.md
+      - Entidades padrão: entities.md
+      - Glossário: glossary.md
+      - API:
+          - reference/index.md
+          - Ponto de entrada: reference/entry.md
+          - Resultado: reference/types.md
+          - Políticas e verificações: reference/policies.md
+          - Leitores: reference/readers.md
+          - PDF e cache: reference/pdf-cache.md
+  - Projeto:
+      - Versões e mudanças: changelog.md
+      - Contribuir: contributing.md
+
+validation:
+  anchors: warn
+  omitted_files: warn
+  unrecognized_links: warn
 
 markdown_extensions:
+  - abbr
   - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc: {permalink: true}
   - pymdownx.details
   - pymdownx.superfences
   - pymdownx.highlight: {anchor_linenums: true}
   - pymdownx.inlinehilite
-  - attr_list
-  - tables
-  # `index.md` inclui trechos do README: uma fonte só para o pitch e o exemplo.
-  - pymdownx.snippets: {check_paths: true}
+  - pymdownx.tabbed: {alternate_style: true}
+  # Trechos de outros arquivos: o pitch do README no início, o CHANGELOG e o
+  # CONTRIBUTING no Projeto, e as siglas de `docs/siglas.md` em toda página.
+  - pymdownx.snippets:
+      check_paths: true
+      auto_append: [docs/siglas.md]
 
 plugins:
   - search: {lang: pt}
@@ -71,9 +110,13 @@ plugins:
           options:
             docstring_style: google
             show_source: false
+            show_bases: false
             show_root_heading: true
             heading_level: 2
             members_order: source
             separate_signature: true
             show_signature_annotations: true
             signature_crossrefs: true
+
+not_in_nav: |
+  /siglas.md

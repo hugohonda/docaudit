@@ -1,3 +1,0 @@
-# `docaudit.registry`
-
-::: docaudit.registry

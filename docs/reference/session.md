@@ -1,3 +1,0 @@
-# `docaudit.session`
-
-::: docaudit.session

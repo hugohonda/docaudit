@@ -279,8 +279,9 @@ MIN_NATIVE_DPI = 150
 O valor não tem medida que o separe de outro piso."""
 
 MAX_NATIVE_DPI = 300
-"""Teto do DPI nativo. Um raster de resolução maior é renderizado no teto:
-300 dpi para todas as páginas custou mais que 200 e não leu melhor."""
+"""Teto do DPI nativo. Um raster de resolução maior é renderizado no teto.
+
+Acima dele o OCR paga por mais pixels sem ler melhor uma página de texto impresso."""
 
 
 _TR_INVISIBLE = 3

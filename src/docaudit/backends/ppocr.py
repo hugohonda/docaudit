@@ -237,7 +237,7 @@ class PPOCR:
                 máquina (`process_cpus`): o `cpuset` de um contêiner. A cota
                 de CPU sem `cpuset` não é vista: passe o número. Com vários
                 processos lendo ao mesmo tempo, cada um disputa todos os
-                núcleos; ver a receita de lote em `docs/recipes.md`. Não entra
+                núcleos; ver a receita de lote em `docs/recipes/batch.md`. Não entra
                 em `output_version`: muda o tempo, não a leitura.
             engine: o motor da detecção e do reconhecimento. `"auto"`, o
                 padrão, é o OpenVINO na CPU quando o extra `openvino` está

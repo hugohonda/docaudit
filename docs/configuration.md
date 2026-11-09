@@ -1,7 +1,8 @@
 # Configuração
 
-Tudo se configura por argumento de chamada. Não há arquivo de configuração,
-e só duas variáveis de ambiente.
+Tudo se configura por argumento de chamada. Não há arquivo de configuração, e
+só duas variáveis de ambiente. Os termos desta página estão definidos no
+[glossário](glossary.md).
 
 ## `process()`
 
@@ -33,126 +34,143 @@ docaudit.process(
 | argumento | tipo | padrão | efeito |
 |---|---|---|---|
 | `document` | `Path`, `str` ou `bytes` | obrigatório | um PDF, ou uma imagem PNG, JPEG, TIFF, BMP ou WebP. A imagem vira um PDF de uma página por quadro, no DPI que ela declara |
-| `policy` | `TriagePolicy` ou nome | `"all_cheap"` | quem decide as páginas que escalam. `"all_cheap"` não escala nenhuma, `"all_strong"` escala todas, `"evidence"` escala só onde a leitura barata falhou numa verificação |
-| `budget` | `Budget` | sem teto | quantas páginas, e até que segundo da execução, podem chegar ao leitor caro |
-| `cheap` | lista de `Reader` ou nomes | `("text_layer", "ppocr")` | a cascata barata, em ordem. A primeira leitura não vazia vence |
-| `strong` | `Reader` ou nome | `None` | o leitor caro. Pode ser qualquer `Reader`, inclusive um OCR. `None` desliga a escalada |
-| `confirm` | `Reader` ou nome | `None` | leitor de outra família que relê a página encaminhada por uma verificação, antes do leitor caro |
-| `trust_layer` | `TrustLayer`: `"visible"` ou `"always"` | `"visible"` | a camada de texto de uma `searchable_scan`: `"visible"` não a lê como leitura, o leitor de pixels lê a página e a camada entra como primeira família da releitura; `"always"` a lê como está |
+| `policy` | `TriagePolicy` ou nome | `"all_cheap"` | a [política](glossary.md#politica) que decide que páginas encaminhar ao leitor caro; ver [Políticas](#politicas) |
+| `budget` | `Budget` | sem teto | o [teto](glossary.md#teto) do leitor caro, em páginas e em segundos; ver [Teto](#teto-budget) |
+| `cheap` | sequência de `Reader` ou de nomes | `("text_layer", "ppocr")` | a [cascata](glossary.md#cascata) da etapa barata, em ordem. Vale a primeira leitura não vazia |
+| `strong` | `Reader` ou nome | `None` | o leitor caro. Pode ser qualquer `Reader`, inclusive um OCR. `None` desliga a etapa cara |
+| `confirm` | `Reader` ou nome | `None` | o leitor de outra [família](glossary.md#familia) que relê a página encaminhada por uma verificação, antes do leitor caro |
 | `reread` | `Reread`: `"page"` ou `"region"` | `"page"` | o que o leitor caro recebe: a página inteira, ou o recorte das linhas que falharam |
-| `layout` | `Layout` | `None` | detector de regiões que põe as linhas de todos os leitores na ordem dos blocos da página |
-| `entities` | lista de `Check` | as da política e `DEFAULT_ENTITIES` | os campos que saem em `Result.entities`, com estado e linha de origem; ver [Entidades](entities.md) |
-| `stamps` | lista de `StampFormat` ou nomes de `STAMP_FORMATS` (`e-saj`, `pje`, `projudi-pr`, `projudi-go`, `eproc`) | `DEFAULT_STAMPS`, o e-SAJ | as tarjas procuradas na camada de texto, para `Page.stamp`. `[]` não procura nenhuma; ver [a tarja de outro sistema](recipes.md#a-tarja-e-a-folha-de-outro-sistema) |
-| `folhas` | lista de `Check` ou nomes de `FOLHA_FORMATS` (`folha`, `pagina-projudi`) | `FOLHA`, `fls. N` | as formas de folha procuradas nas linhas de elemento fixo, para `Page.folha`; o número vem no grupo `number`. `[]` não procura nenhuma |
-| `spans` | `bool` | `False` | põe em cada `Entity.span` o começo e o fim do valor no texto das linhas dele: dois inteiros a mais por entidade no JSON |
-| `allow_external` | `bool` | `False` | autoriza leitores que enviam a página para fora da máquina; ver [Segurança dos dados](security.md) |
+| `layout` | `Layout` | `None` | o [detector de layout](glossary.md#detector-de-layout) que põe as linhas de todos os leitores na ordem dos blocos da página |
+| `trust_layer` | `TrustLayer`: `"visible"` ou `"always"` | `"visible"` | o que fazer com a [camada de OCR](glossary.md#camada-de-ocr) de uma página `searchable_scan`; ver abaixo |
+| `entities` | sequência de `Check` | as da política e `DEFAULT_ENTITIES` | as verificações cujos valores saem em `Result.entities`; ver [Entidades padrão](entities.md) |
+| `stamps` | sequência de `StampFormat` ou de nomes | `DEFAULT_STAMPS`, o e-SAJ | os formatos de [tarja](glossary.md#tarja) procurados na camada de texto, para `Page.stamp`. `[]` não procura nenhum |
+| `folhas` | sequência de `Check` ou de nomes | `FOLHA`, `fls. N` | as formas de folha procuradas nas linhas de elemento fixo, para `Page.folha`. `[]` não procura nenhuma |
+| `spans` | `bool` | `False` | põe em cada `Entity.span` o começo e o fim do valor no texto das linhas dele |
+| `allow_external` | `bool` | `False` | autoriza os leitores [externos](glossary.md#externo), que enviam a página para fora da máquina |
 | `cache` | `ModelCallCache` | `None` | guarda cada leitura; uma segunda execução lê do disco |
-| `dpi` | `int` | por página | fixa o DPI de renderização. Sem ele, cada página com imagem é renderizada na resolução da imagem, presa a `[150, 300]`, e uma sem imagem a 200 |
-| `workers` | `int` | `1` | threads no tier barato, e no tier caro quando o leitor é hospedado (`external`). O ganho vem de um motor que solta o GIL fora do lock do PDF, como o Tesseract; ver [Desempenho](performance.md) |
+| `dpi` | `int` | por página | fixa o DPI de renderização de todas as páginas; ver abaixo |
+| `workers` | `int` | `1` | threads na etapa barata, e na etapa cara quando o leitor caro é externo |
 | `pages` | conjunto de `int` | todas | os índices a processar, a partir de zero. As outras páginas nem são carregadas |
-| `min_raster_fraction` | `float` | `0.0` | numa página nato-digital, a fração da página abaixo da qual um raster que nenhuma camada leu não vai ao leitor de pixels. `0.0` lê todos. O valor que separa o logotipo de uma figura com texto não está calibrado e depende do acervo; o raster fica em `Page.unread` e em `figures()`, sem linha |
+| `min_raster_fraction` | `float` | `0.0` | numa página nato-digital, a fração da página abaixo da qual um raster não lido não vai ao leitor de pixels; ver abaixo |
 
-`Document` recebe os mesmos leitores, `layout`, `trust_layer`, `cache`, `dpi` e
-`allow_external` no construtor, e `policy`, `budget`, `reread`, `workers`,
-`pages`, `entities`, `stamps`, `folhas` e `spans` em `read()`. A política padrão de `Document.read()` é
-`"evidence"`.
+`trust_layer="visible"` não usa a camada de OCR como leitura. O leitor de
+pixels seguinte da cascata lê a página, e a camada entra como primeira família
+da releitura, sem custo. `"always"` lê a camada como está, e só a evidência no
+texto encaminha a página.
+
+Sem `dpi`, cada página com imagem é renderizada na resolução da imagem, presa
+ao intervalo `[150, 300]`. Uma página sem imagem é renderizada a 200 DPI.
+
+`workers` acima de `1` rende com um motor que solta o GIL do Python fora do
+lock do PDF, como o Tesseract. Com que leitor isso vale a pena está em
+[Desempenho](performance.md).
+
+`stamps=` aceita os nomes de `STAMP_FORMATS`: `e-saj`, `pje`, `projudi-pr`,
+`projudi-go` e `eproc`. `folhas=` aceita os nomes de `FOLHA_FORMATS`: `folha`
+e `pagina-projudi`. Uma forma de folha própria traz o número no grupo
+`number`. Como declarar a tarja de outro sistema está na receita
+[Tarja e folha de outro sistema](recipes/stamps.md).
+
+`spans=True` acrescenta dois inteiros por entidade ao JSON. Por isso vem
+desligado.
+
+!!! warning "`allow_external` envia páginas para fora da máquina"
+    Sem `allow_external=True`, pedir um leitor externo levanta
+    `ExternalBackendError` antes de o documento ser aberto. A regra vale para
+    `cheap=`, `confirm=` e `strong=`. O que sai e o que fica no disco está em
+    [Segurança dos dados](security.md).
+
+!!! warning "`min_raster_fraction` não está calibrado"
+    O logotipo e o brasão do cabeçalho custam uma leitura de pixels que não
+    traz linha útil. O valor que os separa de uma figura com texto depende do
+    acervo, e nenhuma medição o fixou. `0.0` lê todos os rasters. O raster que
+    fica de fora continua em `Page.unread` e em `Result.figures()`, sem linha.
+
+### `Document`
+
+`Document` recebe no construtor `cheap`, `strong`, `confirm`, `layout`,
+`trust_layer`, `cache`, `dpi` e `allow_external`. `Document.read()` recebe
+`policy`, `budget`, `reread`, `workers`, `pages`, `entities`, `stamps`,
+`folhas` e `spans`. A política padrão de `Document.read()` é `"evidence"`.
+`min_raster_fraction` existe só em `process()`. A assinatura completa está em
+[Ponto de entrada](reference/entry.md).
 
 ## Leitores
 
-Cada leitor tem um nome registrado, que `cheap=`, `strong=` e `confirm=` aceitam
-como texto, e uma classe, que aceita parâmetros.
+Cada leitor tem um nome registrado, que `cheap=`, `strong=` e `confirm=`
+aceitam como texto, e uma classe, que aceita parâmetros.
 
 | nome | classe | extra | o que lê |
 |---|---|---|---|
-| `text_layer` | `TextLayerReader` | núcleo | a camada de texto do PDF, uma linha por trecho, sem renderizar |
+| `text_layer` | `TextLayerReader()` | nenhum | a camada de texto do PDF, uma linha por trecho, sem renderizar |
 | `tesseract` | `TesseractOCR(lang=None, config="")` | `tesseract` e o binário | a página renderizada em tons de cinza, uma linha por trecho |
-| `ppocr` | `PPOCR(models="v5-latin")` | `ppocr` | a página renderizada em cor, uma linha por trecho, com confiança |
-| `vlm` | `VLM(url, model, ...)` | `vlm`; o detector de layout vem do extra `layout` | a página ou cada região dela, por um modelo de visão e linguagem |
+| `ppocr` | `PPOCR(models="v5-latin", ...)` | `ppocr`, ou `openvino` | a página renderizada em cor, uma linha por trecho, com confiança |
+| `vlm` | `VLM(url, model, ...)` | `vlm`; o detector vem do extra `layout` | a página, ou cada região de layout dela, por um modelo de visão e linguagem |
 
-O nome da tabela é o que `cheap=` e `strong=` aceitam como texto. O nome que
-fica em `Chunk.source` é o do leitor, e o do `PPOCR` traz os pesos:
-`ppocr-v5-latin` no primeiro nível e `ppocr-v6-medium` no segundo saem
-distintos.
+O nome da tabela é o que `cheap=` e `strong=` aceitam. O nome que fica em
+`Chunk.source` é o do leitor, e o do `PPOCR` traz os pesos: `ppocr-v5-latin`
+na etapa barata e `ppocr-v6-medium` na etapa cara saem distintos. Como
+instalar cada extra está em [Instalação](install.md).
 
 ### `PPOCR`
 
-| `models=` | detecção e reconhecimento |
+```python
+PPOCR(models="v5-latin", *, rec=None, keys=None, det=None, threads=None, engine="auto")
+```
+
+| parâmetro | efeito |
 |---|---|
-| `"v5-latin"` | PP-OCRv5 mobile, reconhecedor latino. O padrão |
-| `"v6-medium"` | PP-OCRv6 medium, reconhecedor multilíngue, a quatro vezes o custo. Para o segundo nível |
+| `models` | os pesos do detector e do reconhecedor. `"v5-latin"`, o padrão, é o PP-OCRv5 mobile com o reconhecedor latino. `"v6-medium"` é o PP-OCRv6 medium, com um reconhecedor de muitas línguas e custo maior |
+| `rec`, `keys` | um reconhecedor ONNX próprio e o dicionário de caracteres com que ele foi treinado. Vêm juntos. O detector continua o de `models` |
+| `det` | um detector ONNX próprio. Com ele, nada do detector é baixado |
+| `threads` | as threads do motor dentro de uma inferência; ver abaixo |
+| `engine` | o motor: `"auto"`, `"onnxruntime"`, `"openvino"` ou `"cuda"`; ver abaixo |
 
-O custo de cada um está em [Desempenho](performance.md#leitores). Os
-pesos baixam na primeira leitura para `<DOCAUDIT_CACHE_DIR>/models`.
-`threads=` fixa as threads do motor dentro de uma inferência; `None`, o
-padrão, deixa o padrão do motor, todos os núcleos da máquina, salvo quando o
-processo tem menos núcleos disponíveis que a máquina, o `cpuset` de um
-contêiner, que então vale. A cota de CPU de um contêiner sem `cpuset` não é
-vista por ninguém: passe o número de vCPUs. Com vários
-processos lendo ao mesmo tempo, cada um disputa todos os núcleos: ver
-[a receita de lote](recipes.md#lote-de-muitos-autos). Não entra em `output_version`: muda o
-tempo, não a leitura.
-`PPOCR().prepare()` baixa e abre as sessões na hora: chame na construção da
-imagem e no início do processo, para a leitura não depender da rede e para
-que o arquivo que falta falhe antes do documento, em vez de página a página.
-O detector baixa também com `rec=`.
+Os pesos baixam na primeira leitura para `<DOCAUDIT_CACHE_DIR>/models`.
+`PPOCR().prepare()` baixa os pesos e abre as sessões na hora. Chame-o na
+construção da imagem de contêiner, ou no início do processo. Assim a leitura
+não depende da rede, e um arquivo que falta falha antes do documento.
 
-Um reconhecedor próprio, como o de um ajuste fino, entra por `rec=` e
-`keys=`: o ONNX e o dicionário de caracteres com que ele foi treinado. O
-detector continua o de `models=`, a não ser que `det=` traga outro arquivo
-ONNX: é o que uma imagem de contêiner guarda para que nada seja baixado na
-primeira leitura. Cada arquivo próprio entra no nome e na versão de saída
-pelo hash dele.
+Cada arquivo próprio entra no nome do leitor pelo começo do hash dele. Com
+`rec=` e `keys=`, o nome fica `ppocr-v5-latin+<hash do reconhecedor>`. Com
+`det=`, o nome ganha antes `+det=<hash do detector>`. Os hashes também entram
+em `output_version`: um treino novo gravado no mesmo caminho não recebe a
+leitura guardada do anterior.
 
 ```python
-PPOCR(rec="ajuste/rec.onnx", keys="ajuste/ppocrv5_latin_dict.txt", det="pesos/det.onnx")
+from docaudit.backends.ppocr import PPOCR
+
+# o nome do leitor fica ppocr-v5-latin+<hash de rec.onnx>
+reader = PPOCR(rec="ajuste/rec.onnx", keys="ajuste/ppocrv5_latin_dict.txt")
 ```
 
-O nome do leitor ganha o começo do hash dos pesos, `ppocr-v5-latin+79bb133dca00`,
-e cada linha diz qual ajuste a leu. O hash dos pesos e o do dicionário entram
-em `output_version`: um treino novo no mesmo caminho não recebe a leitura
-guardada do anterior.
+`threads=None` deixa o padrão do motor: todos os núcleos da máquina. A exceção
+é o processo com menos núcleos disponíveis que a máquina, como num contêiner
+com `cpuset`, e então vale o número do processo. A cota de CPU de um contêiner
+sem `cpuset` não aparece para o processo: passe o número de vCPUs. `threads`
+não entra em `output_version`, porque muda o tempo e não a leitura.
 
-`engine=` escolhe o motor. Na GPU, `engine="cuda"` roda a detecção e o reconhecimento no CUDA do ONNX
-Runtime. Pede o `onnxruntime-gpu` no lugar do `onnxruntime`: os dois não
-convivem no mesmo ambiente. O pacote do pip, da versão 1.21 em diante, traz o
-CUDA e o cuDNN, sem instalação no sistema.
-
-```bash
-uv pip uninstall onnxruntime && uv pip install "onnxruntime-gpu[cuda,cudnn]"
-```
-
-```python
-PPOCR(engine="cuda")
-```
-
-O ONNX Runtime que não acha o CUDA cai na CPU sem falhar; o leitor confere a
-sessão e falha na primeira leitura em vez de ler na CPU com o nome da GPU. A
-GPU parte algumas linhas de outro jeito e lê alguns caracteres diferentes,
-e por isso o motor entra em `output_version`: o cache não troca uma leitura
-pela outra. O custo está em [Desempenho](performance.md#leitores).
-
-Na CPU, o OpenVINO roda os mesmos arquivos ONNX que o ONNX Runtime em cerca de
-um terço do tempo. Ele vem com o extra `openvino`, e com o extra instalado é o
-motor padrão (`engine="auto"`); sem ele, o padrão é o ONNX Runtime.
-`engine="onnxruntime"` fixa o ONNX Runtime mesmo com o extra.
+`engine="auto"` escolhe o OpenVINO quando o extra `openvino` está instalado, e
+o ONNX Runtime quando não está. `"onnxruntime"` e `"openvino"` fixam um dos
+dois. `"cuda"` roda no ONNX Runtime da GPU. O leitor confere a sessão e falha
+na primeira leitura se ela não ficou na GPU, em vez de ler na CPU com o nome
+da GPU. Cada motor parte e arredonda algumas linhas de um jeito, e por isso o
+motor entra em `output_version`, salvo o ONNX Runtime na CPU.
 
 Quem fixa uma leitura em produção, ou compara execuções pelo cache, passa
-`engine=` explícito. Com `"auto"`, instalar o extra numa máquina troca o
-motor, e com ele a chave do cache, sem aviso.
-
-```bash
-uv add 'docaudit[ppocr,openvino]'
-```
-
-A borda de uma caixa pode andar um ou dois pixels entre os motores, porque o
-pós-processamento do detector arredonda diferente. Por isso o motor também entra em
-`output_version`.
+`engine=` explícito. Com `"auto"`, instalar o extra `openvino` troca o motor, e
+com ele a chave do cache, sem aviso. Como instalar o OpenVINO e o ONNX Runtime
+da GPU está em [Instalação](install.md).
 
 ### `TesseractOCR`
 
-`lang` é o código de idioma do Tesseract. Sem ele, vale
+```python
+TesseractOCR(lang=None, config="")
+```
+
+`lang` é o código de idioma do Tesseract. Sem ele, vale a variável
 `DOCAUDIT_OCR_LANG`, cujo padrão é `por`. O pacote de idioma precisa estar
-instalado. `config` recebe flags do motor, como `"--psm 6"`.
+instalado no sistema. `config` recebe opções do motor, como `"--psm 6"`.
 
 ### `VLM`
 
@@ -176,60 +194,91 @@ VLM(
 | parâmetro | efeito |
 |---|---|
 | `url` | a base do servidor, sem `/v1`. Um host que não é a própria máquina torna o leitor externo |
-| `model` | o preset de prompts: `"glm-ocr"`, o padrão, `"paddleocr-vl"`, para o PaddleOCR-VL-1.6, ou `"generic"`, com um prompt de transcrição em português, para um modelo hospedado |
-| `served` | o nome do modelo no pedido; obrigatório num servidor fora da máquina. Num servidor local, sem ele, o leitor pergunta ao servidor qual é o único modelo servido |
-| `api_key` | credencial, enviada como `Bearer` |
-| `prices` | dólares por milhão de tokens de entrada e de saída; faz `spent.usd` existir |
-| `layout` | um `PPDocLayout`. Com ele, uma chamada e um trecho por região, e a região dentro de outra é lida uma vez; sem ele, a página inteira numa chamada |
+| `model` | o conjunto de prompts: `"glm-ocr"`, o padrão, `"paddleocr-vl"`, para o PaddleOCR-VL-1.6, ou `"generic"`, com um prompt de transcrição em português |
+| `served` | o nome do modelo no pedido. É obrigatório num servidor fora da máquina. Num servidor local, sem ele, o leitor pergunta ao servidor qual é o único modelo servido |
+| `api_key` | a credencial, enviada como `Bearer` |
+| `prices` | dólares por milhão de tokens de entrada e de saída. Com ele, `spent.usd` tem valor |
+| `layout` | um `PPDocLayout`. Com ele, uma chamada e um trecho por região de layout. Sem ele, a página inteira numa chamada |
 | `concurrency` | chamadas simultâneas por página, uma por região |
 | `timeout` | segundos por chamada |
-| `retries` | quantas vezes repetir uma chamada que o servidor recusou por carga (429 ou 5xx), que esgotou o `timeout` ou cuja conexão caiu. `0` não repete. A espera segue o `Retry-After` do servidor ou dobra a partir de um segundo. Esgotadas, a página falha e o documento segue; só um servidor local ausente interrompe o documento |
-| `max_tokens` | teto de tokens de saída por chamada. Uma resposta cortada no teto falha a página |
-| `reasoning` | o esforço de pensamento, enviado como `reasoning_effort` (`"none"`, `"low"`, ...); `None` deixa o padrão do servidor. Entra em `output_version` |
+| `max_tokens` | o teto de tokens de saída por chamada. A resposta cortada no teto faz a página falhar |
+| `reasoning` | o esforço de raciocínio, enviado como `reasoning_effort` (`"none"`, `"low"`...). `None` deixa o padrão do servidor. Entra em `output_version` |
+| `retries` | quantas vezes repetir uma chamada que falhou de modo passageiro; ver abaixo |
 
-### Servidores para o leitor `vlm`
+`retries` repete a chamada que o servidor recusou por carga (HTTP 429 ou 5xx),
+a que esgotou o `timeout` e a que perdeu a conexão no meio. Isso vale para o
+servidor local e para o externo. `0`, o padrão, não repete. A espera segue o
+`Retry-After` do servidor, ou dobra a cada tentativa a partir de um segundo.
+Esgotadas as tentativas, a página falha e o documento segue.
 
-O leitor fala o formato de chat da OpenAI, com a imagem embutida em base64.
-Qualquer servidor que fale esse formato serve.
+A conexão recusada é o único caso em que o servidor local e o externo
+diferem. No servidor local, ela quer dizer que o servidor não está no ar: o
+leitor levanta `ConnectionError`, e o documento para. No externo, ela é uma
+falha passageira como as outras.
 
-| servidor | comando | `VLM(...)` |
-|---|---|---|
-| llama.cpp | `llama-server -m model.gguf --mmproj mmproj.gguf --port 8089 -np 4 -c 32768` | `VLM(layout=PPDocLayout(), concurrency=4)` |
-| vLLM | `vllm serve <modelo>` | `VLM("http://127.0.0.1:8000", "generic", layout=PPDocLayout())` |
-| SGLang | `python -m sglang.launch_server --model-path <modelo> --port 30000` | `VLM("http://127.0.0.1:30000", "generic", layout=PPDocLayout())` |
-| endpoint hospedado | o do fornecedor | `VLM(url, "generic", served=..., api_key=...)` e `allow_external=True` em `process()` |
-
-Os comandos e os pesos do llama.cpp para os dois presets estão em
-[Começando](getting-started.md#um-modelo-de-visao-e-linguagem). Num servidor
-local que sirva mais de um modelo, passe `served=`.
+Os servidores que falam o formato do leitor, e os comandos de cada um, estão
+em [Ligar um modelo de visão e linguagem](how-to/vlm.md).
 
 ### `PPDocLayout`
 
-`PPDocLayout(threshold=0.5, drop=DROP_DEFAULT)` detecta regiões com o
-PP-DocLayoutV3 em ONNX Runtime. `threshold` é a pontuação mínima de uma
-região; o valor é o de referência do exportador, sem calibração. `drop` são os
-rótulos que não viram região: por padrão `aside_text`, `footer`, `footnote`,
-`header`, `image`, `number` e `seal`, que não são conteúdo para um leitor
-por região. Para ordenar a leitura com `process(layout=...)`, use `drop=()`:
-toda linha precisa de um bloco, inclusive as do cabeçalho, do rodapé e da
-tarja da margem, ou vai ao bloco mais próximo e sai fora do lugar.
+```python
+PPDocLayout(threshold=0.5, drop=DROP_DEFAULT, *, threads=None)
+```
+
+Detecta as regiões de layout de uma página com o PP-DocLayoutV3, no ONNX
+Runtime. Os pesos baixam na primeira detecção para
+`<DOCAUDIT_CACHE_DIR>/models`.
+
+| parâmetro | efeito |
+|---|---|
+| `threshold` | a pontuação mínima de uma região. É o valor de referência do exportador, sem calibração |
+| `drop` | os rótulos que não viram região. `DROP_DEFAULT` tira `aside_text`, `footer`, `footnote`, `header`, `image`, `number` e `seal`, que não são conteúdo para um leitor por região. Entra em `output_version` |
+| `threads` | as threads do ONNX Runtime dentro de uma inferência, como em `PPOCR`. `None` usa todos os núcleos |
+
+Para ordenar a leitura com `process(layout=...)`, passe `drop=()`. Toda linha
+precisa de um bloco, inclusive as do cabeçalho, do rodapé e da tarja. Sem
+bloco, a linha vai ao bloco mais próximo e sai fora do lugar.
 
 ## Políticas
 
-| nome | classe | decide |
+| nome | classe | o que encaminha |
 |---|---|---|
-| `all_cheap` | `AllCheap` | nenhuma página escala |
-| `all_strong` | `AllStrong` | todas escalam, ignorando o teto |
-| `evidence` | `EvidenceRouter(signals=DEFAULT_SIGNALS, min_failures=1)` | escala, na ordem dos sinais, só a página em que algum sinal disparou; por verificação, só com `min_failures` valores que falham |
+| `all_cheap` | `AllCheap()` | nenhuma página |
+| `all_strong` | `AllStrong()` | todas as páginas, até o teto de `Budget` |
+| `evidence` | `EvidenceRouter(signals=DEFAULT_SIGNALS, *, min_failures=1)` | só a página em que algum sinal disparou, na ordem dos sinais |
 
-`DEFAULT_SIGNALS` é, em ordem: leitura vazia, texto mal decodificado, e
-`FailsCheck` de CPF, CNPJ, número CNJ e valor em reais. O que cada um prova
-está em [Conceitos](concepts.md#a-politica-evidence).
+`all_cheap` e `all_strong` decidem antes de qualquer leitura. A página
+encaminhada por elas não passa pela etapa barata, com duas exceções: sem
+leitor caro (`strong=None`), e quando o teto `max_seconds` a tira do leitor
+caro. `evidence` decide depois da etapa barata, e a página encaminhada é lida
+nas duas etapas.
 
-`AMOUNT_IN_WORDS` confere o valor contra o mesmo valor por extenso entre
-parênteses, `R$ 214.000,00 (duzentos e quatorze mil reais)`. Pega a troca de
-dígito que forma outro valor bem escrito, que a grafia não vê. Fica fora do
-padrão e entra por escolha:
+### Sinais da política `evidence`
+
+Um [sinal](glossary.md#sinal) conta, numa página, as evidências de que a
+leitura barata errou. A ordem da lista é a prioridade: quando o teto não cobre
+todas as páginas com evidência, vence o primeiro sinal da lista que disparou,
+e dentro dele a página com mais ocorrências. Essa ordem não foi medida.
+
+`DEFAULT_SIGNALS` traz os sete sinais marcados como padrão, na ordem da tabela. Os dois últimos entram por escolha.
+
+| sinal | padrão | o que conta |
+|---|---|---|
+| `EmptyRead()` | sim | a leitura que não trouxe texto nenhum. Uma folha em branco também volta vazia |
+| `GarbledText()` | sim | caracteres que só uma decodificação quebrada produz: o de substituição U+FFFD, os da área de uso privado, que saem de uma fonte sem tabela ToUnicode, e os de controle, exceto tabulação e quebra de linha. Vale também em texto composto, porque reler os pixels conserta o que a decodificação quebrou |
+| `FailsCheck(CPF)`, `FailsCheck(CNPJ)`, `FailsCheck(CNJ)` | sim | o identificador na pontuação de sempre com dígito verificador errado. O CNPJ pode ser alfanumérico |
+| `FailsCheck(AMOUNT_BRL)` | sim | o valor em reais que a grafia brasileira não permite: duas vírgulas, espaço entre grupos de milhar, letra no lugar de dígito, grupo sem três dígitos |
+| `FailsCheck(AMOUNT_PRE_REAL)` | sim | o mesmo, no valor em cruzeiro, cruzado ou cruzeiro real (`Cr$`, `NCr$`, `Cz$`, `NCz$`, `CR$`) |
+| `MojibakeText()` | não; pede o extra `mojibake` | o texto decodificado com a codificação errada, como `honor·rios` por `honorários`. A camada extrai sem erro e parece texto, mas a tabela ToUnicode está errada |
+| `FailsCheck(AMOUNT_IN_WORDS)` | não | o valor em reais que não bate com o mesmo valor por extenso entre parênteses, como `R$ 214.000,00 (duzentos e quatorze mil reais)`. Pega o dígito trocado que forma outro valor bem escrito |
+
+`FailsCheck` só conta texto que um motor reconheceu: a camada de uma página
+`searchable_scan`, e o que um leitor de pixels leu em qualquer página. Na
+camada à vista de uma página nato-digital, o erro é do documento, e reler
+devolveria o mesmo valor. `DEFAULT_CHECKS` reúne os `FailsCheck` de
+`DEFAULT_SIGNALS`.
+
+Para acrescentar um sinal, passe a lista inteira, na ordem que quiser:
 
 ```python
 from docaudit.policies import AMOUNT_IN_WORDS, DEFAULT_SIGNALS, EvidenceRouter, FailsCheck
@@ -237,117 +286,63 @@ from docaudit.policies import AMOUNT_IN_WORDS, DEFAULT_SIGNALS, EvidenceRouter, 
 policy = EvidenceRouter([*DEFAULT_SIGNALS, FailsCheck(AMOUNT_IN_WORDS)])
 ```
 
-### Uma verificação própria
+Uma verificação ou um sinal do seu tipo de documento está em
+[Declarar os campos do seu documento](how-to/checks.md). O porquê de cada
+sinal padrão está em [Política, conferência e escalada](concepts/policy.md).
 
-Um `Check` junta um nome, a forma impressa de um campo e uma função que diz
-se o valor é possível. `FailsCheck(check)` o transforma em sinal, que
-encaminha a página; o mesmo `Check` em `entities=` só extrai o valor. O
-que cada uso produz, e `redundant=`, estão em [Entidades](entities.md).
+!!! warning "`min_failures` não está calibrado"
+    `EvidenceRouter(min_failures=n)` só encaminha por verificação a página com
+    pelo menos `n` valores que falham, somados entre os `FailsCheck`. A leitura
+    vazia e o texto mal decodificado encaminham com uma ocorrência. O padrão,
+    `1`, encaminha toda falha. Nenhuma medição fixou outro valor. Com
+    `reread="region"`, a página abaixo do mínimo também deixa de reler o
+    recorte das suas linhas.
 
-```python
-import re
-
-from docaudit.policies import DEFAULT_SIGNALS, Check, EvidenceRouter, FailsCheck
-
-
-def cns_is_valid(printed: str) -> bool:
-    """O Cartão Nacional de Saúde: 15 dígitos, soma ponderada múltipla de 11."""
-    d = [int(c) for c in printed if c.isdigit()]
-    return len(d) == 15 and sum(a * b for a, b in zip(d, range(15, 0, -1))) % 11 == 0
-
-
-CNS = Check("CNS", re.compile(r"(?<!\d)\d{3} ?\d{4} ?\d{4} ?\d{4}(?!\d)"), cns_is_valid)
-policy = EvidenceRouter([*DEFAULT_SIGNALS, FailsCheck(CNS)])
-```
-
-As funções `is_valid` do [python-stdnum](https://arthurdejong.org/python-stdnum/)
-servem como estão:
-
-```python
-from stdnum import iban
-
-IBAN = Check("IBAN", re.compile(r"\bBR\d{2}[0-9A-Z]{25}\b"), iban.is_valid)
-policy = EvidenceRouter([*DEFAULT_SIGNALS, FailsCheck(IBAN)])
-```
-
-
-`Check.alike` é opcional: uma função que diz se o valor que falha é uma
-troca que leitores de famílias diferentes fazem igual, como o ponto no
-lugar da vírgula decimal numa tabela digitalizada. Nessa troca, duas
-famílias que leem o mesmo valor inválido não provam o erro impresso: a
-página segue ao leitor caro, e a entidade sai sem `printed`. As
-verificações entre os sinais padrão estão em `DEFAULT_CHECKS`.
-
-### Um sinal próprio
-
-Um sinal é uma função `(page, chunks) -> int` com nome. Zero quer dizer sem
-evidência. A posição na lista é a prioridade.
-
-```python
-from docaudit.policies import DEFAULT_SIGNALS, EvidenceRouter, signal
-
-
-@signal("rubrica com valor")
-def heading_with_money(page, chunks):
-    text = " ".join(c.text for c in chunks).lower()
-    has_heading = any(t in text for t in ("custas", "honorários", "multa"))
-    return text.count("r$") if has_heading else 0
-
-
-policy = EvidenceRouter([heading_with_money, *DEFAULT_SIGNALS])
-```
-
-A contagem de cada sinal que disparou sai em `RoutingDecision.signals`, pelo
-nome. Um sinal de rubrica acerta num tipo de documento e erra noutro: quem o
-usa o mede contra os próprios dados.
-
-### Onde entra cada característica
-
-| grão | gancho | o que vê | exemplo |
-|---|---|---|---|
-| página, antes de ler | um `Reader` próprio na cascata `cheap=`, que devolve vazio nas páginas que não são dele e deixa o seguinte ler | substrato e a sua evidência, dimensões | mandar páginas grandes só imagem a um motor e o resto a outro |
-| página, depois da leitura barata | um `Signal` ou um `Check` em `EvidenceRouter([...])`; a ordem da lista é a prioridade | a página e os chunks dela | termos de rubrica, densidade de valores, um identificador do seu domínio |
-| documento | uma `TriagePolicy` própria, passada como instância em `policy=` | todas as páginas e todas as leituras baratas | "as páginas depois de um título até o próximo" |
-| entre documentos | quem chama, por `pages=` ou um `Budget` por chamada | o que quem chama sabe | decidir quais autos recebem o leitor caro |
-| o que o leitor caro faz | um `Reader` em `strong=`; `VLM(layout=PPDocLayout(drop=...))` | a página renderizada | outro modelo, outro conjunto de regiões |
-
-## Orçamento
+## Teto (`Budget`)
 
 ```python
 Budget(max_strong_pages=None, max_strong_fraction=None, max_seconds=None)
 ```
 
-Um teto opcional de quantas páginas chegam ao leitor caro numa chamada, em
-número ou em fração. Com as duas unidades, vale a mais restritiva. A fração é
-arredondada para cima: `max_strong_fraction=0.2` num documento de quatro
-páginas permite uma escalada. Sem nenhuma das duas, a política decide sem
-teto. A política `evidence` não escala página sem evidência, e um teto
-folgado sobra.
+O teto limita o leitor caro numa chamada, em páginas e em segundos.
 
-`max_seconds` é um teto de tempo de parede, contado do início da chamada: a
-página escalada que o leitor caro começaria depois dele fica com a leitura
-barata, com o motivo em `RoutingDecision.steps`. A leitura barata e a
-releitura por outra família terminam sempre; o teto corta só o tier caro,
-que é o que custa. A decisão da política fica como está, e
+| campo | limite |
+|---|---|
+| `max_strong_pages` | quantas páginas o leitor caro lê, no máximo |
+| `max_strong_fraction` | a fração das páginas que o leitor caro lê, arredondada para cima: `0.2` num documento de quatro páginas permite uma |
+| `max_seconds` | os segundos de parede, contados do início da chamada, depois dos quais o leitor caro não começa página nova |
+
+Com as duas formas em páginas, vale a mais restritiva. O teto de páginas vale
+para qualquer política, na ordem de prioridade dela. A página que passa dele
+fica com a leitura barata. A política `evidence` não encaminha página sem
+evidência, e um teto folgado sobra.
+
+A página encaminhada que o leitor caro começaria depois de `max_seconds` fica
+com a leitura barata, e o motivo vai em `RoutingDecision.steps`. A etapa
+barata e a releitura por outra família terminam sempre: o teto corta só a
+etapa cara, que é a que custa. A decisão da política fica como está, e
 `spent.pages_strong` conta o que rodou.
 
-Tokens e dólares não têm teto: são relatados em `Result.spent`, e quem
-chama decide o que fazer com eles. A prioridade entre documentos também é de
-quem chama.
+Tokens e dólares não têm teto. `Result.spent` os relata, e quem chama decide o
+que fazer com eles. A prioridade entre documentos também é de quem chama.
 
 ## Cache
 
-`cache=ModelCallCache(path)`. Sem caminho, o cache grava em
-`<DOCAUDIT_CACHE_DIR>/calls.sqlite`. O que ele guarda, a chave e o exemplo
-estão em [Conceitos](concepts.md#cache); o que isso significa para os dados,
-em [Segurança dos dados](security.md#o-que-fica-no-disco).
+```python
+from docaudit import ModelCallCache
+
+cache = ModelCallCache("leituras.sqlite")
+```
+
+`ModelCallCache(path=None)` guarda cada leitura de página num arquivo SQLite.
+Sem caminho, grava em `<DOCAUDIT_CACHE_DIR>/calls.sqlite`. Um mesmo arquivo
+serve a várias threads e a vários processos. O que entra na chave está em
+[Origem e cache](concepts/provenance.md). O que isso quer dizer para os dados
+está em [Segurança dos dados](security.md).
 
 ## Variáveis de ambiente
 
-`DOCAUDIT_CACHE_DIR` é lida a cada chamada; `DOCAUDIT_OCR_LANG`, quando o
-`TesseractOCR` é construído.
-
-| variável | padrão | efeito |
-|---|---|---|
-| `DOCAUDIT_OCR_LANG` | `por` | idioma do Tesseract quando `TesseractOCR(lang=None)` |
-| `DOCAUDIT_CACHE_DIR` | `~/.cache/docaudit` | onde ficam o cache sem caminho explícito e os pesos dos modelos |
+| variável | padrão | efeito | quando é lida |
+|---|---|---|---|
+| `DOCAUDIT_CACHE_DIR` | `~/.cache/docaudit` | onde ficam o cache sem caminho explícito e os pesos dos modelos | quando um `ModelCallCache` sem caminho é criado, e quando os pesos são carregados |
+| `DOCAUDIT_OCR_LANG` | `por` | o idioma do Tesseract quando `TesseractOCR(lang=None)` | quando o `TesseractOCR` é construído |
