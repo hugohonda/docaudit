@@ -13,6 +13,8 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 - A linha da camada de texto cuja palavra hifenizada continua noutra coluna, ou depois de
   outra linha, sai em duas linhas, cada uma com a caixa dela. A junção do pdfium fazia uma
   caixa que atravessava a coluna. Muda o id desses trechos.
+- Em `Result.records()`, a linha que cobre duas linhas que não se tocam, como uma célula mesclada
+  ou uma tarja vertical, fica numa fileira sozinha. Ela juntava a tabela inteira numa fileira.
 
 ### Alterado
 
