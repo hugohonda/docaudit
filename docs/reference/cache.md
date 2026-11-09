@@ -1,3 +1,0 @@
-# `docaudit.cache`
-
-::: docaudit.cache

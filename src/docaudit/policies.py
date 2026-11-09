@@ -188,7 +188,7 @@ class Check:
     ```python
     from stdnum import iban
 
-    IBAN = Check("IBAN", re.compile(r"\bBR\d{2}[0-9A-Z]{25}\b"), iban.is_valid)
+    IBAN = Check("IBAN", re.compile(r"\bBR\d{2}[0-9A-Z]{25}\b"), iban.is_valid, redundant=True)
     policy = EvidenceRouter([*DEFAULT_SIGNALS, FailsCheck(IBAN)])
     ```
     """
@@ -1606,7 +1606,7 @@ class EvidenceRouter:
     `min_failures` é o mínimo de valores que falham, somados entre os
     `FailsCheck`, para a página escalar só por eles; os outros sinais escalam
     com uma ocorrência. Não é calibrado: o padrão, 1, escala toda falha, e o
-    porquê de outro valor está em `docs/concepts.md`. Vale também com
+    porquê de outro valor está em `docs/concepts/policy.md`. Vale também com
     `reread="region"`, em que a página abaixo do mínimo deixa de reler o
     recorte barato das suas linhas.
 

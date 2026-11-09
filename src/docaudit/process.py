@@ -10,7 +10,8 @@ substituível por argumento, e esta assinatura é o contrato que menos deve
 mudar.
 
 Uma política que decide só pelo substrato decide antes de qualquer leitura, e
-uma página escalada nunca paga o tier barato. Uma que precisa da leitura
+a página encaminhada não paga o tier barato, salvo sem leitor caro e salvo a
+que o teto `max_seconds` tirou do leitor caro. Uma que precisa da leitura
 barata (`needs_reads`) recebe a de todas as páginas, e uma página escalada é
 lida nos dois tiers. A leitura cara substitui a barata onde leu; a linha
 barata fora das caixas da leitura cara fica. Com `reread="region"`, o
@@ -1393,7 +1394,7 @@ def _rejected_strong(
 
 
 class _StrongRead(NamedTuple):
-    """O que o leitor forte devolveu para uma página, antes de entrar no resultado."""
+    """O que o leitor caro devolveu para uma página, antes de entrar no resultado."""
 
     page: Page
     strong: list[Chunk]
@@ -1590,10 +1591,14 @@ def process(
         policy: política de triagem, ou o nome de uma embutida. O padrão,
             `all_cheap`, não escala nenhuma página. `evidence` lê tudo no tier
             barato e escala só onde a leitura provou ter falhado.
-        budget: teto opcional, em páginas, do leitor caro. Sem ele, a política
-            escala toda página em que achou evidência. O teto vale para
-            qualquer política: o que passar dele fica em `CHEAP`, na ordem
-            das páginas, com o motivo dizendo isso.
+        budget: teto opcional do leitor caro, em páginas e em segundos
+            (`max_seconds`). Sem ele, a política escala toda página em que
+            achou evidência. O teto de páginas vale para qualquer política:
+            o que passar dele fica em `CHEAP`, na ordem das páginas, com o
+            motivo dizendo isso. A página que o leitor caro começaria depois
+            de `max_seconds` fica com a leitura barata, e o motivo vai em
+            `RoutingDecision.steps`. Tokens e dólares não têm teto: são
+            relatados em `Result.spent`.
         cheap: a cascata do tier barato, em ordem de preferência. A primeira
             leitura não vazia vence. O padrão lê a camada de texto onde
             houver e manda o resto ao PP-OCR.
@@ -1640,7 +1645,9 @@ def process(
             `Result.entities`, com estado e linha de origem. `None`, o
             padrão, usa as verificações da política e depois
             `DEFAULT_ENTITIES`: CPF, CNPJ, número CNJ, valor em reais, valor em
-            moeda anterior ao Real, data, data com dia da semana e folha.
+            moeda anterior ao real, data, data com dia da semana, data por
+            extenso, folha, chave de acesso, linha digitável de boleto e
+            código de arrecadação.
             Uma verificação aqui só extrai; para que ela também encaminhe a
             página, entra como `FailsCheck` na política.
         stamps: os formatos de tarja (`StampFormat`) procurados na camada

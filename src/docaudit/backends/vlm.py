@@ -29,15 +29,16 @@ saída, e dólares quando `prices` foi declarado. `process()` soma o gasto em
 `Result.spent`. Uma leitura servida pelo cache não passa por aqui e não conta.
 
 O `llama-server` analisa a saída do modelo antes de devolvê-la, e numa fração
-das chamadas rejeita o próprio texto com um erro 500. O leitor levanta
-`RuntimeError` com o código e o corpo, e a página inteira falha; quem chama
-decide se repete ou segue sem ela. O mesmo vale para o tempo esgotado
-esperando a resposta e para uma resposta que não se lê. Só o servidor
-ausente levanta `ConnectionError`, que interrompe o documento. Um 429 ou 5xx,
-o tempo esgotado e a conexão caída são repetidos `retries` vezes antes de a
-página falhar; num servidor fora da máquina, a conexão recusada também.
+das chamadas rejeita o próprio texto com um erro 500. Um 429 ou 5xx, o
+tempo esgotado e a conexão caída são repetidos `retries` vezes, num servidor
+local também; com `retries=0`, o padrão, nenhum é repetido. Esgotadas as
+tentativas, o leitor levanta `RuntimeError` com o código e o corpo, e a página
+inteira falha; o documento segue. Uma resposta que não se lê também falha a
+página. A conexão recusada é o único caso que difere: num servidor local, é o
+servidor ausente, que levanta `ConnectionError` e interrompe o documento; num
+servidor fora da máquina, é mais uma falha a repetir.
 
-Instalação e pesos: ver `docs/getting-started.md`.
+Servidores e pesos: ver `docs/how-to/vlm.md`.
 """
 
 from __future__ import annotations
@@ -304,7 +305,7 @@ class VLM:
                 raise _TransientError(message, _seconds(retry_after)) from exc
             raise RuntimeError(message) from exc
         except urllib.error.URLError as exc:
-            message = f"sem servidor em {self.url}; ver docs/getting-started.md"
+            message = f"sem servidor em {self.url}; ver docs/how-to/vlm.md"
             if self.external:
                 raise _TransientError(message) from exc
             raise ConnectionError(message) from exc

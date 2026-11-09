@@ -1,5 +1,6 @@
 # Contribuindo
 
+<!-- --8<-- [start:corpo] -->
 ## Ambiente
 
 Só o [uv](https://docs.astral.sh/uv/) é obrigatório. Ele resolve o Python e as
@@ -45,14 +46,14 @@ entre clones, aponte `DOCAUDIT_TEST_CACHE` para um diretório seu:
 export DOCAUDIT_TEST_CACHE=~/.cache/docaudit-tests
 ```
 
-## Escrevendo um leitor
+## Um leitor novo
 
-Ver [docs/writing-a-reader.md](docs/writing-a-reader.md). Um leitor novo herda
+Ver [Escrever um leitor](https://hugohonda.github.io/docaudit/writing-a-reader/). Um leitor novo herda
 `ReaderContract` de `tests/support` e fornece a fixture `reader`.
 
 ## Convenções
 
-As convenções de código, idioma e prosa estão em [AGENTS.md](AGENTS.md) e valem
+As convenções de código, idioma e prosa estão em [AGENTS.md](https://github.com/hugohonda/docaudit/blob/main/AGENTS.md) e valem
 igualmente para contribuições humanas. As duas que mais surpreendem quem chega:
 
 - Identificadores em inglês, docstrings e comentários em português.
@@ -69,10 +70,14 @@ Sobe em <http://127.0.0.1:8000> com recarga automática. A referência de API é
 gerada das docstrings. `mkdocs build --strict` roda na CI, então uma referência
 quebrada falha o build em vez de produzir página com buraco.
 
+<!-- --8<-- [end:corpo] -->
+
 ## Versionamento
 
 A versão sai da tag do git. A primeira versão é `0.1.0.dev0`, com a tag `v0.1.0.dev0`.
-Enquanto o pacote estiver em desenvolvimento, as versões seguem em `0.1.0.devN`. Depois, o
+Enquanto o pacote estiver em desenvolvimento, as versões seguem em `0.1.0.devN`.
+Um commit entre duas tags tem a versão da tag anterior mais o commit, como
+`0.1.0.dev1+g3b1d331`: o número diz de que tag partiu, e o sufixo, o commit. Depois, o
 pacote fica em `0.y.z` enquanto a API mudar: `y` sobe quando algo público quebra, `z` quando não.
 
 O pacote não vai ao PyPI enquanto não estiver maduro: o workflow `publish`

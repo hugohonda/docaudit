@@ -1,3 +1,0 @@
-# `docaudit.visualize`
-
-::: docaudit.visualize

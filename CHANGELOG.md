@@ -5,7 +5,19 @@ Versionamento: [SemVer](https://semver.org/lang/pt-BR/): o maior sobe quando
 algo público quebra, o menor quando algo entra, o último numa correção.
 Antes da 1.0.0, a API pode mudar numa versão menor.
 
+<!-- --8<-- [start:versoes] -->
 ## [Não lançado]
+
+### Alterado
+
+- A documentação passa a ter tutorial, guias, explicação e referência separados, um glossário,
+  instalação por plataforma, problemas comuns e a página de versões. `Record` e `Piece` são
+  exportados por `docaudit`.
+
+### Corrigido
+
+- O pacote volta a construir num commit depois de uma tag `.devN`: a versão é a da tag mais o
+  commit (`0.1.0.dev1+g<commit>`).
 
 ## [0.1.0.dev1] - 2026-11-08
 
@@ -69,3 +81,4 @@ com a página, a caixa e o leitor de origem.
 [Não lançado]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev1...HEAD
 [0.1.0.dev1]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev0...v0.1.0.dev1
 [0.1.0.dev0]: https://github.com/hugohonda/docaudit/releases/tag/v0.1.0.dev0
+<!-- --8<-- [end:versoes] -->

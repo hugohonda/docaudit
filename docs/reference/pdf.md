@@ -1,3 +1,0 @@
-# `docaudit.pdf`
-
-::: docaudit.pdf

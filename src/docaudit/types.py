@@ -786,7 +786,7 @@ class RoutingDecision(_Frozen):
 
 
 class Budget(_Frozen):
-    """Teto opcional do leitor forte, em páginas e em segundos.
+    """Teto opcional do leitor caro, em páginas e em segundos.
 
     Com as duas formas em páginas, vale a mais restritiva. `max_seconds` é o
     tempo de parede da execução a partir do qual o tier caro não começa
@@ -822,8 +822,8 @@ class Spent(_Frozen):
     escaladas quando a política precisa da leitura barata; `regions_cheap`
     conta as páginas em que o leitor seguinte da cascata leu, como região, os
     rasters que a camada de texto não leu; `regions_strong` conta as páginas
-    em que o leitor forte leu só as regiões das linhas que falharam;
-    `lines_strong_rejected` conta as linhas do leitor forte que não entraram
+    em que o leitor caro leu só as regiões das linhas que falharam;
+    `lines_strong_rejected` conta as linhas do leitor caro que não entraram
     no lugar das baratas, por perderem um valor que conferia ou por não
     explicarem o que falhou. Os `*_cached` contam o que veio do cache em
     cada etapa; os `seconds_*` são o tempo de parede de cada etapa, com a
@@ -932,8 +932,10 @@ class Result(_Frozen):
     """Saída de `process`: o que foi lido, como foi roteado e o que custou.
 
     É um modelo Pydantic: `model_dump_json()` serializa tudo e
-    `Result.model_json_schema()` descreve o formato. Os dois métodos abaixo
-    são as duas outras formas que quem chama costuma pedir.
+    `Result.model_json_schema()` descreve o formato. Os nove métodos abaixo
+    dão as outras formas de uso: as linhas por página, os leitores por
+    página, a contagem por verificação, as referências curtas, a citação
+    conferida, as figuras, os blocos, as peças e o texto em Markdown.
     """
 
     doc_id: str
@@ -1374,8 +1376,10 @@ class TriagePolicy(Protocol):
 
         Com True, `process()` lê toda página no tier barato antes de decidir e
         passa as leituras em `reads`; uma página escalada é lida duas vezes. Com
-        False, a decisão vem antes de qualquer leitura e uma página escalada
-        nunca paga o tier barato.
+        False, a decisão vem antes de qualquer leitura, e a página encaminhada
+        não paga o tier barato. Há duas exceções. Sem leitor caro
+        (`strong=None`), toda página é lida no tier barato. E a página que o
+        teto `Budget.max_seconds` tirou do leitor caro é lida no tier barato.
         """
         ...
 

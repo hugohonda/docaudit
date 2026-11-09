@@ -1,25 +1,91 @@
 # docaudit
 
---8<-- "README.md:pitch"
+Lê documentos digitalizados em português do Brasil, confere a própria
+leitura e diz de onde veio cada trecho.
 
-## Uso
+- **Lê toda página com um leitor barato.** Usa a
+  [camada de texto](glossary.md#camada-de-texto) do PDF onde ela existe e o
+  OCR na CPU onde ela falta.
+- **Aponta o valor que não confere.** O dígito verificador de um CPF, de um
+  CNPJ ou do número de um processo prova que o valor lido é inválido. Só
+  essas páginas vão ao [leitor caro](glossary.md#leitor-caro), quando você
+  passa um.
+- **Devolve a origem de cada trecho.** Cada linha lida traz a página, a caixa
+  na página e o leitor que a leu.
 
---8<-- "README.md:uso"
+<div class="grid" markdown>
 
-## Escolha o seu caminho
+![A ficha do tutorial com uma caixa azul em cada linha lida e uma caixa preta no CPF que falha a verificação](img/exemplo.png)
 
-| se você quer | leia |
-|---|---|
-| ler o primeiro documento | [Começando](getting-started.md) |
-| entender o que a biblioteca decide por você | [Conceitos](concepts.md) |
-| saber exatamente o que volta | [Formato da resposta](response.md) |
-| saber que valores ela acha, o que cada estado prova, e declarar os campos do seu tipo de documento | [Entidades](entities.md) |
-| entregar a leitura a um modelo ou a uma pessoa, com cada conclusão presa à linha de origem | [Análise por um agente](agent.md) |
-| ajustar leitores, política, verificações próprias, teto e servidores | [Configuração](configuration.md) |
-| resolver um caso concreto: relação de nome e valor, diário em colunas, redação de dados pessoais, agente, lote | [Receitas](recipes.md) |
-| ligar o seu motor de OCR | [Escrevendo um leitor](writing-a-reader.md) |
-| saber o custo de cada etapa, o porquê dos padrões e como implantar | [Desempenho](performance.md) |
-| saber onde ela falha | [Limites](limits.md) |
-| saber o que sai da máquina e o que fica no disco | [Segurança dos dados](security.md) |
-| comparar com Docling, Marker, olmOCR e LlamaParse | [Comparação](comparison.md) |
-| a API gerada das docstrings | [Referência](reference/docaudit.md) |
+```text
+[p0:2] CPF: 529.982.247-25
+[p0:3] Procurador: Pedro Santos
+[p0:4] CPF: 123.456.789-00
+<!-- decisão: 1 x CPF que falha a verificação -->
+- CPF: 529.982.247-25 · confirmed · p0:2
+- CPF: 123.456.789-00 · failed · p0:4
+```
+
+</div>
+
+A ficha da [primeira leitura](tutorial.md), lida pelo PP-OCR. À esquerda, a
+imagem de `docaudit.visualize`: a cor da caixa diz o leitor, e o contorno
+preto marca o CPF cujo dígito verificador não confere. À direita, um trecho
+de `result.to_markdown(annotated=True)`.
+
+!!! warning "Alpha"
+    Nada foi publicado no PyPI ainda, e a API pode mudar. A instalação é pelo
+    git, fixada num commit ou numa tag.
+
+[Primeira leitura](tutorial.md){ .md-button .md-button--primary }
+[Como funciona](concepts/index.md){ .md-button }
+
+<div class="grid cards" markdown>
+
+-   **Aprender**
+
+    ---
+
+    Instale o pacote e leia o primeiro documento em poucos minutos.
+
+    [Instalação](install.md) ·
+    [Primeira leitura](tutorial.md)
+
+-   **Resolver um caso**
+
+    ---
+
+    Uma tarefa por página: mandar ao leitor caro só o que falhou, declarar os
+    campos do seu documento, ligar um modelo de visão e linguagem.
+
+    [Escalar só o que falhou](how-to/escalate.md) ·
+    [Declarar os campos](how-to/checks.md) ·
+    [Modelo de visão e linguagem](how-to/vlm.md) ·
+    [Receitas](recipes/index.md) ·
+    [Problemas comuns](troubleshooting.md)
+
+-   **Entender**
+
+    ---
+
+    Por que a leitura é feita assim, quanto custa cada etapa e onde ela falha.
+
+    [Como a leitura funciona](concepts/index.md) ·
+    [Desempenho](performance.md) ·
+    [Limites](limits.md)
+
+-   **Consultar**
+
+    ---
+
+    Cada argumento, cada campo do resultado e cada nome público.
+
+    [Configuração](configuration.md) ·
+    [Formato da resposta](response/index.md) ·
+    [API](reference/index.md) ·
+    [Glossário](glossary.md)
+
+</div>
+
+??? note "In English"
+    --8<-- "README.md:english"
