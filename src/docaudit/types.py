@@ -710,15 +710,58 @@ class Piece(_Frozen):
         return self.stamp.code if self.stamp is not None else None
 
 
+def _vertical_overlap(a: BBox, b: BBox) -> float:
+    """Quanto as duas caixas se sobrepõem na vertical; zero ou menos quando não se tocam."""
+    return min(a.y1, b.y1) - max(a.y0, b.y0)
+
+
+def _spanning(lines: Sequence[Chunk]) -> set[str]:
+    """Os ids das linhas que atravessam fileiras: cobrem duas linhas que não se tocam.
+
+    Uma linha cobre outra mais baixa quando passa por mais de metade da altura
+    dela. Entre as cobertas, há duas que não se tocam quando a que termina
+    primeiro termina antes de a que começa por último começar. É a célula
+    mesclada de uma tabela, a tarja vertical na margem, a linha cuja caixa
+    atravessa a coluna: nenhuma pertence a uma fileira só.
+    """
+    out: set[str] = set()
+    for line in lines:
+        height = line.bbox.y1 - line.bbox.y0
+        covered = [
+            other.bbox
+            for other in lines
+            if other is not line
+            and other.bbox.y1 - other.bbox.y0 < height
+            and _vertical_overlap(line.bbox, other.bbox) > (other.bbox.y1 - other.bbox.y0) / 2
+        ]
+        if covered and min(b.y1 for b in covered) <= max(b.y0 for b in covered):
+            out.add(line.id)
+    return out
+
+
 def _rows_of(lines: Sequence[Chunk]) -> list[list[Chunk]]:
-    """As linhas em fileiras: as que se sobrepõem na vertical em mais de metade da menor."""
+    """As linhas em fileiras: as que se sobrepõem na vertical em mais de metade da menor.
+
+    A linha que atravessa fileiras (`_spanning`) fica numa fileira sozinha, na
+    posição dela. Como faixa de uma fileira, ela juntaria todas as linhas ao
+    lado e faria da tabela inteira uma fileira só.
+    """
+    spanning = _spanning(lines)
+    rows: list[list[Chunk]] = [[c] for c in lines if c.id in spanning]
+    rows.extend(_rows_by_overlap([c for c in lines if c.id not in spanning]))
+    rows.sort(key=lambda row: min((c.bbox.y0, c.bbox.x0) for c in row))
+    return rows
+
+
+def _rows_by_overlap(lines: Sequence[Chunk]) -> list[list[Chunk]]:
+    """As linhas em fileiras pela sobreposição vertical, da esquerda para a direita."""
     rows: list[list[Chunk]] = []
     for chunk in sorted(lines, key=lambda c: (c.bbox.y0, c.bbox.x0)):
         if rows:
             row = rows[-1]
             span = BBox.envelope([c.bbox for c in row])
             shortest = min(c.bbox.y1 - c.bbox.y0 for c in (*row, chunk))
-            if min(span.y1, chunk.bbox.y1) - max(span.y0, chunk.bbox.y0) > shortest / 2:
+            if _vertical_overlap(span, chunk.bbox) > shortest / 2:
                 row.append(chunk)
                 continue
         rows.append([chunk])
@@ -1106,7 +1149,9 @@ class Result(_Frozen):
 
         Duas linhas que se sobrepõem na vertical em mais de metade da menor
         estão na mesma fileira, da esquerda para a direita: as células de
-        uma tabela, ou as colunas de uma lista. Fileiras seguidas cujo vão
+        uma tabela, ou as colunas de uma lista. A linha que cobre duas linhas
+        que não se tocam, como uma célula mesclada ou uma tarja vertical,
+        fica numa fileira sozinha. Fileiras seguidas cujo vão
         vertical não passa de `gap` vezes a altura mediana das linhas da
         página estão no mesmo bloco: um parágrafo, ou uma tabela inteira.
         `gap` não está calibrado: é a razão entre o vão que separa dois

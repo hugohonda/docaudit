@@ -183,7 +183,9 @@ Nenhum modelo roda.
 | `chunk_ids` | as linhas do bloco, fileira a fileira |
 
 Duas linhas que se sobrepõem na vertical em mais da metade da menor ficam na
-mesma fileira, da esquerda para a direita. As fileiras seguidas cujo vão não
+mesma fileira, da esquerda para a direita. A linha que cobre duas linhas que
+não se tocam, como uma célula mesclada ou uma tarja vertical na margem, fica
+numa fileira sozinha, na posição dela. As fileiras seguidas cujo vão não
 passa de `gap` vezes a altura mediana das linhas da página ficam no mesmo
 bloco. As propriedades `text` e `tabular` não saem no JSON. `record.text` dá
 as fileiras com as células separadas por ` | `. `record.tabular` diz se alguma

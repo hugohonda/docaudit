@@ -2328,3 +2328,40 @@ def test_each_decision_carries_the_seconds_of_the_stages_that_touched_its_page(s
         assert decision.seconds["cheap"] >= 0.0
         assert ("strong" in decision.seconds) == (decision.tier is Tier.STRONG)
     assert "confirm" not in result.decisions[0].seconds, "sem confirm= nem camada, a etapa não toca"
+
+
+def _merged_cell_table(cell: bool):
+    """Seis credores com valor, cada um numa fileira; com `cell`, uma categoria mesclada ao lado."""
+    lines = [("MATERIA PRIMA", (0.01, 0.30, 0.04, 0.38))] if cell else []
+    for i in range(6):
+        y = 0.30 + i * 0.0125
+        lines += [
+            (f"CREDOR {i}", (0.05, y, 0.30, y + 0.012)),
+            (f"{i}.000,00", (0.80, y, 0.95, y + 0.012)),
+        ]
+    return process(make_scanned_pdf(), policy="all_cheap", cheap=[_Boxes(lines)])
+
+
+def test_a_merged_cell_does_not_chain_the_rows_it_spans():
+    rows = [row for record in _merged_cell_table(cell=True).records() for row in record.rows]
+    for i in range(6):
+        assert (f"CREDOR {i}", f"{i}.000,00") in rows, f"o credor {i} numa fileira dele"
+    assert ("MATERIA PRIMA",) in rows, "a célula mesclada fica numa fileira sozinha"
+
+
+def test_a_table_without_a_merged_cell_keeps_its_rows():
+    rows = [row for record in _merged_cell_table(cell=False).records() for row in record.rows]
+    assert rows == [(f"CREDOR {i}", f"{i}.000,00") for i in range(6)]
+
+
+def test_a_tall_vertical_line_in_the_margin_does_not_join_the_text_rows():
+    """A tarja vertical cobre a página inteira; as linhas do texto continuam uma por fileira."""
+    lines = [("Documento assinado digitalmente", (0.95, 0.10, 0.96, 0.90))]
+    lines += [
+        (f"linha {i} do texto", (0.10, 0.12 + i * 0.03, 0.80, 0.135 + i * 0.03)) for i in range(5)
+    ]
+    result = process(make_scanned_pdf(), policy="all_cheap", cheap=[_Boxes(lines)])
+    rows = [row for record in result.records() for row in record.rows]
+    assert [r for r in rows if r[0].startswith("linha")] == [
+        (f"linha {i} do texto",) for i in range(5)
+    ]
