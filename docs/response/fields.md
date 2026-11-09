@@ -78,7 +78,7 @@ O [trecho](../glossary.md#trecho) é a unidade de texto lido.
 | `reading_order` | a posição do trecho na ordem de leitura da página, ou `null` |
 | `turn` | os graus, no sentido anti-horário, que o leitor girou a página para ler a linha em pé: `0`, `90` ou `270`. A caixa não gira |
 | `kind` | o tipo da região de layout de onde o texto veio, como `text`, `table` ou `paragraph_title`, quando há detector de layout |
-| `line_break_hyphens` | os índices em `text` dos hífens que estavam numa quebra de linha do PDF, na camada de texto. O hífen fica no texto, e quem lê decide se junta as metades |
+| `line_break_hyphens` | os índices em `text` dos hífens que estavam numa quebra de linha do PDF, na camada de texto. O hífen fica no texto, e quem lê decide se junta as metades. A palavra que continua noutra coluna, ou depois de outra linha, sai em dois trechos, o primeiro terminando no hífen |
 | `region` | o índice em `Page.unread` do raster de onde a linha veio, quando um leitor de pixels a leu num raster que a camada de texto não leu; `null` nos outros casos |
 | `furniture` | `true` no [elemento fixo](../glossary.md#elemento-fixo): a linha que se repete, no mesmo lugar, em outra página lida. São o cabeçalho, o rodapé e a tarja. A linha fica no resultado |
 

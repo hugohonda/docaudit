@@ -8,6 +8,12 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 <!-- --8<-- [start:versoes] -->
 ## [Não lançado]
 
+### Corrigido
+
+- A linha da camada de texto cuja palavra hifenizada continua noutra coluna, ou depois de
+  outra linha, sai em duas linhas, cada uma com a caixa dela. A junção do pdfium fazia uma
+  caixa que atravessava a coluna. Muda o id desses trechos.
+
 ### Alterado
 
 - A documentação passa a ter tutorial, guias, explicação e referência separados, um glossário,

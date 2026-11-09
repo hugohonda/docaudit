@@ -172,6 +172,35 @@ def test_a_hyphen_at_a_line_break_between_letters_stays_and_is_marked():
     assert text[19] == "-"
 
 
+def test_a_hyphen_whose_rest_is_in_the_next_column_splits_the_line():
+    """O resto da palavra no topo da coluna da direita é outra linha, cada uma com a caixa dela."""
+    doc = make_pdf(
+        "BT /F1 12 Tf 60 120 Td (o ato foi publica-) Tj ET "
+        "BT /F1 12 Tf 320 700 Td (do com erro) Tj ET"
+    )
+    with opened(doc) as pdf:
+        lines = text_lines_of(pdf, 0)
+    assert [(text, hyphens) for _, text, hyphens in lines] == [
+        ("o ato foi publica-", (17,)),
+        ("do com erro", ()),
+    ]
+    left, right = (box for box, _, _ in lines)
+    assert left.y0 > 0.8, "a primeira metade fica no pé da coluna da esquerda"
+    assert right.y1 < 0.2, "a segunda, no topo da coluna da direita"
+    assert left.x1 < right.x0
+
+
+def test_a_hyphen_with_another_line_between_the_halves_splits_the_line():
+    doc = make_pdf(
+        "BT /F1 12 Tf 60 700 Td (o ato foi publica-) Tj ET "
+        "BT /F1 12 Tf 60 500 Td (do com erro) Tj ET "
+        "BT /F1 12 Tf 60 600 Td (outra linha qualquer) Tj ET"
+    )
+    with opened(doc) as pdf:
+        texts = sorted(text for _, text, _ in text_lines_of(pdf, 0))
+    assert texts == ["do com erro", "o ato foi publica-", "outra linha qualquer"]
+
+
 def test_the_hyphen_index_survives_the_composition_of_the_text():
     """Um "ç" decomposto antes do hífen encurta o texto no NFC; o índice vale no texto que sai."""
     to_unicode = {"c": "c\u0327", "a": "a", "m": "m", "o": "o", "-": "-"}
