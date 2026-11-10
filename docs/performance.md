@@ -71,8 +71,9 @@ O `v6-medium` custa várias vezes o padrão por página. Em página impressa
 ele erra um pouco menos. Em foto e em manuscrito, não erra menos. Numa
 cascata, o que ele compra é o conserto das linhas que falharam uma
 verificação, e não uma leitura melhor da página inteira. Ele é da mesma
-família do padrão e erra junto com ele em parte dos casos: por isso não
-prova erro do documento, e quem prova é `confirm=` com outra família.
+família do padrão e erra junto com ele em parte dos casos. Nenhum leitor
+caro prova erro do documento: só a releitura por `confirm=`, de outra
+família, e a camada de OCR provam.
 
 `strong=` não tem padrão, porque o [leitor caro](glossary.md#leitor-caro) certo depende do documento e
 do [teto](glossary.md#teto). A densidade da página não é sinal para encaminhar. Um modelo de visão

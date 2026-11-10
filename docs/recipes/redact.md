@@ -38,7 +38,7 @@ O que a redação não cobre:
 
 - o valor que nenhum leitor leu;
 - o que não tem forma fixa, como nome e endereço: a biblioteca não os
-  procura ([Limites](../limits.md));
+  procura ([Entidades padrão](../entities.md#o-que-fica-de-fora));
 - o valor numa saída que não é `to_markdown`. Nesse caso, `entity.chunk_ids`
   diz que linhas tocar.
 

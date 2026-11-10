@@ -35,6 +35,8 @@ precisa conhecer antes de confiar num resultado.
   lê.
 - **Exportação além de JSON e Markdown simples.** Não há DocTags, HTML de
   documento nem formato de layout.
+- **Hierarquia de seções.** O texto sai como linhas na ordem de leitura, com
+  um cabeçalho por página. Não há título, seção nem árvore do documento.
 - **Manuscrito.** Os leitores da cascata leem texto impresso. Numa página
   manuscrita, todos eles erram muito, e o PP-OCR maior não muda isso. As
   verificações continuam valendo para o que foi lido, mas quase nada sai com

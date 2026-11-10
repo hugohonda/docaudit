@@ -258,6 +258,48 @@ Um grupo de fileiras vizinhas em `Result.records()`, montado só pela
 posição das caixas. Tipo `Record`. Não é a
 [região de layout](#regiao-de-layout).
 
+### Fileira { #fileira }
+
+Os trechos de um bloco que ficam na mesma altura da página, da esquerda
+para a direita. A célula que cobre várias fileiras fica numa fileira só
+dela. É a linha de uma tabela, montada pela geometria.
+
+### Referência { #referencia }
+
+O nome curto de um trecho, `p<página>:<posição>`, dado por `Result.refs()`
+na ordem de leitura. É o que um modelo ou uma pessoa cita; `Chunk.id` é a
+identidade estável.
+
+### Citação conferida { #citacao-conferida }
+
+Uma referência cuja linha contém, letra por letra e dígito por dígito, o
+valor que a resposta atribui a ela. `Result.cited()` faz a conferência sem
+modelo e devolve só as referências que passam.
+
+### Dúvida { #duvida }
+
+Uma linha lida que merece revisão: o valor que falhou uma verificação, ou
+que outra família leu diferente, com as outras leituras do mesmo lugar ao
+lado. Tipo `Doubt`, em `Document.doubts`.
+
+### Figura { #figura }
+
+Uma imagem numa página nato-digital, e as linhas que um leitor de pixels
+leu dentro dela: a planta, a foto, o carimbo, a tabela colada como imagem.
+Tipo `Figure`, em `Result.figures()`. Numa página digitalizada a folha inteira
+é imagem, e não é figura.
+
+### Leitor de pixels { #leitor-de-pixels }
+
+Um leitor que lê a imagem renderizada, por OCR ou por modelo de visão, em
+oposição à [camada de texto](#camada-de-texto), que lê o que o PDF já traz
+como texto.
+
+### Leitura cara { #leitura-cara }
+
+O mesmo que a [etapa cara](#etapa-cara): a leitura da página pelo
+[leitor caro](#leitor-caro), depois da releitura por outra família.
+
 ### Origem { #origem }
 
 A página, a caixa, o leitor e a versão de onde saiu cada trecho. O nome do

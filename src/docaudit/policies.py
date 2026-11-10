@@ -66,6 +66,7 @@ __all__ = [
     "FailsCheck",
     "GarbledText",
     "LineSignal",
+    "MojibakeText",
     "Signal",
     "StampFormat",
     "entities_of",
@@ -73,6 +74,7 @@ __all__ = [
     "fold_lookalikes",
     "garbled_runs",
     "get_policy",
+    "mojibake_in",
     "signal",
 ]
 
@@ -94,7 +96,7 @@ def _decisions(pages: Sequence[Page], chosen: Container[int], reason: str) -> li
 
 
 class AllCheap:
-    """Nunca escala nenhuma página."""
+    """Não encaminha nenhuma página."""
 
     name = "all_cheap"
     needs_reads = False
@@ -113,7 +115,7 @@ class AllCheap:
 
 
 class AllStrong:
-    """Escala todas as páginas; o teto de `Budget`, quando há, é aplicado por `process`."""
+    """Encaminha todas as páginas; o teto de `Budget`, quando há, é aplicado por `process`."""
 
     name = "all_strong"
     needs_reads = False
@@ -1274,8 +1276,9 @@ class FailsCheck:
 
     Só em texto escrito por máquina: numa página composta o erro é de quem
     digitou o documento, e reler devolveria o mesmo erro. Um documento que
-    imprime um CPF ou uma data errados também dispara, e reler devolve o mesmo
-    valor: é o falso positivo conhecido.
+    imprime um CPF errado, ou uma data errada quando a verificação é de data,
+    também dispara, e reler devolve o mesmo valor: é o falso positivo
+    conhecido.
     """
 
     def __init__(self, check: Check) -> None:
@@ -1596,7 +1599,7 @@ não encaminham: ficam fora de `DEFAULT_SIGNALS`. Para encaminhar por eles,
 
 
 class EvidenceRouter:
-    """Escala só as páginas cuja leitura barata está provadamente errada ou vazia.
+    """Encaminha só as páginas cuja leitura barata está provadamente errada ou vazia.
 
     Cada sinal diz quantas ocorrências encontrou numa página. A prioridade é a
     ordem da lista de sinais; dentro de um sinal, mais ocorrências primeiro;
@@ -1604,11 +1607,11 @@ class EvidenceRouter:
     orçamento folgado sobra.
 
     `min_failures` é o mínimo de valores que falham, somados entre os
-    `FailsCheck`, para a página escalar só por eles; os outros sinais escalam
-    com uma ocorrência. Não é calibrado: o padrão, 1, escala toda falha, e o
-    porquê de outro valor está em `docs/concepts/policy.md`. Vale também com
-    `reread="region"`, em que a página abaixo do mínimo deixa de reler o
-    recorte barato das suas linhas.
+    `FailsCheck`, para a página ser encaminhada só por eles; os outros sinais
+    encaminham com uma ocorrência. Não é calibrado: o padrão, 1, encaminha
+    toda falha, e o porquê de outro valor está em `docs/concepts/policy.md`.
+    Vale também com `reread="region"`, em que a página abaixo do mínimo
+    deixa de reler o recorte barato das suas linhas.
 
     Para inserir um critério próprio, passe a lista: ver `signal`.
     """

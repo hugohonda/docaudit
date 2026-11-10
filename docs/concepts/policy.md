@@ -96,9 +96,9 @@ devolveria o mesmo erro.
 Os falsos positivos conhecidos são dois:
 
 - Uma página em branco volta vazia, e `EmptyRead` dispara.
-- Um documento que imprime um identificador ou uma data errados dispara, e
-  reler devolve o mesmo valor. A releitura por outra família separa esse
-  caso, abaixo.
+- Um documento que imprime um identificador ou um valor em reais errados
+  dispara, e reler devolve o mesmo valor. A releitura por outra família
+  separa esse caso, abaixo.
 
 Ficam fora dos sinais padrão a data que não existe no calendário e a
 palavra que mistura dois alfabetos. Um piso de confiança também fica fora.
@@ -160,7 +160,10 @@ Uma [família](../glossary.md#familia) é um motor de outra arquitetura e
 outro treino, cujos erros não coincidem com os do primeiro.
 `process(..., confirm=TesseractOCR())` relê com outra família a página que
 uma verificação encaminhou, antes do leitor caro. O nome `confirm=` não tem
-relação com o estado `confirmed`.
+relação com o estado `confirmed`. O leitor em `confirm=` tem de ser de
+outra família que a cascata: `"ppocr"` numa cascata que já lê com o PP-OCR
+repete os erros dela, e o mesmo valor inválido vira um falso "erro do
+documento".
 
 Numa página `SEARCHABLE_SCAN`, a primeira família é a própria camada de OCR,
 que já está lida. `confirm=` vem depois, e a primeira família que decide

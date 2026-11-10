@@ -7,8 +7,8 @@ própria leitura com regras que o documento permite checar, e devolve cada
 trecho com a página, a caixa e o leitor de origem. O caso principal são os
 autos judiciais. Classifica o substrato de cada página, lê tudo com uma
 cascata de leitores baratos, aponta com verificações por regra onde a
-leitura está provadamente errada, relê essas linhas com outra família de OCR
-ou com um leitor caro. Não extrai campos, não decide por modelo e não
+leitura está provadamente errada, relê essas páginas com outra família de
+OCR, comparando as linhas que falharam, ou com um leitor caro. Não extrai campos, não decide por modelo e não
 classifica as peças do auto: isso é de quem a chama.
 
 ## Estrutura

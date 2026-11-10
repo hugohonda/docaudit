@@ -136,7 +136,7 @@ nome da GPU: ver [Problemas comuns](troubleshooting.md#a-gpu-pedida-nao-e-usada)
 python -c "import docaudit; print(docaudit.__version__)"
 ```
 
-A versão sai da tag do git, como `0.1.0.dev1`. Para baixar os pesos do
+A versão sai da tag do git. Para baixar os pesos do
 PP-OCR antes da primeira página, chame `prepare()`:
 
 ```pycon
