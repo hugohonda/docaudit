@@ -35,6 +35,17 @@ precisa conhecer antes de confiar num resultado.
   lê.
 - **Exportação além de JSON e Markdown simples.** Não há DocTags, HTML de
   documento nem formato de layout.
+- **Manuscrito.** Os leitores da cascata leem texto impresso. Numa página
+  manuscrita, todos eles erram muito, e o PP-OCR maior não muda isso. As
+  verificações continuam valendo para o que foi lido, mas quase nada sai com
+  a forma de um campo, e uma página sem valor `failed` não foi conferida.
+- **Foto de celular.** A página fotografada, com perspectiva, sombra e dobra,
+  é lida com mais erro que a digitalizada. O Tesseract cai muito mais que o
+  PP-OCR nesse caso. Com `confirm=` no Tesseract, a
+  [releitura](glossary.md#releitura-por-outra-familia) de uma foto tende a
+  não trazer nem o mesmo valor inválido nem um válido no lugar. A página
+  segue então para o leitor caro. O PP-OCR maior não lê a foto melhor que o
+  padrão.
 - **Idioma por página.** O idioma do OCR é um só por chamada.
 - **API assíncrona.** `process()` é síncrono. Num servidor assíncrono,
   rode-o numa thread ou num processo à parte.

@@ -67,6 +67,13 @@ quando não está. Os dois leem os mesmos arquivos de pesos, e na CPU o
 OpenVINO é o mais rápido. O motor entra em `output_version`, e as leituras
 de um não servem pelo outro no cache.
 
+O `v6-medium` custa várias vezes o padrão por página. Em página impressa
+ele erra um pouco menos. Em foto e em manuscrito, não erra menos. Numa
+cascata, o que ele compra é o conserto das linhas que falharam uma
+verificação, e não uma leitura melhor da página inteira. Ele é da mesma
+família do padrão e erra junto com ele em parte dos casos: por isso não
+prova erro do documento, e quem prova é `confirm=` com outra família.
+
 `strong=` não tem padrão, porque o [leitor caro](glossary.md#leitor-caro) certo depende do documento e
 do [teto](glossary.md#teto). A densidade da página não é sinal para encaminhar. Um modelo de visão
 e linguagem custa mais, e na página inteira pode perder valores em página densa.

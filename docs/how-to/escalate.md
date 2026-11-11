@@ -52,6 +52,10 @@ print(result.spent.pages_strong)
 
 O leitor caro relê a página encaminhada. A linha dele entra no lugar da
 barata só onde conserta o valor que falhou sem perder outro que conferia.
+
+O exemplo usa o PP-OCR `v6-medium` porque ele roda sem servidor. Não é uma
+recomendação: o que cada leitor custa e o que compra está em
+[Desempenho](../performance.md#leitores).
 Para usar um modelo de visão e linguagem como leitor caro, veja
 [Ligar um modelo de visão e linguagem](vlm.md).
 
