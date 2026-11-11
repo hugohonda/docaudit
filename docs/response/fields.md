@@ -220,7 +220,7 @@ Outra leitura do mesmo lugar de uma linha do resultado. Sai em
 |---|---|
 | `line` | o `id` da linha do resultado |
 | `reading` | o `Chunk` do outro leitor, com caixa, texto e `source` |
-| `same` | `true` quando o outro leitor leu o mesmo valor inválido: duas famílias apontam o erro impresso. Sempre `false` numa leitura substituída |
+| `same` | `true` quando o outro leitor leu o mesmo valor inválido. Só prova o erro impresso quando vem de outra família: `confirm=` ou a camada de OCR. A linha recusada do leitor caro repete o valor e não prova nada. Sempre `false` numa leitura substituída |
 | `replaced` | `true` quando `reading` estava no resultado e saiu: `line` é a linha que entrou no lugar dela |
 | `check`, `value` | numa linha que não falha, o campo e o valor que a outra família lê diferente |
 

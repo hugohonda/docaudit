@@ -13,9 +13,10 @@ estão no [Glossário](../glossary.md).
 ## Ver o que a política encaminharia
 
 Comece sem leitor caro. A política `evidence` lê todas as páginas com a cascata
-barata. Depois encaminha só a página em que um sinal disparou: leitura vazia,
-texto mal decodificado ou um valor que falha a verificação do campo, como um
-CPF (Cadastro de Pessoas Físicas) com o dígito verificador errado.
+barata. Depois encaminha só a página em que um sinal disparou. Os sinais são a
+leitura vazia, o texto mal decodificado e o valor que falha a verificação do
+campo, como um CPF (Cadastro de Pessoas Físicas) com o dígito verificador
+errado.
 
 ```python
 from docaudit import Tier, process
@@ -56,6 +57,7 @@ barata só onde conserta o valor que falhou sem perder outro que conferia.
 O exemplo usa o PP-OCR `v6-medium` porque ele roda sem servidor. Não é uma
 recomendação: o que cada leitor custa e o que compra está em
 [Desempenho](../performance.md#leitores).
+
 Para usar um modelo de visão e linguagem como leitor caro, veja
 [Ligar um modelo de visão e linguagem](vlm.md).
 
@@ -86,7 +88,7 @@ A releitura tem três desfechos:
 
 | desfecho | `RoutingDecision.reason` | o que acontece |
 |---|---|---|
-| a outra família leu o mesmo valor inválido | `erro do documento: <leitor> leu o mesmo` | a página fica com a leitura barata, e a entidade ganha `printed` |
+| a outra família leu o mesmo valor inválido | `erro do documento: <leitor> leu o mesmo` | a página fica com a leitura barata, e a entidade ganha `printed`. Exceção: a troca que as famílias fazem juntas, declarada em `Check.alike`, não prova nada, e a página segue ao leitor caro |
 | a outra família leu, no mesmo lugar, um valor que confere | `corrigido por <leitor>` | as linhas trocam, e a página fica sem leitor caro |
 | outra coisa | o motivo original | a página segue ao leitor caro |
 
@@ -120,8 +122,10 @@ result = process(
 Com os dois tetos em páginas, vale o menor. Quando o teto não cobre todas as
 páginas encaminhadas, passam primeiro as do sinal que vem antes na lista da
 política. A página que ficou de fora mantém a leitura barata, e o motivo diz
-isso. A leitura barata e a releitura por outra família terminam sempre:
-`max_seconds` corta só a etapa cara.
+isso. A página que o teto de páginas deixou de fora também não passa pela
+releitura por outra família: a releitura só vê a página que continua
+encaminhada. A leitura barata e a releitura por outra família terminam
+sempre: `max_seconds` corta só a etapa cara.
 
 O teto vale para qualquer política, inclusive `all_strong`. Tokens e dólares
 não têm teto. `Result.spent` os relata quando o leitor caro sabe contá-los, e

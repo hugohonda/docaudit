@@ -52,8 +52,9 @@ for record in result.records():
             print(record.ref, row)
 ```
 
-Um valor que quebra entre duas linhas fica partido entre dois trechos; veja
-[Limites](../limits.md).
+Um valor que quebra entre duas linhas fica partido entre dois trechos. A
+entidade dele sai uma vez, com as duas linhas em `chunk_ids`; veja
+[Entidades padrão](../entities.md).
 
 Para encaminhar também a página em que o valor não bate com o extenso entre
 parênteses, acrescente `AMOUNT_IN_WORDS` à política, como em

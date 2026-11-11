@@ -620,9 +620,10 @@ class OtherReading(_Frozen):
     reading: Chunk = PField(description="A linha do outro leitor no mesmo lugar da folha.")
     same: bool = PField(
         description=(
-            "O outro leitor leu o mesmo valor inválido. Duas famílias que concordam no "
-            "erro apontam o erro impresso no documento; a que leu outra coisa não "
-            "explicou a falha. Sempre `false` numa leitura substituída."
+            "O outro leitor leu o mesmo valor inválido. Só prova o erro impresso quando "
+            "vem de outra família: `confirm=` ou a camada de OCR. A linha recusada do "
+            "leitor caro repete o valor e não prova nada; a leitura que leu outra coisa "
+            "não explicou a falha. Sempre `false` numa leitura substituída."
         )
     )
     replaced: bool = PField(
@@ -844,7 +845,7 @@ class Budget(_Frozen):
     max_seconds: float | None = PField(default=None, gt=0.0)
 
     def page_allowance(self, total_pages: int) -> int | None:
-        """Quantas páginas o orçamento permite escalar, dado o total do documento.
+        """Quantas páginas o orçamento permite encaminhar, dado o total do documento.
 
         Devolve `None` quando nenhum limite de página foi declarado.
         """

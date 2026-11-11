@@ -1589,10 +1589,10 @@ def process(
     Args:
         document: caminho do PDF, como `Path` ou `str`, ou seus bytes.
         policy: política de triagem, ou o nome de uma embutida. O padrão,
-            `all_cheap`, não escala nenhuma página. `evidence` lê tudo no tier
-            barato e escala só onde a leitura provou ter falhado.
+            `all_cheap`, não encaminha nenhuma página. `evidence` lê tudo no
+            tier barato e encaminha só onde a leitura provou ter falhado.
         budget: teto opcional do leitor caro, em páginas e em segundos
-            (`max_seconds`). Sem ele, a política escala toda página em que
+            (`max_seconds`). Sem ele, a política encaminha toda página em que
             achou evidência. O teto de páginas vale para qualquer política:
             o que passar dele fica em `CHEAP`, na ordem das páginas, com o
             motivo dizendo isso. A página que o leitor caro começaria depois
@@ -1604,8 +1604,8 @@ def process(
             houver e manda o resto ao PP-OCR.
         strong: leitor caro, como instância ou nome de um leitor registrado por
             entry point. É o mesmo contrato dos leitores baratos; o que muda é
-            quem decide chamá-lo. `None` desliga a escalada, e toda página fica
-            em `CHEAP` qualquer que seja a decisão da política.
+            quem decide chamá-lo. `None` desliga a escalada: a decisão da
+            política fica em `decisions`, e toda página é lida só no barato.
         confirm: leitor de outra família que relê a página encaminhada por
             uma verificação (`FailsCheck`) antes do leitor caro. Se a releitura
             devolve os mesmos valores inválidos, o erro é do documento e a
@@ -1666,8 +1666,9 @@ def process(
             aberto. Vale para a cascata barata e para o backend caro.
         cache: cache de leituras, dos dois tiers e do detector de layout.
         dpi: DPI de renderização, para todas as páginas. Sem ele, uma
-            página com raster é renderizada na resolução dele, presa a
-            [150, 300], e uma sem raster em `docaudit.pdf.DEFAULT_DPI`.
+            página com raster é renderizada na resolução dele, presa ao
+            intervalo de `MIN_NATIVE_DPI` a `MAX_NATIVE_DPI`, e uma sem raster
+            em `DEFAULT_DPI`. Os três vivem em `docaudit.pdf`.
         pages: restringe o processamento a esses índices, zero-based. `None`
             processa o documento inteiro. As páginas de fora nem chegam a ser
             carregadas.

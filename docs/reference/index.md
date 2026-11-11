@@ -54,5 +54,5 @@ docstrings do código.
 ```pycon
 >>> import docaudit
 >>> docaudit.__version__  # a versão instalada; varia
-'0.1.0.dev1'
+'<versão>'
 ```

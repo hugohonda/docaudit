@@ -60,8 +60,8 @@ Cada parte diz uma coisa ao modelo:
 Os estados de uma entidade estão em [Entidades padrão](entities.md).
 
 A referência é curta de propósito. Um modelo copia `p0:2` sem errar e gasta
-poucos tokens nisso. O `Chunk.id`, de 24 dígitos hexadecimais, ele copia
-errado com frequência. `Result.refs()` leva da referência ao `Chunk`, e dali à
+poucos tokens nisso. O `Chunk.id`, de `ID_HEX_CHARS` dígitos hexadecimais,
+ele copia errado com frequência. `Result.refs()` leva da referência ao `Chunk`, e dali à
 caixa, ao leitor, à confiança e ao `id`. O `id` fica para o que atravessa
 execuções, como o cache e a decisão de uma revisão.
 
@@ -96,8 +96,9 @@ for record in result.records():
 rodapé e tarja. Nos autos, as peças de um mesmo cartório repetem no mesmo
 lugar as linhas do formulário, como `Processo Digital nº`, `Classe` e
 `Requerente`, e elas também saem marcadas. Para um modelo que responde quem é
-a parte ou qual é o juízo, entregue o texto com os elementos fixos. A marca
-fica em `Chunk.furniture`, e quem lê decide o que esconder.
+a parte ou qual é o juízo, entregue o texto com os elementos fixos, que é o
+padrão de `to_markdown`. A marca fica em `Chunk.furniture`, e quem lê decide
+o que esconder.
 
 ## Em que ordem entregar
 
@@ -114,9 +115,12 @@ princípio da cascata de leitores.
 Três razões sustentam a ordem, além do custo:
 
 - **O texto já foi conferido.** Uma entidade `confirmed` passou por um dígito
-  verificador. Com `confirm=`, uma `failed` já foi relida por outra família,
-  e `Entity.printed` diz se o erro é do documento. Pedir ao modelo que decida de novo, olhando a
-  imagem, paga duas vezes por uma resposta pior.
+  verificador. Com `confirm=`, uma `failed` numa página que a política
+  encaminhou, dentro do teto de páginas, já foi relida por outra família, e
+  `Entity.printed` diz se o erro é do documento. A releitura não cobre a
+  data nem o valor achado só pelo rótulo (`labeled=`): eles não encaminham a
+  página. Pedir ao modelo que decida de novo, olhando a imagem, paga duas
+  vezes por uma resposta pior.
 - **O modelo responde melhor com menos texto.** Em perguntas sobre
   documentos, recuperar só os trechos relevantes do texto reconhecido
   responde melhor do que mandar o texto inteiro. Os autores atribuem a
@@ -171,6 +175,13 @@ O exemplo pede a um modelo os campos de um edital, cada um com a referência
 da linha de onde saiu, e descarta o que não confere. O pacote `anthropic` não
 é dependência da biblioteca: instale-o à parte.
 
+!!! warning "O texto sai da máquina"
+    A chamada ao modelo leva o texto inteiro do documento ao provedor,
+    com os dados pessoais que ele traz. O cliente do provedor fica fora da
+    biblioteca: `allow_external=True` guarda só os leitores de `process()`,
+    e não vê esta chamada. Mande só o documento que pode sair da máquina.
+    Leia [Segurança dos dados](security.md) antes.
+
 ```python
 import anthropic
 from pydantic import BaseModel
@@ -200,7 +211,8 @@ SYSTEM = (
 )
 
 result = process("edital.pdf", policy="evidence", confirm=TesseractOCR())
-text = result.to_markdown(annotated=True, furniture=False)
+# Com os elementos fixos: o número do processo e o requerente podem estar neles.
+text = result.to_markdown(annotated=True)
 
 client = anthropic.Anthropic()
 response = client.messages.parse(
@@ -260,8 +272,8 @@ seja, só vale se passa na verificação do campo. O modelo é mais um leitor, e
 
 ## Um agente que relê o que duvida
 
-`process(confirm=...)` já relê com outra família a linha que falhou e decide
-sozinho. `Document` serve quando quem decide é uma pessoa ou um agente. Ele
+`process(confirm=...)` já relê com outra família a página em que uma linha
+falhou, compara essas linhas e decide sozinho. `Document` serve quando quem decide é uma pessoa ou um agente. Ele
 mantém o documento aberto, os leitores e o cache entre chamadas. Lista as
 linhas cujo valor não confere, relê só o recorte com o leitor que quem decide
 escolher, e entrega a imagem do recorte.
@@ -288,8 +300,10 @@ with Document("autos.pdf", cheap=["text_layer", PPOCR()], cache=cache) as doc:
 ```
 
 Cada `Doubt` traz a linha, o campo que falhou e o valor lido. `doubt.others`
-traz as leituras de outro leitor no mesmo lugar, que dizem se o erro está
-impresso no documento. Uma pessoa confere a linha lida de dois modos, com o recorte ao lado. A
+traz as leituras de outro leitor no mesmo lugar. A releitura por outra
+família que repete o valor inválido mostra o erro impresso, e `Entity.printed`
+o registra. A linha recusada do leitor caro é só uma segunda leitura para
+quem revisa. Uma pessoa confere a linha lida de dois modos, com o recorte ao lado. A
 resposta dela vira um rótulo para treinar o leitor; veja
 [Guardar a leitura para treinar](recipes/training-pairs.md). A
 assinatura de `Document` e de `Doubt` está em

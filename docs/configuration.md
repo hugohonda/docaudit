@@ -59,7 +59,8 @@ da releitura, sem custo. `"always"` lê a camada como está, e só a evidência 
 texto encaminha a página.
 
 Sem `dpi`, cada página com imagem é renderizada na resolução da imagem, presa
-ao intervalo `[150, 300]`. Uma página sem imagem é renderizada a 200 DPI.
+ao intervalo de `MIN_NATIVE_DPI` a `MAX_NATIVE_DPI`. Uma página sem imagem é
+renderizada em `DEFAULT_DPI`. Os três vivem em `docaudit.pdf`.
 
 `workers` acima de `1` rende com um motor que solta o GIL do Python fora do
 lock do PDF, como o Tesseract. Com que leitor isso vale a pena está em
@@ -256,9 +257,9 @@ nas duas etapas.
 ### Sinais da política `evidence`
 
 Um [sinal](glossary.md#sinal) conta, numa página, as evidências de que a
-leitura barata errou. A ordem da lista é a prioridade: quando o teto não cobre
-todas as páginas com evidência, vence o primeiro sinal da lista que disparou,
-e dentro dele a página com mais ocorrências. Essa ordem não foi medida.
+leitura barata errou. A ordem da lista é a prioridade. Quando o teto não cobre
+todas as páginas com evidência, vence o primeiro sinal da lista que disparou.
+Dentro dele, vence a página com mais ocorrências. Essa ordem não foi medida.
 
 `DEFAULT_SIGNALS` traz os sete sinais marcados como padrão, na ordem da tabela. Os dois últimos entram por escolha.
 

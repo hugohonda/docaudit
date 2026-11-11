@@ -8,9 +8,9 @@ em cada plataforma. O custo de cada etapa, que explica estas escolhas, está em
 ## Em qualquer plataforma
 
 - Baixe os pesos antes da primeira página. `PPOCR().prepare()` baixa os
-  arquivos e abre as sessões do motor. Chame-o na construção da imagem e no início do processo. Assim a leitura
-  não depende da rede, e um arquivo que falta falha antes do documento, e não
-  página a página.
+  arquivos e abre as sessões do motor. Chame-o na construção da imagem e no
+  início do processo. Assim a leitura não depende da rede. Um arquivo que
+  falta falha antes do documento, e não página a página.
 - Guarde as leituras num cache com caminho explícito,
   `ModelCallCache(path)`, num volume. Não monte o volume sobre
   `DOCAUDIT_CACHE_DIR`: ali ficam também os pesos baixados, e um volume vazio

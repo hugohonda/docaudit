@@ -7,9 +7,9 @@ está descrito em [Campos do resultado](fields.md).
 
 ## Exemplo
 
-O documento é um PDF nato-digital de uma página, com cinco linhas, montado com
-`make_pdf` de `tests/support`. A camada de texto é a única leitura, e a
-política é `evidence`.
+O documento é um PDF nato-digital de uma página, com cinco linhas de texto,
+uma delas com um CPF. Serve qualquer PDF assim, gerado por um editor de
+texto. A camada de texto é a única leitura, e a política é `evidence`.
 
 ```python
 import docaudit
@@ -24,8 +24,9 @@ result = docaudit.process(
 print(result.model_dump_json(indent=2))
 ```
 
-A saída abaixo é a real, com três cortes. As caixas e os segundos estão
-arredondados a quatro casas. Em `spent`, saíram as contagens que vieram
+A saída abaixo é a real, resumida. As caixas estão arredondadas a quatro
+casas. Os segundos medidos saíram e ficou `"..."` no lugar deles: eles mudam
+de uma máquina para outra. Em `spent`, saíram as contagens que vieram
 zeradas. Os objetos pequenos estão numa linha só.
 
 ```json
@@ -128,7 +129,7 @@ zeradas. Os objetos pequenos estão numa linha só.
       ],
       "failures": [],
       "incomplete": false,
-      "seconds": {"cheap": 0.0009}
+      "seconds": {"cheap": "..."}
     }
   ],
   "entities": [
@@ -187,8 +188,8 @@ zeradas. Os objetos pequenos estão numa linha só.
   "spent": {
     "pages_total": 1,
     "pages_cheap": 1,
-    "seconds_cheap": 0.001,
-    "seconds": 0.0159,
+    "seconds_cheap": "...",
+    "seconds": "...",
     "calls": null,
     "tokens_in": null,
     "tokens_out": null,
@@ -222,7 +223,7 @@ zeradas. Os objetos pequenos estão numa linha só.
     "folhas": ["folha"],
     "spans": false,
     "min_raster_fraction": 0.0,
-    "versions": {"text_layer": "3:pypdfium2=5.14.0"}
+    "versions": {"text_layer": "3:pypdfium2=<versão>"}
   },
   "document": {
     "producer": null,
@@ -242,7 +243,7 @@ zeradas. Os objetos pequenos estão numa linha só.
     "page_labels": false,
     "signatures": []
   },
-  "library_version": "0.1.0.dev1"
+  "library_version": "<versão>"
 }
 ```
 
@@ -254,9 +255,10 @@ saem `null` porque nenhum leitor desta execução conta tokens.
 
 ### Uma página encaminhada
 
-A segunda execução lê um documento digitalizado: as mesmas linhas, com mais uma
-de custas, rasterizadas por `make_notice_pdf` de `tests/support` a 100 DPI. O
-Tesseract lê na etapa barata e o PP-OCR é o leitor caro.
+A segunda execução lê um documento digitalizado: uma página parecida com a
+primeira, com uma linha de custas a mais e um CPF que confere, rasterizada
+em baixa resolução. Serve qualquer digitalização de uma página com um CPF.
+O Tesseract lê na etapa barata e o PP-OCR é o leitor caro.
 
 ```python
 import docaudit
@@ -270,9 +272,10 @@ result = docaudit.process(
 ```
 
 O Tesseract leu `111.444.777-25` no lugar de `111.444.777-35`, e o dígito
-verificador falhou. A decisão da página ficou assim, com os segundos
-arredondados e os objetos pequenos numa linha só. O texto exato depende da versão do Tesseract e da fonte usada
-para rasterizar, e pode sair diferente em outra máquina.
+verificador falhou. A decisão da página ficou assim, resumida: os segundos
+medidos e a confiança do motor deram lugar a `"..."`, e os objetos pequenos
+estão numa linha só. O texto exato depende da versão do Tesseract e da fonte
+usada para rasterizar, e pode sair diferente em outra máquina.
 
 ```json
 {
@@ -288,7 +291,7 @@ para rasterizar, e pode sair diferente em outra máquina.
   ],
   "failures": [],
   "incomplete": false,
-  "seconds": {"cheap": 0.1956, "confirm": 0.0, "strong": 1.4855}
+  "seconds": {"cheap": "...", "confirm": "...", "strong": "..."}
 }
 ```
 
@@ -307,7 +310,7 @@ com `replaced`:
     "bbox": {"x0": 0.0967, "y0": 0.1819, "x1": 0.3787, "y1": 0.1893},
     "text": "Exequente: ANA LIMA, CPF 111.444.777-25",
     "source": "tesseract",
-    "confidence": 0.85,
+    "confidence": "...",
     "reading_order": 4,
     "turn": 0,
     "kind": null,
@@ -330,7 +333,7 @@ olha os valores com regra, e não o resto da linha.
 
 | campo | tipo | o que traz |
 |---|---|---|
-| `doc_id` | `str` | 16 dígitos hexadecimais do SHA-256 dos bytes do documento |
+| `doc_id` | `str` | os primeiros `DOC_ID_HEX_CHARS` dígitos hexadecimais do SHA-256 dos bytes do documento |
 | `pages` | `tuple[Page, ...]` | as páginas processadas, na ordem do documento |
 | `chunks` | `tuple[Chunk, ...]` | os trechos lidos, página a página |
 | `decisions` | `tuple[RoutingDecision, ...]` | uma decisão da política por página |
@@ -342,7 +345,7 @@ olha os valores com regra, e não o resto da linha.
 | `library_version` | `str` | a versão do pacote que gerou o resultado |
 
 `process()` sempre preenche `run` e `document`. Eles saem `null` só num
-resultado sem esses campos, lido de um JSON gravado antes de eles existirem.
+resultado lido de um JSON que não traz esses campos.
 
 Nove métodos dão as outras formas de uso:
 

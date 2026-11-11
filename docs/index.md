@@ -7,9 +7,10 @@ leitura e diz de onde veio cada trecho.
   [camada de texto](glossary.md#camada-de-texto) do PDF onde ela existe e o
   OCR na CPU onde ela falta.
 - **Aponta o valor que não confere.** O dígito verificador de um CPF, de um
-  CNPJ ou do número de um processo prova que o valor lido é inválido. Só
-  essas páginas vão ao [leitor caro](glossary.md#leitor-caro), quando você
-  passa um.
+  CNPJ ou do número de um processo prova que o valor lido é inválido. Outra
+  família de OCR pode reler essas páginas e separar o erro impresso do erro
+  de leitura. Só o que continua sem explicação vai ao
+  [leitor caro](glossary.md#leitor-caro), quando você passa um.
 - **Devolve a origem de cada trecho.** Cada linha lida traz a página, a caixa
   na página e o leitor que a leu.
 
