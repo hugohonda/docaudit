@@ -183,6 +183,7 @@ def make_scanned_pdf(
     extra_raster_boxes: Sequence[tuple[float, float, float, float]] = (),
     stamped: Sequence[str] = (),
     font: str = "Helvetica",
+    slanted: str | None = None,
 ) -> bytes:
     """PDF de uma página com raster de página inteira, e opcionalmente camada de texto.
 
@@ -214,6 +215,8 @@ def make_scanned_pdf(
     visíveis desenhadas depois de tudo, no pé da folha, como a tarja que o
     tribunal põe por cima da digitalização. `font` é o nome base da fonte do
     texto: `GlyphLessFont` é a que o Tesseract deixa na camada que escreve.
+    `slanted` é uma linha visível, desenhada por último a 45 graus do pé
+    esquerdo ao alto direito da folha, como a marca d'água de uma cópia.
     """
     w_px, h_px = pixels
     raw = bytes([200 + (i * 7) % 40 for i in range(w_px * h_px)])
@@ -249,6 +252,8 @@ def make_scanned_pdf(
     for n, ln in enumerate(stamped):
         esc = ln.replace("\\", r"\\").replace("(", r"\(").replace(")", r"\)")
         content.append(f"BT 0 Tr /F1 6 Tf 20 {40 - 9 * n} Td ({esc}) Tj ET")
+    if slanted is not None:
+        content.append(f"BT 0 Tr /F1 40 Tf 0.707 0.707 -0.707 0.707 100 300 Tm ({slanted}) Tj ET")
     stream = "\n".join(content).encode("latin-1", "replace")
 
     objs = [

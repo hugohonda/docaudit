@@ -94,6 +94,7 @@ pede a imagem em cor.
 |---|---|---|
 | `view.page` | nenhum | metadados, dimensões e substrato |
 | `view.text_lines()` | baixo | a camada de texto, uma linha por item, com caixa |
+| `view.drawn_lines()` | baixo | as mesmas linhas, com a ordem de desenho, se estão à vista e se estão em diagonal |
 | `view.pixels(grayscale=True)` | alto | a página renderizada, como imagem do Pillow |
 | `view.image(grayscale=True)` | alto | a mesma renderização em PNG, para um motor que pede o arquivo |
 | `view.region(box)` | o do recorte | uma `RegionView` com só a parte `box` da página |

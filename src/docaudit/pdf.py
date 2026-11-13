@@ -105,7 +105,7 @@ class PageView:
         self._dpi = dpi
         self._pixels: dict[bool, Image.Image] = {}
         self._images: dict[bool, bytes] = {}
-        self._lines: Sequence[TextLine] | None = None
+        self._drawn: Sequence[DrawnLine] | None = None
         self.box: BBox | None = None
         """A caixa do recorte, numa `RegionView`; `None` é a página inteira."""
         self.turn: Turn = 0
@@ -142,9 +142,13 @@ class PageView:
 
     def text_lines(self) -> Sequence[TextLine]:
         """Linhas do texto embutido, com caixa, lidas no máximo uma vez."""
-        if self._lines is None:
-            self._lines = text_lines_of(self._pdf, self._page.index)
-        return self._lines
+        return tuple(drawn.line for drawn in self.drawn_lines())
+
+    def drawn_lines(self) -> Sequence[DrawnLine]:
+        """As linhas de `text_lines`, com o que `drawn_lines_of` diz de cada uma."""
+        if self._drawn is None:
+            self._drawn = drawn_lines_of(self._pdf, self._page.index)
+        return self._drawn
 
     @property
     def rendered(self) -> bool:
@@ -209,7 +213,7 @@ class RegionView(PageView):
         )
         self._pixels: dict[bool, Image.Image] = {}
         self._images: dict[bool, bytes] = {}
-        self._lines: Sequence[TextLine] | None = ()
+        self._drawn: Sequence[DrawnLine] | None = ()
 
     @property
     @override
@@ -1067,6 +1071,15 @@ _SYMBOL_BULLET = 0xF0B7
 """O marcador de lista que o Word desenha com a fonte Symbol, na área de uso privado."""
 
 
+def _is_slanted(angle: float) -> bool:
+    """Se o ângulo da escrita, em radianos, não é múltiplo de um quarto de volta.
+
+    O ângulo conta em graus inteiros: o pdfium o devolve em ponto flutuante, e a
+    tarja vertical não sai exatamente como 3π/2.
+    """
+    return round(math.degrees(angle)) % 90 != 0
+
+
 class _Glyph(NamedTuple):
     """Um caractere desenhado: a caixa justa, a caixa da fonte e o ângulo da escrita."""
 
@@ -1135,6 +1148,13 @@ class DrawnLine(NamedTuple):
     """A posição, na ordem de desenho, do primeiro objeto de texto da linha; -1 sem objeto."""
     visible: bool
     """Desenhada com tinta e sem imagem desenhada depois por cima, o mesmo juízo do substrato."""
+    slanted: bool = False
+    """Se algum caractere está escrito em diagonal, fora da horizontal e da vertical.
+
+    É a marca d'água que atravessa a folha. A caixa da linha é a envoltória
+    dos caracteres e cobre muito mais que o texto: o que fica dentro dela não
+    foi lido pela linha.
+    """
 
 
 def _drawing_of(page: pdfium.PdfPage) -> dict[int, tuple[int, bool]]:
@@ -1236,12 +1256,13 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
             def flush() -> None:
                 drawn = min(at for at, _ in first) if first else -1
                 visible = bool(first) and all(v for _, v in first)
+                slanted = any(_is_slanted(g.angle) for g in glyphs if g is not None)
                 ordered = None if marks else _visual_order(chars, glyphs)
                 if ordered is not None:
                     text_value = unicodedata.normalize("NFC", ordered).strip()
                     if text_value and box is not None:
                         line = TextLine(displayed(box), text_value, ())
-                        out.append(DrawnLine(line, drawn, visible))
+                        out.append(DrawnLine(line, drawn, visible, slanted))
                     return
                 # Cada trecho entre hífens marcados é normalizado à parte: o NFC
                 # pode encurtar um trecho ("c" mais cedilha vira "ç"), e o índice
@@ -1267,7 +1288,9 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
                 if line is not None and box is not None:
                     text_value, inside = line
                     out.append(
-                        DrawnLine(TextLine(displayed(box), text_value, inside), drawn, visible)
+                        DrawnLine(
+                            TextLine(displayed(box), text_value, inside), drawn, visible, slanted
+                        )
                     )
                     hyphenated.append((len(out) - 1, halves))
 
@@ -1440,6 +1463,7 @@ def _split_jumps(
                     TextLine(BBox.envelope(found), text, hyphens),
                     min(at) if at else -1,
                     all(h.visible for h in group),
+                    drawn.slanted,
                 )
             )
     return out

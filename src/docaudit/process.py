@@ -410,7 +410,8 @@ def _read_cascade(
     seguinte lê o recorte de cada raster com a folga de `RASTER_MARGIN`, e
     ficam as linhas cujo centro cai no raster, menos as que caem em algo já
     lido: o rodapé carimbado sobre uma digitalização já veio da camada de
-    texto. Cada uma dessas linhas diz em `region` de qual raster veio, e
+    texto. A linha da camada escrita em diagonal não conta como lida
+    (`_straight`). Cada uma dessas linhas diz em `region` de qual raster veio, e
     entra na ordem de leitura no lugar do raster (`_in_place`). O recorte, e
     não a página inteira, porque o custo do PP-OCR é por linha reconhecida. É
     assim que a folha digitalizada com o rodapé do PJe carimbado por cima tem o
@@ -443,13 +444,26 @@ def _read_cascade(
             return _Cascade(chunks, hit, 0, failed)
         for filler in readers[position + 1 :]:
             try:
-                extra = _from_rasters(view, filler, cache, chunks, rasters)
+                extra = _from_rasters(view, filler, cache, _straight(view, chunks), rasters)
             except RuntimeError as exc:
                 failed.append(_warn_failure(filler, view.page, exc))
                 return _Cascade(chunks, hit, 0, failed, lost=True)
             return _Cascade(_in_place(chunks, extra, view.page.unread), hit, 1, failed)
         return _Cascade(chunks, hit, 0, failed, lost=bool(failed))
     return _Cascade([], False, 0, failed)
+
+
+def _straight(view: PageView, read: Sequence[Chunk]) -> list[Chunk]:
+    """O que foi lido, menos as linhas da camada escritas em diagonal (`DrawnLine.slanted`).
+
+    A marca d'água que atravessa a folha tem uma caixa que cobre quase a
+    página. Contada como lida, ela esconderia as linhas do raster embaixo
+    dela, e o corpo da cópia sumiria do resultado.
+    """
+    slanted = {(d.line.bbox, d.line.text) for d in view.drawn_lines() if d.slanted}
+    if not slanted:
+        return list(read)
+    return [c for c in read if c.source != TextLayerReader.name or (c.bbox, c.text) not in slanted]
 
 
 def _from_rasters(

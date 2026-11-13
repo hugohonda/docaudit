@@ -944,6 +944,16 @@ def test_a_region_line_centred_on_a_text_layer_line_is_dropped():
     assert [c.source for c in result.chunks] == ["text_layer"]
 
 
+def test_a_diagonal_watermark_does_not_hide_the_scan_under_it():
+    """A caixa da marca d'água em diagonal cobre quase a folha, mas a marca não leu o corpo."""
+    doc = make_scanned_pdf(slanted="COPIA - DOCUMENTO DIGITAL")
+    result = process(doc, cheap=["text_layer", FakeOCR()])
+    (watermark,) = (c for c in result.chunks if c.source == "text_layer")
+    box = watermark.bbox
+    assert (box.x0 < 0.5 < box.x1, box.y0 < 0.15 < box.y1) == (True, True), "cobre a linha do OCR"
+    assert "ocr pagina 0" in [c.text for c in result.chunks]
+
+
 def test_a_typeset_page_without_rasters_never_reaches_the_ocr():
     ocr = FakeOCR()
     result = process(make_pdf(TEXT_CENTRAL), cheap=["text_layer", ocr])

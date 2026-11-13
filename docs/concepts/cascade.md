@@ -80,7 +80,9 @@ O leitor seguinte da cascata lê esses rasters:
 3. O recorte que cobre a página inteira é lido como a página, com a mesma
    chave de cache.
 4. Ficam as linhas cujo centro cai num raster e em nada já lido. O rodapé
-   carimbado sobre a digitalização já veio da camada.
+   carimbado sobre a digitalização já veio da camada. A marca d'água escrita
+   em diagonal não conta como lida: a caixa dela cobre quase a folha, e
+   esconderia o corpo da cópia.
 
 `Result.spent.regions_cheap` conta as páginas lidas assim. Se o leitor
 seguinte falha num desses recortes, a página sai com
