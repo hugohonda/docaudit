@@ -1956,7 +1956,7 @@ def test_a_blank_page_keeps_its_furniture():
 # ── A leitura cara passa pelas mesmas verificações ───────────────────────────
 
 
-def _strong_outcome(cheap_text: str, strong_text: str, policy: str, scanned_doc):
+def _strong_outcome(cheap_text: str, strong_text: str, policy, scanned_doc):
     cheap = _Says("cheap", {0: cheap_text})
     strong = _Says("strong", {0: strong_text})
     return process(scanned_doc, cheap=[cheap], strong=strong, policy=policy, pages={0})
@@ -1970,6 +1970,30 @@ def test_a_costly_line_that_loses_a_valid_value_is_refused_and_the_cheap_line_st
     assert [c.source for c in result.chunks] == ["cheap"]
     assert result.spent.lines_strong_rejected == 1
     assert any("perdeu CPF" in s for s in result.decisions[0].steps)
+
+
+def test_a_refused_costly_line_with_another_amount_is_a_doubt_beside_the_cheap_line(scanned_doc):
+    """Dois valores bem escritos e diferentes: fica a barata, e a cara fica ao lado como dúvida."""
+    from docaudit import Document
+    from docaudit.policies import AllStrong
+
+    class ReadThenStrong(AllStrong):
+        needs_reads = True
+
+    result = _strong_outcome(
+        "Valor da causa R$ 1.284,56", "Valor da causa R$ 1.234,56", ReadThenStrong(), scanned_doc
+    )
+    assert [c.source for c in result.chunks] == ["cheap"]
+    (other,) = result.others
+    assert (other.reading.source, other.same, other.replaced) == ("strong", False, False)
+    assert (other.check, other.value) == ("valor em reais", "1.284,56")
+    with Document(scanned_doc) as session:
+        (doubt,) = session.doubts(result)
+    assert (doubt.chunk.id, doubt.check, doubt.value) == (
+        result.chunks[0].id,
+        "valor em reais",
+        "1.284,56",
+    )
 
 
 def test_a_costly_line_that_reads_the_decimal_comma_as_a_point_is_refused(scanned_doc):

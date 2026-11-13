@@ -1191,6 +1191,8 @@ def _valid_values(check: FailsCheck, chunk: Chunk) -> set[str]:
 
 _BARE_AMOUNT = re.compile(r"(?<![0-9.,])[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}(?![0-9.,])")
 """O número com vírgula decimal e milhar com ponto, com ou sem o `R$` antes."""
+_BARE_AMOUNT_FIELD = AMOUNT_BRL.name
+"""O campo com que a leitura ao lado aponta um número de `_BARE_AMOUNT`."""
 
 
 def _amount_disagreements(
@@ -1227,7 +1229,7 @@ def _amount_disagreements(
             if a != b:
                 out.append(
                     OtherReading(
-                        line=line.id, reading=h, same=False, check=AMOUNT_BRL.name, value=a
+                        line=line.id, reading=h, same=False, check=_BARE_AMOUNT_FIELD, value=a
                     )
                 )
                 break
@@ -1393,8 +1395,8 @@ def _rejected_strong(
     strong: Sequence[Chunk],
     failures: Sequence[Failure],
     checks: Sequence[FailsCheck],
-) -> tuple[set[str], list[str]]:
-    """As linhas da leitura cara que não entram no lugar da barata, e o porquê de cada recusa.
+) -> tuple[set[str], list[str], list[OtherReading]]:
+    """As linhas caras que não entram no lugar da barata, o porquê, e as que perderam valor.
 
     A leitura cara passa pelas mesmas verificações que a barata, com o
     veredito da releitura por outra família. Uma linha cara que cobre uma
@@ -1410,8 +1412,21 @@ def _rejected_strong(
     coisa não explicou nada, e a barata fica. O leitor caro não é declarado
     de outra família, e por isso a repetição dele não prova erro do
     documento: o padrão é um PP-OCR maior, que erra junto com o barato.
+
+    A linha cara recusada por perder um valor fica ao lado da linha barata,
+    com `same=False`, o `check` e o valor que ela não trouxe: nada prova
+    qual das duas leituras está certa, e quem revisa vê a discordância.
     """
     rejected: set[str] = set()
+    lost: dict[tuple[str, str], OtherReading] = {}
+
+    def lose(line: Chunk, s: Chunk, check: str, value: str) -> None:
+        rejected.add(s.id)
+        lost.setdefault(
+            (line.id, s.id),
+            OtherReading(line=line.id, reading=s, same=False, check=check, value=value),
+        )
+
     # O porquê de cada recusa, uma vez cada, na ordem em que aparece.
     notes: dict[str, None] = {}
     covering = {line.id: _covering(line.bbox, strong) for line in cheap}
@@ -1420,15 +1435,15 @@ def _rejected_strong(
         for line in cheap:
             values: set[str] = _valid_values(check, line) if covering[line.id] else set()
             for s in covering[line.id]:
-                if values and not values <= carried[s.id]:
-                    rejected.add(s.id)
+                if missing := sorted(values - carried[s.id]):
+                    lose(line, s, check.name, missing[0])
                     notes[f"perdeu {check.name} que a leitura barata trazia"] = None
     amounts = {s.id: set(_BARE_AMOUNT.findall(s.text)) for s in strong}
     for line in cheap:
         values = set(_BARE_AMOUNT.findall(line.text)) if covering[line.id] else set()
         for s in covering[line.id]:
-            if values and not values <= amounts[s.id]:
-                rejected.add(s.id)
+            if missing := sorted(values - amounts[s.id]):
+                lose(line, s, _BARE_AMOUNT_FIELD, missing[0])
                 notes["perdeu um valor com vírgula decimal que a leitura barata trazia"] = None
     for check, value, line in failures:
         covering = [s for s in strong if _same_place(line, s)]
@@ -1442,7 +1457,7 @@ def _rejected_strong(
             else f"outro valor no lugar de {check.name} ({value}); não explicou"
         )
         notes[note] = None
-    return rejected, list(notes)
+    return rejected, list(notes), list(lost.values())
 
 
 class _StrongRead(NamedTuple):
@@ -1574,10 +1589,11 @@ def _strong_stage(
             steps.append(f"{backend.name} falhou: {read.error}; fica a leitura barata, se houve")
         else:
             fails = failures.get(page.index, ())
-            rejected, notes = _rejected_strong(cheap, read.strong, fails, checks)
+            rejected, notes, lost = _rejected_strong(cheap, read.strong, fails, checks)
             accepted = [s for s in read.strong if s.id not in rejected]
             refused = [s for s in read.strong if s.id in rejected]
             run.others.extend(_other_readings(fails, refused))
+            run.others.extend(lost)
             merged, replaced = _replace_read(cheap, accepted)
             run.others.extend(replaced)
             # A linha barata que sobra fora das caixas do leitor caro fica

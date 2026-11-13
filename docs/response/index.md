@@ -297,9 +297,10 @@ usada para rasterizar, e pode sair diferente em outra máquina.
 
 `reason` cita o primeiro sinal da lista que disparou, e `signals` traz todos. O
 PP-OCR leu a página inteira e substituiu cinco linhas do Tesseract. Uma linha
-dele foi recusada, porque perdia um valor que a leitura barata trazia. A linha
-do Tesseract que saiu fica em `others`, ao lado da que entrou no lugar dela,
-com `replaced`:
+dele foi recusada, porque perdia um valor que a leitura barata trazia. Ela fica
+em `others` ao lado da linha do Tesseract, com `check` e o valor que não
+trouxe. A linha do Tesseract que saiu fica em `others`, ao lado da que entrou
+no lugar dela, com `replaced`:
 
 ```json
 {

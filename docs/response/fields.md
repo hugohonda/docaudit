@@ -222,14 +222,17 @@ Outra leitura do mesmo lugar de uma linha do resultado. Sai em
 | `reading` | o `Chunk` do outro leitor, com caixa, texto e `source` |
 | `same` | `true` quando o outro leitor leu o mesmo valor inválido. Só prova o erro impresso quando vem de outra família: `confirm=` ou a camada de OCR. A linha recusada do leitor caro repete o valor e não prova nada. Sempre `false` numa leitura substituída |
 | `replaced` | `true` quando `reading` estava no resultado e saiu: `line` é a linha que entrou no lugar dela |
-| `check`, `value` | numa linha que não falha, o campo e o valor que a outra família lê diferente |
+| `check`, `value` | numa linha que não falha, o campo e o valor que o outro leitor lê diferente: a camada de OCR, ou a linha recusada do leitor caro |
 
-Há três casos:
+Há quatro casos:
 
 - a releitura que não conferiu fica ao lado da linha que continuou no
   resultado;
 - a linha da camada de OCR que lê outro valor em reais também fica ao lado,
   com `check` e `value`;
+- a linha do leitor caro recusada por não trazer um valor que a linha barata
+  trazia fica ao lado da linha barata, com `check` e o valor que ela não
+  trouxe;
 - a leitura que saiu porque a releitura por outra família conferiu, ou porque
   o leitor caro leu ali, fica ao lado da linha que a substituiu, com
   `replaced`.
