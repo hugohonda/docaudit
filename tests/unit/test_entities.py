@@ -205,21 +205,24 @@ def test_a_date_glued_to_an_id_is_found_and_one_inside_a_number_is_not():
     ]
 
 
-def test_a_date_with_its_weekday_is_confirmed_when_the_calendar_agrees():
+def test_a_date_with_its_weekday_is_well_formed_when_the_calendar_agrees():
+    """O dia da semana repete a cada sete dias: a data deslocada de uma semana também confere."""
     page = make_page(0)
     header = _line(page, 0.03, "D.O.M. ANO X Nº 2343, Quarta-feira, 05 de Janeiro de 2022")
     numeric = _line(page, 0.1, "São Paulo, segunda-feira, 10/03/2025.")
+    shifted = _line(page, 0.15, "São Paulo, segunda-feira, 17/03/2025.")
     wrong = _line(page, 0.2, "TERÇA-FEIRA, 05 de MARÇO de 2022")
     split = _line(page, 0.3, "Sertãozinho, sexta-feira,")
     split_date = _line(page, 0.32, "1º de julho de 2022")
-    found = entities_of([DATE_WEEKDAY], page, [header, numeric, wrong, split, split_date])
+    found = entities_of([DATE_WEEKDAY], page, [header, numeric, shifted, wrong, split, split_date])
     assert [(e.value, e.state) for e in found] == [
-        ("Quarta-feira, 05 de Janeiro de 2022", EntityState.CONFIRMED),
-        ("segunda-feira, 10/03/2025", EntityState.CONFIRMED),
+        ("Quarta-feira, 05 de Janeiro de 2022", EntityState.WELL_FORMED),
+        ("segunda-feira, 10/03/2025", EntityState.WELL_FORMED),
+        ("segunda-feira, 17/03/2025", EntityState.WELL_FORMED),
         ("TERÇA-FEIRA, 05 de MARÇO de 2022", EntityState.FAILED),
-        ("sexta-feira, 1º de julho de 2022", EntityState.CONFIRMED),
+        ("sexta-feira, 1º de julho de 2022", EntityState.WELL_FORMED),
     ]
-    assert found[3].chunk_ids == (split.id, split_date.id), "o dia numa linha, a data na outra"
+    assert found[4].chunk_ids == (split.id, split_date.id), "o dia numa linha, a data na outra"
 
 
 def test_a_date_in_words_is_well_formed_when_it_exists_and_a_word_that_is_not_a_month_is_nothing():

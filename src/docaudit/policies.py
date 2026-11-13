@@ -543,16 +543,19 @@ def _weekday_matches(printed: str) -> bool:
     return date is not None and date.weekday() == _WEEKDAYS[_plain(weekday)]
 
 
-DATE_WEEKDAY = Check("data com dia da semana", _WEEKDAY_DATE, _weekday_matches, redundant=True)
+DATE_WEEKDAY = Check("data com dia da semana", _WEEKDAY_DATE, _weekday_matches)
 """A data impressa com o dia da semana, por extenso ou `dd/mm/aaaa`.
 
 Cabeçalhos de diário oficial e fechos de decisão imprimem assim:
 `Quarta-feira, 05 de Janeiro de 2022`, `segunda-feira, 10/03/2025`.
 
-O dia da semana é redundância, como o dígito verificador: a data que o
-calendário confirma sai `confirmed`, a que não confere sai `failed`. A data
-`dd/mm/aaaa` com o dia na frente sai também como `data`, que só diz que ela
-existe. O dia e a data podem estar em linhas seguidas.
+O dia da semana que não confere com o calendário prova a leitura errada, e a
+data sai `failed`. O que confere não prova a leitura certa: o dia da semana
+se repete a cada sete dias, e `17/03/2025` lido no lugar de `10/03/2025`
+passa. Por isso a regra não tem redundância, e a data que confere sai
+`well_formed`. A data `dd/mm/aaaa` com o dia na frente sai também como
+`data`, que só diz que ela existe. O dia e a data podem estar em linhas
+seguidas.
 """
 
 # Os meses de `_MONTHS`, com o cedilha opcional de março.
@@ -581,7 +584,7 @@ podem estar em linhas seguidas.
 
 Sem redundância: sai `well_formed`, como `DATE_DMY`, e pela mesma razão
 não entra em `DEFAULT_SIGNALS`. A data com o dia da semana na frente sai
-também como `DATE_WEEKDAY`, que a confirma.
+também como `DATE_WEEKDAY`, que a recusa quando o dia não confere.
 """
 
 

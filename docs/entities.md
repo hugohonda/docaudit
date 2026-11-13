@@ -42,7 +42,7 @@ saída é esta:
 | valor em reais | `valor em reais` | a grafia brasileira: grupos de três, vírgula e dois centavos, depois de `R$` ou antes do `C` ou `D` de um extrato | `well_formed` |
 | valor em moeda anterior ao real | `valor em moeda anterior ao real` | `Cr$`, `NCr$`, `Cz$`, `NCz$` ou `CR$` na mesma grafia, com centavos opcionais | `well_formed` |
 | data | `data` | `dd/mm/aaaa` que existe no calendário | `well_formed` |
-| data com dia da semana | `data com dia da semana` | `Quarta-feira, 05 de Janeiro de 2022` ou `segunda-feira, 10/03/2025`: o dia da semana confere com o calendário | `confirmed` |
+| data com dia da semana | `data com dia da semana` | `Quarta-feira, 05 de Janeiro de 2022` ou `segunda-feira, 10/03/2025`: o dia da semana confere com o calendário; o dia se repete a cada sete dias, e a data deslocada de uma semana também confere | `well_formed` |
 | data por extenso | `data por extenso` | `1º de março de 2024`, que existe no calendário | `well_formed` |
 | folha | `folha` | `fl. 16`, `fls. 5.662` ou `fls: 1002`, com o verso; sem regra de validade | `well_formed` |
 | chave de acesso | `chave de acesso` | os 44 dígitos de uma NF-e, CT-e ou NFC-e, juntos ou em grupos de quatro: o dígito em módulo 11, a UF do IBGE, o mês e o modelo | `confirmed` |
