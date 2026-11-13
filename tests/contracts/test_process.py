@@ -20,7 +20,7 @@ from docaudit import Budget, mark_furniture, process
 from docaudit.backends.textlayer import TextLayerReader
 from docaudit.cache import ModelCallCache
 from docaudit.pdf import PageView, RegionView, drawn_lines_of, load_pages, opened, pages_of
-from docaudit.policies import ESAJ_STAMP, Check, StampFormat
+from docaudit.policies import CPF, ESAJ_STAMP, Check, StampFormat
 from docaudit.process import (
     RASTER_MARGIN,
     _in_place_of_pixels,
@@ -2082,6 +2082,35 @@ def test_a_costly_read_with_the_comma_and_the_same_digits_repairs_a_bare_amount(
     assert result.spent.lines_strong_rejected == 0
 
 
+def test_a_renamed_amount_check_keeps_the_bare_amount_rule(scanned_doc):
+    """A cópia de `AMOUNT_BRL` com outro nome conserta o valor sem `R$` como o original."""
+    import dataclasses
+
+    from docaudit.policies import AMOUNT_BRL, EvidenceRouter, FailsCheck
+
+    valor = dataclasses.replace(AMOUNT_BRL, name="valor")
+    policy = EvidenceRouter([FailsCheck(valor)])
+    result = _strong_outcome("15.062.39", "15.062,39", policy, scanned_doc)
+    assert [c.source for c in result.chunks] == ["strong"]
+    assert result.spent.lines_strong_rejected == 0
+
+
+def test_without_an_amount_check_a_bare_amount_refuses_nothing(scanned_doc):
+    """Sem verificação de valor em reais pedida, o número com vírgula não segura a linha barata."""
+    from docaudit.policies import AllStrong
+
+    class ReadThenStrong(AllStrong):
+        needs_reads = True
+
+    cheap = _Says("cheap", {0: "Valor da causa R$ 1.284,56"})
+    strong = _Says("strong", {0: "Valor da causa R$ 1.234,56"})
+    result = process(
+        scanned_doc, cheap=[cheap], strong=strong, policy=ReadThenStrong(), entities=[CPF]
+    )
+    assert [c.source for c in result.chunks] == ["strong"]
+    assert result.spent.lines_strong_rejected == 0
+
+
 def test_a_costly_read_with_other_digits_does_not_repair_a_bare_amount(scanned_doc):
     result = _strong_outcome("15.062.39", "15.062,89", "evidence", scanned_doc)
     assert [c.source for c in result.chunks] == ["cheap"]
@@ -2135,6 +2164,8 @@ def test_the_hidden_layer_reading_another_amount_is_a_doubt_and_the_reading_stay
         )
     trusted = process(doc, cheap=["text_layer", reader], trust_layer="always")
     assert trusted.others == (), "com a camada como leitura, não há outra família"
+    unchecked = process(doc, cheap=[reader], policy="all_cheap", entities=[CPF])
+    assert unchecked.others == (), "sem verificação de valor em reais, não há o que comparar"
 
 
 def test_a_confirmed_id_only_the_hidden_layer_read_takes_the_place_of_the_pixel_line():

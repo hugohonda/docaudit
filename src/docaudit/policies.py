@@ -225,6 +225,15 @@ class Check:
     A página segue ao leitor caro, e a entidade sai sem `printed`, salvo quando
     o valor está em texto composto.
     """
+    bare: bool = False
+    """Se o campo é o valor em reais, que a coluna de uma tabela imprime sem `R$`.
+
+    Com `True`, o número com vírgula decimal e milhar com ponto conta como
+    valor do campo mesmo sem o símbolo. A releitura que o traz com os mesmos
+    dígitos explica a falha, a linha do leitor caro que o perde é recusada, e
+    a camada oculta que lê outro número no lugar fica ao lado da linha.
+    Sem nenhuma verificação com `True`, esse número não conta.
+    """
     unproven: Callable[[str], bool] | None = None
     """Se um valor que confere fica sem prova, mesmo com `redundant`.
 
@@ -412,6 +421,7 @@ AMOUNT_BRL = Check(
     ),
     _amount_brl_is_valid,
     alike=_amount_brl_decimal_point,
+    bare=True,
 )
 """Valor em reais.
 

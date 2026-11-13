@@ -234,7 +234,9 @@ barata tinha certo. Ela é recusada, e a linha barata fica, nestes casos:
 - Ela cobre uma linha barata com um número de vírgula decimal e milhar no
   lugar, e não traz esse número. Vale sem o `R$`, porque numa tabela o
   símbolo fica no cabeçalho. A linha cara que lê `15.062.39` onde a barata
-  leu `15.062,39` é recusada.
+  leu `15.062,39` é recusada. Vale só com uma verificação de valor em reais
+  pedida, a que declara `Check.bare`, como `AMOUNT_BRL`. A linha recusada
+  fica em `Result.others`, ao lado da barata.
 - No lugar de um valor que falhou, ela traz o mesmo valor inválido, ou
   traz outra coisa que não confere. Só a linha cara com o valor que confere
   conserta.

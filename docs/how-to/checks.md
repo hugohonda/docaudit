@@ -51,7 +51,7 @@ encaminha. O porquê completo está em
 ## Um campo seu
 
 A assinatura completa é
-`Check(name, pattern, is_valid, redundant=False, labeled=None, alike=None, unproven=None)`.
+`Check(name, pattern, is_valid, redundant=False, labeled=None, alike=None, bare=False, unproven=None)`.
 Duas regras fazem a falha provar alguma coisa:
 
 - `pattern` casa só a forma daquele campo. Onze dígitos soltos como CPF
