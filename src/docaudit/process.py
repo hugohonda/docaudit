@@ -1414,18 +1414,23 @@ def _rejected_strong(
     documento: o padrão é um PP-OCR maior, que erra junto com o barato.
 
     A linha cara recusada por perder um valor fica ao lado da linha barata,
-    com `same=False`, o `check` e o valor que ela não trouxe: nada prova
-    qual das duas leituras está certa, e quem revisa vê a discordância.
+    com `same=False`, o campo em `check` e o valor que ela não trouxe: nada
+    prova qual das duas leituras está certa, e quem revisa vê a
+    discordância. Na linha barata que falha, ela já fica ao lado pela falha.
     """
     rejected: set[str] = set()
     lost: dict[tuple[str, str], OtherReading] = {}
+    # Na linha que falha, a dúvida já existe, e a linha cara fica ao lado dela
+    # por `_other_readings`, sem `check`.
+    failing = {line.id for _, _, line in failures}
 
     def lose(line: Chunk, s: Chunk, check: str, value: str) -> None:
         rejected.add(s.id)
-        lost.setdefault(
-            (line.id, s.id),
-            OtherReading(line=line.id, reading=s, same=False, check=check, value=value),
-        )
+        if line.id not in failing:
+            lost.setdefault(
+                (line.id, s.id),
+                OtherReading(line=line.id, reading=s, same=False, check=check, value=value),
+            )
 
     # O porquê de cada recusa, uma vez cada, na ordem em que aparece.
     notes: dict[str, None] = {}
@@ -1433,14 +1438,17 @@ def _rejected_strong(
     for check in checks:
         carried = {s.id: _valid_values(check, s) for s in strong}
         for line in cheap:
-            values: set[str] = _valid_values(check, line) if covering[line.id] else set()
+            # Cada valor que confere, sem espaços para comparar e como impresso.
+            printed = {
+                "".join(v.split()): " ".join(v.split()) for v, ok in check.values(line) if ok
+            }
             for s in covering[line.id]:
-                if missing := sorted(values - carried[s.id]):
-                    lose(line, s, check.name, missing[0])
+                if missing := [v for k, v in printed.items() if k not in carried[s.id]]:
+                    lose(line, s, check.field, missing[0])
                     notes[f"perdeu {check.name} que a leitura barata trazia"] = None
     amounts = {s.id: set(_BARE_AMOUNT.findall(s.text)) for s in strong}
     for line in cheap:
-        values = set(_BARE_AMOUNT.findall(line.text)) if covering[line.id] else set()
+        values: set[str] = set(_BARE_AMOUNT.findall(line.text))
         for s in covering[line.id]:
             if missing := sorted(values - amounts[s.id]):
                 lose(line, s, _BARE_AMOUNT_FIELD, missing[0])

@@ -1996,6 +1996,37 @@ def test_a_refused_costly_line_with_another_amount_is_a_doubt_beside_the_cheap_l
     )
 
 
+def test_a_refused_costly_line_with_another_valid_id_names_the_field_and_the_printed_value(
+    scanned_doc,
+):
+    """A dúvida traz o nome do campo e o valor como a linha barata o imprime."""
+    from docaudit.policies import CPF, AllStrong, FailsCheck
+
+    class ReadThenStrong(AllStrong):
+        needs_reads = True
+        checks = (FailsCheck(CPF),)
+
+    result = _strong_outcome(
+        "CPF 529.982.247-25", "CPF 111.444.777-35", ReadThenStrong(), scanned_doc
+    )
+    assert [c.source for c in result.chunks] == ["cheap"]
+    (other,) = result.others
+    assert (other.check, other.value) == ("CPF", "529.982.247-25")
+
+
+def test_a_refused_costly_line_beside_a_failing_line_is_listed_once(scanned_doc):
+    """Na linha que falha, a dúvida já existe: a linha cara fica ao lado uma vez, sem `check`."""
+    result = _strong_outcome(
+        "CPF 529.982.247-26 valor R$ 1.284,56",
+        "CPF 529.982.247-25 valor R$ 1.234,56",
+        "evidence",
+        scanned_doc,
+    )
+    assert [c.source for c in result.chunks] == ["cheap"]
+    (other,) = result.others
+    assert (other.reading.source, other.check, other.value) == ("strong", None, None)
+
+
 def test_a_costly_line_that_reads_the_decimal_comma_as_a_point_is_refused(scanned_doc):
     """Na tabela, o R$ fica na linha de cima: o valor sem símbolo também conta."""
     result = _strong_outcome(
