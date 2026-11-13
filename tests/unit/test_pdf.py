@@ -275,7 +275,8 @@ def test_only_text_written_on_a_diagonal_is_slanted():
         "BT /F1 10 Tf 0 1 -1 0 560 100 Tm (Tarja de baixo para cima) Tj ET\n"
         "BT /F1 10 Tf 0 -1 1 0 30 700 Tm (Tarja de cima para baixo) Tj ET\n"
         "BT /F1 10 Tf -1 0 0 -1 400 300 Tm (De cabeca para baixo) Tj ET\n"
-        "BT /F1 40 Tf 0.707 0.707 -0.707 0.707 100 300 Tm (COPIA) Tj ET"
+        "BT /F1 40 Tf 0.707 0.707 -0.707 0.707 100 300 Tm (COPIA) Tj ET\n"
+        "BT /F1 10 Tf 0.99999 0.00436 -0.00436 0.99999 70 200 Tm (Um quarto de grau) Tj ET"
     )
     with opened(doc) as pdf:
         slanted = {d.line.text: d.slanted for d in drawn_lines_of(pdf, 0)}
@@ -285,6 +286,7 @@ def test_only_text_written_on_a_diagonal_is_slanted():
         "Tarja de cima para baixo": False,
         "De cabeca para baixo": False,
         "COPIA": True,
+        "Um quarto de grau": True,
     }
 
 

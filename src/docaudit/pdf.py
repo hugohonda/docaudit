@@ -1085,13 +1085,17 @@ _SYMBOL_BULLET = 0xF0B7
 """O marcador de lista que o Word desenha com a fonte Symbol, na área de uso privado."""
 
 
-def _is_slanted(angle: float) -> bool:
-    """Se o ângulo da escrita, em radianos, não é múltiplo de um quarto de volta.
+_ANGLE_NOISE = 1e-4
+"""O erro de arredondamento do ângulo que o pdfium devolve, em radianos.
 
-    O ângulo conta em graus inteiros: o pdfium o devolve em ponto flutuante, e a
-    tarja vertical não sai exatamente como 3π/2.
-    """
-    return round(math.degrees(angle)) % 90 != 0
+A tarja vertical sai como 4,712389, e não exatamente como 3π/2. Não é uma
+tolerância de inclinação: a linha inclinada de um quarto de grau já é diagonal.
+"""
+
+
+def _is_slanted(angle: float) -> bool:
+    """Se o ângulo da escrita, em radianos, não é múltiplo de um quarto de volta."""
+    return abs(math.remainder(angle, math.pi / 2)) > _ANGLE_NOISE
 
 
 class _Glyph(NamedTuple):
