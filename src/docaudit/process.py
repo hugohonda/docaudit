@@ -87,7 +87,6 @@ from docaudit.types import (
 
 if TYPE_CHECKING:
     from collections.abc import Container, Mapping, Sequence
-    from collections.abc import Set as AbstractSet
 
     import pypdfium2 as pdfium
 
@@ -742,7 +741,6 @@ def folhas_of(
 
 
 _DIGITS = re.compile(r"\d+")
-_CENTS = re.compile(r"\b\d{1,3}(?:\.\d{3})*,\d{2}\b")
 _ROMAN = re.compile(r"\b[IVXLC]+\b")
 _LETTER = re.compile(r"[^\W\d_]")
 
@@ -776,10 +774,10 @@ def _is_vertical(box: BBox) -> bool:
     return box.y1 - box.y0 > box.x1 - box.x0
 
 
-def _repeated_elsewhere(items: Sequence[Chunk], forms: Mapping[int, AbstractSet[str]]) -> set[str]:
+def _repeated_elsewhere(items: Sequence[Chunk], copy_of: Mapping[int, int]) -> set[str]:
     """Os ids dos trechos de `items` com um igual, no mesmo lugar, em outra página que não é cópia.
 
-    Duas páginas com o mesmo conjunto em `forms` são cópia uma da outra, e a
+    Duas páginas com o mesmo valor em `copy_of` são cópia uma da outra, e a
     repetição entre elas não conta.
 
     Dois trechos no mesmo lugar têm os centros a menos de meia altura da caixa
@@ -793,10 +791,8 @@ def _repeated_elsewhere(items: Sequence[Chunk], forms: Mapping[int, AbstractSet[
     out: set[str] = set()
     for y, chunk in centred:
         window = centred[bisect_left(ys, y - half) : bisect_right(ys, y + half)]
-        if any(
-            c.page != chunk.page and forms[c.page] != forms[chunk.page] and _same_place(chunk, c)
-            for _, c in window
-        ):
+        own = copy_of[chunk.page]
+        if any(copy_of[c.page] != own and _same_place(chunk, c) for _, c in window):
             out.add(chunk.id)
     return out
 
@@ -818,10 +814,7 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     A cópia não prova o elemento fixo. Duas páginas com o mesmo conjunto de
     formas nas linhas horizontais com letra são cópia uma da outra: a peça
     juntada duas vezes repete o corpo inteiro, e a sequência não pararia.
-    A tarja vertical fica fora da comparação, porque cada juntada tem a sua.
-    A linha com um valor em centavos é da página: não é marcada e
-    interrompe a sequência. O total de um demonstrativo do mesmo modelo,
-    perto do pé, fica no corpo.
+    A linha vertical da margem é julgada à parte e fica fora da comparação.
 
     A linha é julgada como é lida. A sequência corre por giro: a camada de texto
     de uma página lida de lado continua em pé, e as duas leituras não têm o mesmo
@@ -836,11 +829,19 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     forms: defaultdict[int, set[str]] = defaultdict(set)
     for chunks in by_page.values():
         for chunk in chunks:
-            if _has_letter(chunk.text):
-                by_form[_form_of(chunk.text)].append(chunk)
+            form = _form_of(chunk.text)
+            if _LETTER.search(form):
+                by_form[form].append(chunk)
                 if not _is_vertical(_as_read(chunk)):
-                    forms[chunk.page].add(_form_of(chunk.text))
-    repeated = set[str]().union(*(_repeated_elsewhere(items, forms) for items in by_form.values()))
+                    forms[chunk.page].add(form)
+    signatures: dict[frozenset[str], int] = {}
+    copy_of = defaultdict(
+        lambda: -1,
+        {p: signatures.setdefault(frozenset(s), len(signatures)) for p, s in forms.items()},
+    )
+    repeated = set[str]().union(
+        *(_repeated_elsewhere(items, copy_of) for items in by_form.values())
+    )
     out: dict[int, list[Chunk]] = {}
     for index, chunks in by_page.items():
         marked = {c.id for c in chunks if c.id in repeated and _is_vertical(_as_read(c))}
@@ -851,8 +852,6 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
             )
             for sequence in (horizontal, reversed(horizontal)):
                 for chunk in sequence:
-                    if _CENTS.search(chunk.text):
-                        break
                     if chunk.id in repeated:
                         marked.add(chunk.id)
                     elif _has_letter(chunk.text):

@@ -1872,8 +1872,7 @@ def test_a_page_read_sideways_marks_furniture_as_read_and_not_as_scanned(turn):
         ]
         for page, name in enumerate(("Alfa", "Beta"))
     }
-    marked = {c.text for c in mark_furniture(pages)[0] if c.furniture}
-    assert marked == {"TRIBUNAL DE JUSTICA", "Comarca da Capital"}
+    assert _marked(pages)[0] == {"TRIBUNAL DE JUSTICA", "Comarca da Capital"}
 
 
 def test_a_line_of_the_layer_stays_at_its_edge_on_a_page_read_sideways():
@@ -1885,7 +1884,7 @@ def test_a_line_of_the_layer_stays_at_its_edge_on_a_page_read_sideways():
         ]
         for page, name in enumerate(("Alfa", "Beta"))
     }
-    assert {c.text for c in mark_furniture(pages)[0] if c.furniture} == {"Tarja da camada"}
+    assert _marked(pages)[0] == {"Tarja da camada"}
 
 
 def _statement(page: int, names: Sequence[str]) -> list[Chunk]:
@@ -1906,19 +1905,7 @@ _FIRST, _SECOND = ("Alfa", "Beta", "Gama"), ("Delta", "Epsilon", "Zeta")
 
 
 def test_a_page_repeated_in_the_file_keeps_its_body():
-    """O documento juntado duas vezes: a cópia não prova o elemento fixo da página."""
-    pages = {p: _statement(p, (_FIRST, _SECOND)[p % 2]) for p in range(4)}
-    marked = _marked(pages)
-    for page in pages:
-        assert marked[page] == {
-            "TRIBUNAL DE JUSTICA",
-            "Demonstrativo do calculo",
-            f"Pagina {page + 1}",
-        }
-
-
-def test_a_copy_with_its_own_margin_strip_is_still_a_copy():
-    """A tarja vertical de cada juntada traz o próprio assinante e não separa a cópia."""
+    """A página e a cópia não provam o elemento fixo uma da outra, nem com a margem diferente."""
     tall = BBox(x0=0.96, y0=0.1, x1=0.98, y1=0.9)
     pages = {
         p: [
@@ -1928,24 +1915,18 @@ def test_a_copy_with_its_own_margin_strip_is_still_a_copy():
         for p in range(4)
     }
     for page, marked in _marked(pages).items():
-        assert not any(t.startswith("Credor") for t in marked), page
+        assert marked == {
+            "TRIBUNAL DE JUSTICA",
+            "Demonstrativo do calculo",
+            f"Pagina {page + 1}",
+            f"Assinado digitalmente por Pessoa {page}",
+        }
 
 
 def test_a_blank_page_keeps_its_furniture():
     """A folha só com cabeçalho e rodapé está contida nas outras, e continua marcada."""
     pages = {0: _statement(0, _FIRST), 1: _statement(1, ()), 2: _statement(2, _SECOND)}
     assert _marked(pages)[1] == {"TRIBUNAL DE JUSTICA", "Demonstrativo do calculo", "Pagina 2"}
-
-
-def test_a_line_with_cents_is_not_furniture():
-    """O total perto do pé, num modelo que se repete, é da página e não vira elemento fixo."""
-    pages = {
-        p: [*_statement(p, (_FIRST, _SECOND)[p]), _line(p, "Total 4.005,00", 0.8, 0)]
-        for p in range(2)
-    }
-    for page, marked in _marked(pages).items():
-        assert "Total 4.005,00" not in marked
-        assert f"Pagina {page + 1}" in marked
 
 
 # ── A leitura cara passa pelas mesmas verificações ───────────────────────────

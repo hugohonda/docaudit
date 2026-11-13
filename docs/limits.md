@@ -94,10 +94,12 @@ precisa conhecer antes de confiar num resultado.
   uma linha horizontal com letra a mais ou a menos, como um carimbo de
   juntada novo ou o ruído de outra digitalização, não é cópia: a sequência
   marca até a primeira linha própria. Ao contrário, páginas cujas linhas com
-  letra só diferem nos números contam como cópia. Num documento só delas,
-  nada é elemento fixo, e a folha não sai.
-- **O valor em centavos nunca é elemento fixo.** O cabeçalho que traz um
-  valor fica sem marca dessa linha para dentro.
+  letra só diferem nos números contam como cópia, como as folhas seguidas de
+  uma planilha de cálculo. Se só elas trazem o cabeçalho, nada nelas é
+  elemento fixo, e a folha não sai.
+- **A linha de um modelo repetido que só varia nos números é elemento fixo
+  quando está perto da borda.** O total no pé de um demonstrativo é marcado.
+  A marca não apaga a linha.
 - **Numa página lida de lado, a
   [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) olha
   a página deitada.** Com `layout=`, os blocos, os rótulos e a ordem vêm da
