@@ -99,6 +99,7 @@ pede a imagem em cor.
 | `view.image(grayscale=True)` | alto | a mesma renderização em PNG, para um motor que pede o arquivo |
 | `view.region(box)` | o do recorte | uma `RegionView` com só a parte `box` da página |
 | `view.rendered` | nenhum | `True` depois que alguém pediu os pixels |
+| `view.requests` | nenhum | quantas vezes alguém pediu `pixels()` ou `image()` desta vista |
 
 Peça só o que usar: o que não for pedido não é calculado. Cada modo de cor é
 renderizado no máximo uma vez por página. Um motor treinado em cor, como o
