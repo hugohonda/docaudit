@@ -24,7 +24,9 @@ salvo o leitor externo que você autorizar.
 
 <!-- --8<-- [start:english] -->
 `docaudit` reads scanned and born-digital PDFs, and page images, in two tiers.
-A cheap tier (the PDF text layer, then PP-OCR on CPU) reads every page.
+A cheap tier (the PDF text layer, then PP-OCR on CPU) reads every page; on a
+scan that carries an OCR layer, PP-OCR reads the pixels by default and the
+layer stays as a second reading.
 Categorical checks that need no reference text (CPF, CNPJ and CNJ check
 digits, impossible amount spelling, empty or garbled reads) flag where that
 reading failed. A second OCR family re-reads those pages and compares the
@@ -77,7 +79,9 @@ print(result.spent.pages_strong, "páginas foram ao leitor caro")
 ```
 
 Só com o documento, `process` lê a camada de texto onde houver, manda o
-resto ao PP-OCR e não encaminha nenhuma página ao leitor caro. Uma imagem
+resto ao PP-OCR e não encaminha nenhuma página ao leitor caro. Numa
+digitalização com camada de OCR, por padrão, o PP-OCR lê os pixels, e a
+camada fica como outra leitura. Uma imagem
 PNG, JPEG, TIFF, BMP ou WebP é lida como um PDF de uma página por quadro.
 
 A primeira leitura, passo a passo, está no
