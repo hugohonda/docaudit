@@ -815,9 +815,14 @@ def _as_read(chunk: Chunk) -> BBox:
     return chunk.bbox.unturned((360 - chunk.turn) % 360)
 
 
-def _is_vertical(box: BBox) -> bool:
-    """Uma linha mais alta que larga é escrita na vertical: a tarja da margem."""
-    return box.y1 - box.y0 > box.x1 - box.x0
+def _is_vertical(chunk: Chunk) -> bool:
+    """Uma linha mais alta que larga, como é lida, é escrita na vertical: a tarja da margem.
+
+    Precisa de mais de um caractere. Uma letra só não tem direção: o glifo é
+    mais alto que largo, e o `x` de uma caixa de seleção pareceria tarja.
+    """
+    box = _as_read(chunk)
+    return len("".join(chunk.text.split())) > 1 and box.y1 - box.y0 > box.x1 - box.x0
 
 
 def _repeated_elsewhere(items: Sequence[Chunk], copy_of: Mapping[int, object]) -> set[str]:
@@ -893,10 +898,10 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     )
     out: dict[int, list[Chunk]] = {}
     for index, chunks in by_page.items():
-        marked = {c.id for c in chunks if c.id in repeated and _is_vertical(_as_read(c))}
+        marked = {c.id for c in chunks if c.id in repeated and _is_vertical(c)}
         for turn in {c.turn for c in chunks}:
             horizontal = sorted(
-                (c for c in chunks if c.turn == turn and not _is_vertical(_as_read(c))),
+                (c for c in chunks if c.turn == turn and not _is_vertical(c)),
                 key=lambda c: (_as_read(c).y0, _as_read(c).x0),
             )
             for sequence in (horizontal, reversed(horizontal)):

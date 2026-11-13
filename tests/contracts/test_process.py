@@ -1956,6 +1956,21 @@ def test_a_page_read_sideways_marks_furniture_as_read_and_not_as_scanned(turn):
     assert _marked(pages)[0] == {"TRIBUNAL DE JUSTICA", "Comarca da Capital"}
 
 
+def test_a_checkbox_mark_repeated_in_the_middle_of_the_page_is_not_a_margin_strip():
+    """O `x` de uma caixa de seleção é mais alto que largo, mas uma letra só não tem direção."""
+    mark = BBox(x0=0.30, y0=0.40, x1=0.31, y1=0.412)
+    pages = {
+        page: [
+            _line(page, f"Cabecalho {name}", 0.05, 0),
+            _line(page, f"Motivo da devolucao {name}", 0.3, 0),
+            Chunk.make(make_page(page), mark, "ocr", "x"),
+            _line(page, f"Assinatura {name}", 0.6, 0),
+        ]
+        for page, name in enumerate(("Ana", "Bruno"))
+    }
+    assert not any(c.furniture for chunks in mark_furniture(pages).values() for c in chunks)
+
+
 def test_a_line_of_the_layer_stays_at_its_edge_on_a_page_read_sideways():
     """A linha própria no alto da leitura girada não interrompe a tarja no alto da camada."""
     pages = {
