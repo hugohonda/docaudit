@@ -444,9 +444,10 @@ tabela digitalizada, e fazem juntos: por isso ela é `alike`, e outra família
 que lê o mesmo ponto não prova que ele está impresso. O documento que imprime
 o valor assim vai ao leitor caro. Na página nascida digital, o número com
 ponto sozinho na linha, como uma taxa de uma tabela, sai `failed` e impresso
-pela camada de texto. Na digitalização, a mesma taxa (`0.50`) e o valor
-impresso com espaço fino entre grupos (`R$ 1 234,56`) falham e vão ao leitor
-caro, mesmo lidos certo: nada na forma os separa da troca do leitor.
+pela camada de texto. Na digitalização, a mesma taxa (`0.50`) falha e vai
+ao leitor caro, mesmo lida certo. O valor impresso com espaço entre grupos
+depois do `R$` (`R$ 1 234,56`) também falha. Nada na forma os separa da troca
+do leitor.
 
 O extrato bancário e o livro contábil não imprimem o `R$`: a coluna diz a
 moeda, e cada lançamento termina em `C` ou `D`, crédito ou débito. O valor
