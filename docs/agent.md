@@ -359,8 +359,9 @@ Tudo acima vale para uma revisão humana, com a imagem no lugar do modelo.
 - `docaudit.visualize` desenha a caixa de cada linha na cor do leitor que a
   leu, e contorna em preto a linha cujo valor ainda falha.
 - `Document.doubts` lista o que merece revisão: o valor que falha a
-  verificação, a linha mal decodificada e, numa digitalização com camada de
-  OCR, o valor em reais que a camada lê com outro número no mesmo lugar.
+  verificação, a linha mal decodificada, o valor que a linha recusada do
+  leitor caro não trouxe e, numa digitalização com camada de OCR, o valor em
+  reais que a camada lê com outro número no mesmo lugar.
 - As referências servem para anotar: "p0:2 está certo, é erro do documento".
   Uma ferramenta de revisão usa `Chunk.id` para prender a decisão à linha
   entre execuções, e a referência curta para a tela.

@@ -2158,6 +2158,18 @@ def test_a_confirmed_id_only_the_hidden_layer_read_takes_the_place_of_the_pixel_
     assert not any(o.replaced for o in trusted.others), "a camada já é a leitura"
 
 
+def test_a_layer_value_without_proof_does_not_take_the_place_of_the_pixel_line():
+    """O CNPJ com letra e a data com dia da semana conferem sem prova: a linha dos pixels fica."""
+    cnpj, date = "CNPJ 18.S36.1S0/0001-58", "segunda-feira, 17/03/2025"
+    doc = make_scanned_pdf([cnpj, date])
+    reader = _OverLayer({cnpj: "CNPJ 18.236.120/0001-58", date: "segunda-feira, 10/03/2025"})
+    result = process(doc, policy="all_cheap", cheap=[reader])
+    assert [(c.text, c.source) for c in result.chunks] == [
+        ("CNPJ 18.236.120/0001-58", "pixels"),
+        ("segunda-feira, 10/03/2025", "pixels"),
+    ]
+
+
 def test_a_short_layer_line_inside_a_wide_pixel_line_does_not_erase_it():
     """A folha da camada dentro do cabeçalho lido pelos pixels entra ao lado, e o cabeçalho fica."""
     (page,) = load_pages(make_scanned_pdf(["x"]))
