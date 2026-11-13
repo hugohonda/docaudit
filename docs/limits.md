@@ -90,6 +90,12 @@ precisa conhecer antes de confiar num resultado.
   elemento fixo. Um carimbo que só uma página tem, dentro do cabeçalho,
   deixa o resto do cabeçalho dessa página sem marca. O cabeçalho e o rodapé
   de um formulário pré-impresso contam como elementos fixos.
+- **A cópia é reconhecida só quando as formas são as mesmas.** A cópia com
+  uma linha horizontal com letra a mais ou a menos, como um carimbo de
+  juntada novo ou o ruído de outra digitalização, não é cópia: a sequência
+  marca até a primeira linha própria. Ao contrário, páginas cujas linhas com
+  letra só diferem nos números contam como cópia. Num documento só delas,
+  nada é elemento fixo, e a folha não sai.
 - **Numa página lida de lado, a
   [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) olha
   a página deitada.** Com `layout=`, os blocos, os rótulos e a ordem vêm da

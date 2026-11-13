@@ -8,6 +8,7 @@ anonimização barra um backend externo.
 
 import re
 import time
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Literal
 
@@ -1306,11 +1307,11 @@ def test_the_folha_form_is_chosen_by_the_caller():
     pages = [
         "\n".join(
             [
-                f"BT /F1 10 Tf 70 600 Td (Corpo {n}) Tj ET",
+                f"BT /F1 10 Tf 70 600 Td (Corpo {body}) Tj ET",
                 f"BT /F1 8 Tf 500 20 Td (Pagina {n}) Tj ET",
             ]
         )
-        for n in ("9.118", "9.119")
+        for n, body in (("9.118", "Alfa"), ("9.119", "Beta"))
     ]
     doc = make_pdf(*pages)
     page_form = Check("pagina", re.compile(r"Pagina (?P<number>[0-9.]+)"), lambda _: True)
@@ -1885,6 +1886,55 @@ def test_a_line_of_the_layer_stays_at_its_edge_on_a_page_read_sideways():
         for page, name in enumerate(("Alfa", "Beta"))
     }
     assert {c.text for c in mark_furniture(pages)[0] if c.furniture} == {"Tarja da camada"}
+
+
+def _statement(page: int, names: Sequence[str]) -> list[Chunk]:
+    """Uma folha de demonstrativo: cabeçalho, título, uma linha por nome e o rodapé."""
+    return [
+        _line(page, "TRIBUNAL DE JUSTICA", 0.02, 0),
+        _line(page, "Demonstrativo do calculo", 0.1, 0),
+        *(_line(page, f"Credor {name}", 0.3 + 0.05 * i, 0) for i, name in enumerate(names)),
+        _line(page, f"Pagina {page + 1}", 0.95, 0),
+    ]
+
+
+def _marked(pages: Mapping[int, Sequence[Chunk]]) -> dict[int, set[str]]:
+    return {p: {c.text for c in cs if c.furniture} for p, cs in mark_furniture(pages).items()}
+
+
+_FIRST, _SECOND = ("Alfa", "Beta", "Gama"), ("Delta", "Epsilon", "Zeta")
+
+
+def test_a_page_repeated_in_the_file_keeps_its_body():
+    """O documento juntado duas vezes: a cópia não prova o elemento fixo da página."""
+    pages = {p: _statement(p, (_FIRST, _SECOND)[p % 2]) for p in range(4)}
+    marked = _marked(pages)
+    for page in pages:
+        assert marked[page] == {
+            "TRIBUNAL DE JUSTICA",
+            "Demonstrativo do calculo",
+            f"Pagina {page + 1}",
+        }
+
+
+def test_a_copy_with_its_own_margin_strip_is_still_a_copy():
+    """A tarja vertical de cada juntada traz o próprio assinante e não separa a cópia."""
+    tall = BBox(x0=0.96, y0=0.1, x1=0.98, y1=0.9)
+    pages = {
+        p: [
+            *_statement(p, (_FIRST, _SECOND)[p % 2]),
+            Chunk.make(make_page(p), tall, "ocr", f"Assinado digitalmente por Pessoa {p}"),
+        ]
+        for p in range(4)
+    }
+    for page, marked in _marked(pages).items():
+        assert not any(t.startswith("Credor") for t in marked), page
+
+
+def test_a_blank_page_keeps_its_furniture():
+    """A folha só com cabeçalho e rodapé está contida nas outras, e continua marcada."""
+    pages = {0: _statement(0, _FIRST), 1: _statement(1, ()), 2: _statement(2, _SECOND)}
+    assert _marked(pages)[1] == {"TRIBUNAL DE JUSTICA", "Demonstrativo do calculo", "Pagina 2"}
 
 
 # ── A leitura cara passa pelas mesmas verificações ───────────────────────────

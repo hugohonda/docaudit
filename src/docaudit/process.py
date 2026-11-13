@@ -87,6 +87,7 @@ from docaudit.types import (
 
 if TYPE_CHECKING:
     from collections.abc import Container, Mapping, Sequence
+    from collections.abc import Set as AbstractSet
 
     import pypdfium2 as pdfium
 
@@ -774,8 +775,11 @@ def _is_vertical(box: BBox) -> bool:
     return box.y1 - box.y0 > box.x1 - box.x0
 
 
-def _repeated_elsewhere(items: Sequence[Chunk]) -> set[str]:
-    """Os ids dos trechos de `items` com um igual, no mesmo lugar, em outra página.
+def _repeated_elsewhere(items: Sequence[Chunk], forms: Mapping[int, AbstractSet[str]]) -> set[str]:
+    """Os ids dos trechos de `items` com um igual, no mesmo lugar, em outra página que não é cópia.
+
+    Duas páginas com o mesmo conjunto em `forms` são cópia uma da outra, e a
+    repetição entre elas não conta.
 
     Dois trechos no mesmo lugar têm os centros a menos de meia altura da caixa
     mais alta do grupo; ordenados pelo centro vertical, só esses pares são
@@ -788,7 +792,10 @@ def _repeated_elsewhere(items: Sequence[Chunk]) -> set[str]:
     out: set[str] = set()
     for y, chunk in centred:
         window = centred[bisect_left(ys, y - half) : bisect_right(ys, y + half)]
-        if any(c.page != chunk.page and _same_place(chunk, c) for _, c in window):
+        if any(
+            c.page != chunk.page and forms[c.page] != forms[chunk.page] and _same_place(chunk, c)
+            for _, c in window
+        ):
             out.add(chunk.id)
     return out
 
@@ -807,6 +814,11 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     sequência, e por isso um carimbo de uma página só dentro do cabeçalho
     deixa o resto do cabeçalho dessa página sem marca.
 
+    A cópia não prova o elemento fixo. Duas páginas com o mesmo conjunto de
+    formas nas linhas horizontais com letra são cópia uma da outra: a peça
+    juntada duas vezes repete o corpo inteiro, e a sequência não pararia.
+    A tarja vertical fica fora da comparação, porque cada juntada tem a sua.
+
     A linha é julgada como é lida. A sequência corre por giro: a camada de texto
     de uma página lida de lado continua em pé, e as duas leituras não têm o mesmo
     alto nem o mesmo pé.
@@ -817,11 +829,14 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     poucas páginas.
     """
     by_form: dict[str, list[Chunk]] = defaultdict(list)
+    forms: defaultdict[int, set[str]] = defaultdict(set)
     for chunks in by_page.values():
         for chunk in chunks:
             if _has_letter(chunk.text):
                 by_form[_form_of(chunk.text)].append(chunk)
-    repeated = set[str]().union(*(_repeated_elsewhere(items) for items in by_form.values()))
+                if not _is_vertical(_as_read(chunk)):
+                    forms[chunk.page].add(_form_of(chunk.text))
+    repeated = set[str]().union(*(_repeated_elsewhere(items, forms) for items in by_form.values()))
     out: dict[int, list[Chunk]] = {}
     for index, chunks in by_page.items():
         marked = {c.id for c in chunks if c.id in repeated and _is_vertical(_as_read(c))}

@@ -137,14 +137,19 @@ O critério é a repetição. Uma linha é [elemento fixo](../glossary.md#elemen
 quando cumpre as duas condições abaixo:
 
 1. Tem alguma letra, e a forma dela aparece no mesmo lugar da página em
-   outra página. A forma é o texto com os dígitos e os algarismos romanos
-   mascarados: `fls. 12` e `fls. 13` têm a mesma forma.
+   outra página que não é cópia desta. A forma é o texto com os dígitos e
+   os algarismos romanos mascarados: `fls. 12` e `fls. 13` têm a mesma forma.
 2. Está numa sequência dessas linhas a partir do alto ou do pé da página,
    ou está escrita na vertical.
 
 Uma linha sem letra, como o número da folha, não interrompe a sequência e
 não é marcada. O rótulo de um formulário no meio da página e uma lista de
 números ficam sem marca.
+
+Duas páginas são cópia uma da outra quando as linhas horizontais com letra
+têm o mesmo conjunto de formas. A peça juntada duas vezes repete o corpo
+inteiro no mesmo lugar, e sem essa regra a página toda seria elemento fixo.
+A tarja vertical fica fora da comparação: cada juntada tem a sua.
 
 A regra é do documento inteiro. Numa leitura de uma página só, nada é
 elemento fixo. Um carimbo que só uma página tem, dentro do cabeçalho,

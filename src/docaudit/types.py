@@ -488,7 +488,8 @@ class Chunk(_Frozen):
     furniture: bool = PField(
         default=False,
         description=(
-            "Elemento fixo da página: a linha repete-se, no mesmo lugar, em outra página lida, "
+            "Elemento fixo da página: a linha repete-se, no mesmo lugar, em outra página lida "
+            "que não é cópia desta, "
             "numa sequência a partir da borda da folha ou na vertical da margem. O "
             "cabeçalho, o rodapé e a tarja. A linha fica; quem lê decide se a mostra. "
             "É evidência da própria linha; `kind` é o bloco do detector em que ela caiu, "
