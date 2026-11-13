@@ -454,7 +454,8 @@ AMOUNT_PRE_REAL = Check(
     "valor em moeda anterior ao real",
     re.compile(
         r"(?<![A-Za-z])" + _PRE_REAL_SYMBOL.pattern + r"[^\S\n]*\n?[^\S\n]*"
-        r"(?=[0-9A-Za-z.]*[0-9])[0-9A-Za-z][0-9A-Za-z.]*(?:,[0-9A-Za-z]{2})?(?![\w,])(?!\.\d)"
+        r"(?=[0-9A-Za-z.]*[0-9])[0-9A-Za-z](?:[0-9A-Za-z.]*[0-9A-Za-z])?(?:,[0-9A-Za-z]{2})?"
+        r"(?![\w,])(?!\.\d)"
     ),
     _amount_pre_real_is_valid,
 )
@@ -464,8 +465,9 @@ As moedas anteriores ao Real, de 1942 a 1994, aparecem nos autos antigos e
 nos valores antigos citados em peças novas. A grafia é a do real, com os
 centavos opcionais: o valor redondo em cruzeiros costuma vir sem eles. O
 valor sai como impresso, com o símbolo, e quem o lê sabe a moeda. Falham a
-letra no lugar de dígito e o grupo de milhar sem três dígitos. O `R$` de
-`AMOUNT_BRL` não casa dentro de `CR$`.
+letra no lugar de dígito e o grupo de milhar sem três dígitos. O número
+termina num dígito ou numa letra: o ponto final da frase, em `pagou Cr$
+1.000.`, não é parte dele. O `R$` de `AMOUNT_BRL` não casa dentro de `CR$`.
 """
 
 

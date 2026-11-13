@@ -221,6 +221,8 @@ def test_amounts_in_the_currencies_before_the_real():
     assert failures(AMOUNT_PRE_REAL, "CR$ 1.500,00 e NCr$763.793,75") == 0
     assert failures(AMOUNT_PRE_REAL, "Cr$ 1.5o0,00 e Cz$ 1.00,00") == 2
     assert failures(AMOUNT_PRE_REAL, "R$ 1.5o0,00") == 0, "o real é de AMOUNT_BRL"
+    assert failures(AMOUNT_PRE_REAL, "pagou Cr$ 1.000. Depois, Cr$ 2.000,00.") == 0, "ponto final"
+    assert failures(AMOUNT_PRE_REAL, "pagou Cr$ 1.0O0.") == 1
 
 
 def test_the_cruzeiro_real_is_not_read_as_the_real():
