@@ -81,8 +81,10 @@ precisa conhecer antes de confiar num resultado.
   barata.
 - **O leitor `vlm` sem detector devolve a página como um trecho só.** A
   caixa cobre a página inteira, a página tem uma referência só em
-  `Result.refs()`, e `Document.crop` dessa caixa é a página inteira. A
-  linha, com a sua caixa, vem com `reread="region"` ou com `layout=`.
+  `Result.refs()`, e `Document.crop` dessa caixa é a página inteira. Um
+  trecho por recorte vem com `reread="region"`. Um trecho por região vem com
+  o detector no próprio leitor, `VLM(layout=PPDocLayout())`. O `layout=` de
+  `process()` não divide a página que o `vlm` lê.
 - **A releitura por região faz um [recorte](glossary.md#recorte) por valor que falhou.** Uma
   página com muitos valores inválidos custa muitas chamadas ao leitor caro.
   O recorte é justo, sem folga em volta. O que o leitor caro devolve é o

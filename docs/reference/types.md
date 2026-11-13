@@ -1,7 +1,8 @@
 # Resultado
 
 Os tipos de `docaudit.types`: o `Result` que `process()` devolve e cada peça
-dele. Todos são modelos Pydantic congelados. O que cada campo traz, em prosa e
+dele. As classes de dados são modelos Pydantic congelados. A página traz
+também enumerações, aliases de tipo, constantes e funções. O que cada campo traz, em prosa e
 com exemplo, está em [Campos do resultado](../response/fields.md).
 
 Os contratos de extensão do mesmo módulo ficam nas páginas de quem os usa:

@@ -362,7 +362,7 @@ chave do cache. Ela diz o que muda a leitura sem mudar o nome do leitor:
 |---|---|
 | `text_layer` | a versão do pypdfium2 |
 | `tesseract` | a versão do binário, o idioma e as opções |
-| `ppocr` | os pesos, ou o hash do reconhecedor próprio e do dicionário, a versão do RapidOCR, e o motor quando não é o ONNX Runtime na CPU |
+| `ppocr` | os pesos, ou o hash do detector próprio (`det=<hash>`) e o do reconhecedor próprio e do dicionário, a versão do RapidOCR, e o motor quando não é o ONNX Runtime na CPU (`onnxruntime`) |
 | `vlm` | o modelo servido, o conjunto de prompts, o detector de layout e o esforço de raciocínio |
 
 Dois leitores de mesmo nome em papéis diferentes, como dois `PPOCR` em motores

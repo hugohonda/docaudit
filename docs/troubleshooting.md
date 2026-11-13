@@ -148,7 +148,8 @@ from docaudit.backends.ppocr import PPOCR
 reader = PPOCR(engine="onnxruntime")
 ```
 
-`reader.output_version` termina com o motor em uso. Quem compara execuções
+`reader.output_version` termina com o motor em uso quando ele não é o
+ONNX Runtime na CPU (`onnxruntime`). Quem compara execuções
 pelo cache, ou fixa uma leitura em produção, passa `engine=` sempre.
 
 ## O processo cai com sinal 11 em ARM64
