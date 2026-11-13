@@ -1551,6 +1551,8 @@ ESAJ_STAMP = StampFormat(
 A tarja vertical chega em duas linhas, a da assinatura e a da conferência,
 e a expressão casa sobre as linhas unidas por quebra de linha. A tarja com
 dois signatários não tem o ponto antes de `Para conferir`.
+
+Ponto de partida, como `PJE_STAMP`: confira nos seus documentos.
 """
 
 
