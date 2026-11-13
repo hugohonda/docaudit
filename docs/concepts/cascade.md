@@ -124,7 +124,8 @@ estas:
 - Cada linha vai ao bloco de layout que contém o seu centro, ou ao mais
   próximo.
 - Os blocos saem na ordem do detector, e as linhas de cada bloco saem de
-  cima para baixo.
+  cima para baixo. Numa página lida de lado, de cima para baixo na página
+  em pé.
 - A linha recebe o rótulo do bloco em `kind` quando o leitor não deu um.
 - Numa página sem bloco nenhum, a ordem de cada leitor fica como veio.
 

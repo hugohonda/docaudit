@@ -112,10 +112,11 @@ precisa conhecer antes de confiar num resultado.
   própria entre ela e a borda. O total no pé de um demonstrativo é marcado.
   Uma citação de folha nessa linha, como `conforme fls. 45`, pode virar
   `Page.folha`.
-- **Numa página lida de lado, a
-  [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) olha
-  a página deitada.** Com `layout=`, os blocos, os rótulos e a ordem vêm da
-  imagem, e não da leitura.
+- **Numa página lida de lado, os blocos da
+  [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) vêm
+  da página deitada.** Com `layout=`, os blocos, os rótulos e a ordem entre
+  os blocos vêm da imagem, e não da leitura. Dentro de cada bloco, as
+  linhas saem na ordem da página em pé.
 - **A repetição compara o lugar na imagem.** A mesma linha numa página em
   pé e numa página lida de lado não conta como repetida, e os
   [elementos fixos](concepts/cascade.md#os-elementos-fixos-da-pagina) não a

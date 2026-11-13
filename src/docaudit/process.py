@@ -641,7 +641,9 @@ def _order_by_layout(chunks: Sequence[Chunk], regions: Sequence[Region]) -> list
 
     Cada linha vai ao bloco que contém o seu centro, ou ao mais próximo quando
     nenhum a contém, e recebe o rótulo do bloco em `kind` se o leitor não deu
-    um. Sem bloco nenhum, a ordem de cada leitor fica como veio.
+    um. Dentro do bloco, a ordem é a da linha como é lida (`_as_read`): na
+    página lida de lado, de cima para baixo na página em pé. Sem bloco
+    nenhum, a ordem de cada leitor fica como veio.
     """
     if not regions or not chunks:
         return list(chunks)
@@ -652,7 +654,7 @@ def _order_by_layout(chunks: Sequence[Chunk], regions: Sequence[Region]) -> list
         by_block[nearest].append(chunk)
     out: list[Chunk] = []
     for i, block in by_block.items():
-        for chunk in sorted(block, key=lambda c: (c.bbox.y0, c.bbox.x0)):
+        for chunk in sorted(block, key=lambda c: (_as_read(c).y0, _as_read(c).x0)):
             out.append(
                 chunk.model_copy(
                     update={"reading_order": len(out), "kind": chunk.kind or regions[i].label}
