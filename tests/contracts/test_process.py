@@ -1539,6 +1539,16 @@ def test_a_rereading_fixes_an_amount_only_where_it_keeps_the_digits_the_cheap_re
     assert decisions[1].tier is Tier.STRONG, "o 1 virou 7: nenhum dos dois está provado"
 
 
+def test_a_rereading_with_an_unproven_valid_value_fixes_only_where_it_keeps_the_digits(scanned_doc):
+    """O CNPJ com letra confere sem prova: não conserta o dígito que a leitura barata leu."""
+    cheap = _Says("cheap", {0: "CNPJ 18.236.120/0001-5B", 1: "CNPJ 18.236.120/0001-5B"})
+    other = _Says("other", {0: "CNPJ 18.236.120/0001-58", 1: "CNPJ 18.S36.1S0/0001-58"})
+    result = process(scanned_doc, policy="evidence", cheap=[cheap], confirm=other, strong=FakeVLM())
+    decisions = {d.page: d for d in result.decisions}
+    assert decisions[0].reason == "corrigido por other"
+    assert decisions[1].tier is Tier.STRONG, "o 2 virou S: o verificador não vê"
+
+
 class _MeteredSays(_Says):
     """O leitor de outra família como serviço pago: conta uma chamada por leitura."""
 

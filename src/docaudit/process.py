@@ -587,16 +587,16 @@ def _keeps_digits(failed: str, found: str) -> bool:
 def _fixes(check: FailsCheck, value: str, chunk: Chunk) -> bool:
     """Se a linha da releitura conserta `value`: traz só valores do campo que conferem.
 
-    Numa regra com redundância, o valor que confere basta. Sem redundância,
-    um valor em reais bem escrito com outro dígito confere e pode estar
-    errado: a releitura precisa trazer, na mesma posição, cada dígito que a
-    leitura barata leu (`_keeps_digits`).
+    O valor que a redundância da regra prova (`Check.proves`) basta. Sem essa
+    prova, um valor bem escrito com outro dígito confere e pode estar errado,
+    como o valor em reais ou o CNPJ com letra: a releitura precisa trazer, na
+    mesma posição, cada dígito que a leitura barata leu (`_keeps_digits`).
     """
     if not check.valid_in(chunk):
         return False
-    if check.check.redundant:
-        return True
-    return any(_keeps_digits(value, found) for found, _ in check.values(chunk))
+    return any(
+        check.check.proves(found) or _keeps_digits(value, found) for found, _ in check.values(chunk)
+    )
 
 
 def _swap_failing(failing: Sequence[Failure], other: Sequence[Chunk]) -> dict[str, Chunk] | None:
@@ -1102,8 +1102,8 @@ def _confirm_stage(
 
     Duas famílias que devolvem o mesmo valor inválido confirmam o erro do
     documento, salvo na troca que as famílias fazem juntas (`Check.alike`);
-    um valor que confere no mesmo lugar conserta a linha, e num campo sem
-    redundância só quando mantém os dígitos lidos (`_fixes`). "Vale o
+    um valor que confere no mesmo lugar conserta a linha, e um valor sem
+    prova só quando mantém os dígitos lidos (`_fixes`). "Vale o
     valor válido" seria a regra errada: uma leitura errada pode conferir.
     Numa `SEARCHABLE_SCAN` a primeira família é a camada de OCR embutida,
     que já está lida e custa zero; depois vem `confirm`. A primeira que

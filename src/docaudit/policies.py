@@ -235,6 +235,10 @@ class Check:
     da linha dos pixels.
     """
 
+    def proves(self, value: str) -> bool:
+        """Se a redundância da regra prova `value`, que já confere: `redundant` e não `unproven`."""
+        return self.redundant and not (self.unproven is not None and self.unproven(value))
+
 
 def _check_digit(chars: str, weights: Sequence[int]) -> int:
     # Cada posição vale o código do caractere menos 48: o dígito vale ele
@@ -1161,8 +1165,7 @@ def entities_of(
     for check in checks:
         for start, end, value, valid, lines in _matches(check, chunks, text=text):
             if valid:
-                proven = check.redundant and not (check.unproven and check.unproven(value))
-                state = EntityState.CONFIRMED if proven else EntityState.WELL_FORMED
+                state = EntityState.CONFIRMED if check.proves(value) else EntityState.WELL_FORMED
             else:
                 state = EntityState.FAILED
             entity = Entity(

@@ -179,8 +179,9 @@ encerra. Há três desfechos:
 
 Uma leitura errada também pode conferir. Por isso a troca exige o mesmo
 lugar e nenhum valor inválido restante. Num campo sem redundância, como o
-valor em reais, exige também que a releitura traga cada dígito que a leitura
-barata leu, na mesma posição: `R$ 1.000,00` conserta `R$ 1.O00,00`, e
+valor em reais, e num valor que a redundância não prova, como o CNPJ com
+letra, exige também que a releitura traga cada dígito que a leitura barata
+leu, na mesma posição: `R$ 1.000,00` conserta `R$ 1.O00,00`, e
 `R$ 7.000,00` não conserta.
 
 Há uma exceção ao primeiro desfecho. Algumas trocas de caractere acontecem
