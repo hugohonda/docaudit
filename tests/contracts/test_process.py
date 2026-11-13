@@ -1289,6 +1289,17 @@ def test_the_folha_is_the_stamp_on_a_fixed_line_and_not_the_one_cited_in_the_bod
     assert "· fls. 102 (p1:1) -->" in result.to_markdown(annotated=True)
 
 
+def test_a_folha_cited_in_a_fixed_sentence_is_not_the_folha():
+    """O carimbo ocupa a linha inteira; dentro de uma frase, a forma é citação."""
+    page = make_page(0)
+    fixed = [
+        Chunk.make(page, _read_box(y, 0), "ocr", text).model_copy(update={"furniture": True})
+        for y, text in ((0.02, "fls. 7"), (0.9, "O credor requer, conforme fls. 45, a juntada"))
+    ]
+    assert {i: f.value for i, f in folhas_of({0: fixed}).items()} == {0: 7}
+    assert folhas_of({0: fixed[1:]}) == {}
+
+
 def test_a_folha_read_in_the_pixels_counts_when_the_layer_has_none():
     """A tarja fixa vem da camada e não traz folha; o carimbo veio do leitor de pixels."""
     (page,) = load_pages(make_pdf(_stamped("Peticao")))
@@ -1901,26 +1912,28 @@ def _marked(pages: Mapping[int, Sequence[Chunk]]) -> dict[int, set[str]]:
     return {p: {c.text for c in cs if c.furniture} for p, cs in mark_furniture(pages).items()}
 
 
+_MARGIN = BBox(x0=0.96, y0=0.1, x1=0.98, y1=0.9)
 _FIRST, _SECOND = ("Alfa", "Beta", "Gama"), ("Delta", "Epsilon", "Zeta")
 
 
 def test_a_page_repeated_in_the_file_keeps_its_body():
     """A página e a cópia não provam o elemento fixo uma da outra, nem com a margem diferente."""
-    tall = BBox(x0=0.96, y0=0.1, x1=0.98, y1=0.9)
+    signers = ("Alfa", "Beta", "Gama", "Delta")
     pages = {
         p: [
             *_statement(p, (_FIRST, _SECOND)[p % 2]),
-            Chunk.make(make_page(p), tall, "ocr", f"Assinado digitalmente por Pessoa {p}"),
+            Chunk.make(make_page(p), _MARGIN, "ocr", f"Assinado por {signers[p]}"),
         ]
         for p in range(4)
     }
     for page, marked in _marked(pages).items():
-        assert marked == {
-            "TRIBUNAL DE JUSTICA",
-            "Demonstrativo do calculo",
-            f"Pagina {page + 1}",
-            f"Assinado digitalmente por Pessoa {page}",
-        }
+        assert marked == {"TRIBUNAL DE JUSTICA", "Demonstrativo do calculo", f"Pagina {page + 1}"}
+
+
+def test_pages_with_only_the_margin_strip_still_mark_it():
+    """Duas páginas sem linha horizontal com letra não são cópia uma da outra."""
+    pages = {p: [Chunk.make(make_page(p), _MARGIN, "ocr", "Assinado por Alfa")] for p in range(2)}
+    assert _marked(pages) == {0: {"Assinado por Alfa"}, 1: {"Assinado por Alfa"}}
 
 
 def test_a_blank_page_keeps_its_furniture():

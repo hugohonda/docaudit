@@ -90,16 +90,19 @@ precisa conhecer antes de confiar num resultado.
   elemento fixo. Um carimbo que só uma página tem, dentro do cabeçalho,
   deixa o resto do cabeçalho dessa página sem marca. O cabeçalho e o rodapé
   de um formulário pré-impresso contam como elementos fixos.
-- **A cópia é reconhecida só quando as formas são as mesmas.** A cópia com
-  uma linha horizontal com letra a mais ou a menos, como um carimbo de
-  juntada novo ou o ruído de outra digitalização, não é cópia: a sequência
-  marca até a primeira linha própria. Ao contrário, páginas cujas linhas com
-  letra só diferem nos números contam como cópia, como as folhas seguidas de
-  uma planilha de cálculo. Se só elas trazem o cabeçalho, nada nelas é
-  elemento fixo, e a folha não sai.
-- **A linha de um modelo repetido que só varia nos números é elemento fixo
-  quando está perto da borda.** O total no pé de um demonstrativo é marcado.
+- **A cópia é reconhecida só quando as formas são as mesmas.** Uma linha
+  horizontal com letra a mais ou a menos desfaz a cópia. É o caso do carimbo
+  de juntada novo e do ruído de outra digitalização. A página original de uma
+  cópia com uma linha a mais sai inteira como elemento fixo, corpo inclusive.
+- **Páginas cujas linhas com letra só diferem nos números contam como
+  cópia.** São as folhas seguidas de uma planilha de cálculo. Se só elas
+  trazem o cabeçalho, nada nelas é elemento fixo, e a folha não sai.
+- **A linha de um modelo repetido que só varia nos números pode ser elemento
+  fixo.** Basta que esteja na sequência a partir do alto ou do pé, sem linha
+  própria entre ela e a borda. O total no pé de um demonstrativo é marcado.
   A marca não apaga a linha.
+- **A folha precisa de uma linha só dela.** O leitor que junta o carimbo e
+  outro texto na mesma linha deixa a página sem `Page.folha`.
 - **Numa página lida de lado, a
   [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) olha
   a página deitada.** Com `layout=`, os blocos, os rótulos e a ordem vêm da

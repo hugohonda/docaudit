@@ -705,10 +705,12 @@ def folhas_of(
     checks: Sequence[Check] = (FOLHA,),
     drawn: DrawOrder | None = None,
 ) -> dict[int, Folha]:
-    """A folha carimbada de cada página: o valor de uma das `checks` nas linhas de elemento fixo.
+    """A folha carimbada de cada página: a linha de elemento fixo que é só uma das `checks`.
 
     Cada verificação nomeia o número no grupo `number`, e o verso, quando
-    a forma o tem, no grupo `verso`.
+    a forma o tem, no grupo `verso`. O carimbo ocupa a linha inteira: a
+    forma dentro de uma frase é citação, mesmo numa linha marcada como
+    elemento fixo.
 
     Na camada de texto vale o último carimbo desenhado, pela ordem de
     `drawn`, como em `stamps_of`: o tribunal carimba por cima do que a cópia
@@ -723,7 +725,7 @@ def folhas_of(
             (m["number"].replace(".", ""), m.groupdict().get("verso"), c)
             for c in fixed
             for check in checks
-            for m in check.pattern.finditer(fold_lookalikes(c.text))
+            if (m := check.pattern.fullmatch(fold_lookalikes(c.text).strip()))
         ]
         layered = [f for f in found if f[2].source == TextLayerReader.name]
         if len({(n, v) for n, v, _ in layered}) > 1 and drawn is not None:
@@ -814,7 +816,8 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     A cópia não prova o elemento fixo. Duas páginas com o mesmo conjunto de
     formas nas linhas horizontais com letra são cópia uma da outra: a peça
     juntada duas vezes repete o corpo inteiro, e a sequência não pararia.
-    A linha vertical da margem é julgada à parte e fica fora da comparação.
+    A linha vertical da margem fica fora da comparação: ela é marcada quando
+    se repete em outra página que não é cópia.
 
     A linha é julgada como é lida. A sequência corre por giro: a camada de texto
     de uma página lida de lado continua em pé, e as duas leituras não têm o mesmo
@@ -835,10 +838,11 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
                 if not _is_vertical(_as_read(chunk)):
                     forms[chunk.page].add(form)
     signatures: dict[frozenset[str], int] = {}
-    copy_of = defaultdict(
-        lambda: -1,
-        {p: signatures.setdefault(frozenset(s), len(signatures)) for p, s in forms.items()},
-    )
+    # A página sem linha horizontal com letra não é cópia de nenhuma: tem número próprio.
+    copy_of = {
+        p: signatures.setdefault(frozenset(forms[p]), len(signatures)) if p in forms else -1 - p
+        for p in {c.page for chunks in by_page.values() for c in chunks}
+    }
     repeated = set[str]().union(
         *(_repeated_elsewhere(items, copy_of) for items in by_form.values())
     )

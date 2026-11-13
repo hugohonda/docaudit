@@ -52,8 +52,9 @@ não coincide com o índice da página.
 | `bbox`, `chunk_ids` | a caixa e a linha do carimbo |
 | `in_sequence` | `true` quando a folha segue as das outras páginas da execução |
 
-`folha.value` vem de uma forma de `folhas=` numa linha de elemento fixo. No
-corpo da página, a mesma forma é uma citação e sai só em `entities`. `folha`
+`folha.value` vem de uma linha de elemento fixo que é só uma forma de
+`folhas=`. Dentro de uma frase, ou no corpo da página, a mesma forma é uma
+citação e sai só em `entities`. `folha`
 sai `null` sem carimbo, no verso e numa execução de uma página só.
 
 `in_sequence` compara a diferença entre a folha e o índice da página com a
@@ -80,7 +81,7 @@ O [trecho](../glossary.md#trecho) é a unidade de texto lido.
 | `kind` | o tipo da região de layout de onde o texto veio, como `text`, `table` ou `paragraph_title`, quando há detector de layout |
 | `line_break_hyphens` | os índices em `text` dos hífens que estavam numa quebra de linha do PDF, na camada de texto. O hífen fica no texto, e quem lê decide se junta as metades. A palavra que continua noutra coluna, ou depois de outra linha, sai em dois trechos, o primeiro terminando no hífen |
 | `region` | o índice em `Page.unread` do raster de onde a linha veio, quando um leitor de pixels a leu num raster que a camada de texto não leu; `null` nos outros casos |
-| `furniture` | `true` no [elemento fixo](../glossary.md#elemento-fixo): a linha que se repete, no mesmo lugar, em outra página lida que não é cópia desta. São o cabeçalho, o rodapé e a tarja. A linha fica no resultado |
+| `furniture` | `true` no [elemento fixo](../glossary.md#elemento-fixo): a linha que se repete, no mesmo lugar, em outra página lida que não é cópia desta, numa sequência a partir do alto ou do pé da folha, ou na vertical da margem. São o cabeçalho, o rodapé e a tarja. A linha fica no resultado |
 
 A unidade depende do leitor. A camada de texto, o Tesseract e o PP-OCR
 devolvem uma linha por trecho. O leitor `vlm` com detector de layout devolve

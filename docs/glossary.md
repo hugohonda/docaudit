@@ -235,8 +235,7 @@ O conjunto das peças de um processo judicial. Também se diz o processo.
 ### Elemento fixo { #elemento-fixo }
 
 A linha que se repete no mesmo lugar em outras páginas, que não são cópia
-da página dela: cabeçalho, rodapé,
-[tarja](#tarja). Fica no resultado com `Chunk.furniture` verdadeiro. Ver
+da página dela: cabeçalho, rodapé, [tarja](#tarja). Fica no resultado com `Chunk.furniture` verdadeiro. Ver
 [Cascata e elementos fixos](concepts/cascade.md).
 
 ## Resultado
