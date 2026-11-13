@@ -1637,8 +1637,9 @@ def process(
             entry point. É o mesmo contrato dos leitores baratos; o que muda é
             quem decide chamá-lo. `None` desliga a escalada: a decisão da
             política fica em `decisions`, e toda página é lida só no barato.
-        confirm: leitor de outra família que relê a página encaminhada por
-            uma verificação (`FailsCheck`) antes do leitor caro. Se a releitura
+        confirm: leitor de outra família que relê, antes do leitor caro, a
+            página encaminhada com um valor que falha uma verificação
+            (`FailsCheck`). Se a releitura
             devolve os mesmos valores inválidos, o erro é do documento e a
             página fica em `CHEAP`, com o motivo dizendo isso. Se a releitura
             traz, no lugar de cada valor inválido, um valor que confere, essas
@@ -1726,11 +1727,12 @@ def process(
         modo de ensaio de uma política; `spent.pages_strong` conta o que rodou.
         Cada decisão traz em `steps` o que aconteceu com a página, na ordem.
         Uma página que o leitor caro recusou com `RuntimeError` entra em
-        `pages_strong_failed` e emite um `RuntimeWarning`. Ela fica com a
-        leitura barata numa política que lê antes de decidir, como
-        `evidence`. Numa que decide antes de ler, como `all_strong`, não há
-        leitura barata a que voltar: a página fica sem a leitura do corpo, e
-        sai com `incomplete` quando não tem linha nenhuma. Um servidor
+        `pages_strong_failed` e emite um `RuntimeWarning`. Numa política que
+        decide depois da leitura barata, como `evidence`, a página fica com
+        a leitura barata. Numa que decide antes da leitura barata, como
+        `all_strong`, não há leitura barata a que voltar: a página fica sem
+        a leitura do corpo, e sai com `incomplete` quando não tem linha
+        nenhuma. Um servidor
         ausente (`ConnectionError`) interrompe o processamento.
         Um leitor barato que falha numa página com `RuntimeError` dá a vez ao
         seguinte da cascata; a página entra em `pages_cheap_failed` e o aviso

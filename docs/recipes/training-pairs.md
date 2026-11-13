@@ -27,10 +27,12 @@ def keep(pdf: Path, **kwargs: Any) -> Result:
 A releitura por outra família pode consertar uma linha, e o leitor caro pode
 trocá-la por outro texto. Nos dois casos, a linha que saiu fica em
 `result.others`, com `replaced`. Numa digitalização com camada de OCR, a
-camada de texto também entra no lugar das linhas dos pixels: na tarja e na
-folha à vista, e no identificador que confere na camada oculta. A linha
-que ficou tem então `source` igual a `text_layer`, e pode cobrir só parte
-da linha que saiu. O código abaixo pula esses casos. É a leitura que saiu ao lado da que ficou. O par é um exemplo de
+camada de texto também entra no lugar das linhas dos pixels. Isso acontece
+na tarja e na folha à vista, e no identificador que confere na camada
+oculta. A linha que ficou tem então `source` igual a `text_layer`, e pode
+cobrir só parte da linha que saiu. O código abaixo pula esses casos. Pula
+também a linha que a camada de OCR consertou na releitura, que tem o mesmo
+`source`. É a leitura que saiu ao lado da que ficou. O par é um exemplo de
 treino para o leitor que errou. O formato abaixo é o rótulo do PaddleOCR: o
 nome da imagem e o texto, separados por tabulação.
 

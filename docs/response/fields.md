@@ -137,7 +137,7 @@ A [entidade](../glossary.md#entidade) é um valor achado por uma verificação.
 | campo | o que traz |
 |---|---|
 | `kind` | o nome do campo, que é o `name` do `Check`: `CPF`, `CNPJ`, `CNJ`, `valor em reais`, `data`, ou o nome de um `Check` seu |
-| `value` | o valor como impresso, com os espaços colapsados |
+| `value` | o valor lido, com hífens, espaços e formas de largura total tipográficos trocados pelo ASCII (`fold_lookalikes`) e com os espaços colapsados |
 | `state` | `confirmed`, `well_formed` ou `failed`; ver [Os três estados](../entities.md#os-tres-estados) |
 | `page` | o índice da página |
 | `bbox` | a menor caixa que contém as linhas do valor |
@@ -249,7 +249,7 @@ A [decisão da política](../glossary.md#decisao-da-politica) de uma página.
 | `signals` | a contagem de cada sinal que disparou, pelo nome do sinal |
 | `steps` | o que `process()` fez com a página, uma frase por passo, na ordem |
 | `failures` | cada leitor que falhou na página, como `<leitor>: <mensagem>`: o da cascata que passou a vez ao seguinte, o da releitura, o leitor caro. Vazio quando nenhum falhou |
-| `incomplete` | `true` quando um leitor falhou e nenhum outro leu no lugar dele: as linhas, se houver, são só parte da página. `false` quando o seguinte da cascata leu, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes de ler, como `all_strong`, a página que o leitor caro recusou não tem leitura barata, e sem linha nenhuma sai `true` |
+| `incomplete` | `true` quando um leitor falhou e nenhum outro leu no lugar dele: as linhas, se houver, são só parte da página. `false` quando o seguinte da cascata leu, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes da leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura barata. Sem linha nenhuma, ela sai com `true` |
 | `seconds` | os segundos de parede de cada etapa que tocou a página: `cheap`, com a detecção de layout, `confirm` e `strong`. A leitura do cache conta o tempo que levou |
 
 `tier` é o veredito da política, e não o que rodou. Sem leitor caro
@@ -276,7 +276,7 @@ zeradas quando a etapa não rodou.
 | `regions_strong` | as páginas em que o leitor caro leu só os recortes das linhas que falharam |
 | `lines_strong_rejected` | as linhas do leitor caro que não entraram no lugar das baratas: perderam um valor que conferia, ou não explicaram o valor que falhou |
 | `pages_strong_cached` | das páginas de `pages_strong`, as que vieram do cache |
-| `pages_strong_failed` | as páginas que o leitor caro recusou. Elas ficam com a leitura barata quando a política a fez, como `evidence` |
+| `pages_strong_failed` | as páginas que o leitor caro recusou. Numa política que decide depois da leitura barata, como `evidence`, elas ficam com a leitura barata |
 | `pages_confirmed` | as releituras por outra família antes do leitor caro. Numa `SEARCHABLE_SCAN` com `confirm=`, a página pode contar duas: a camada de OCR e o leitor de `confirm=` |
 | `pages_confirmed_same` | as páginas em que a releitura trouxe os mesmos valores inválidos: o erro é do documento |
 | `pages_confirmed_fixed` | as páginas em que a releitura trouxe um valor que confere no mesmo lugar |
@@ -290,8 +290,8 @@ Um leitor que implementa `Metered`, como o `vlm`, preenche `calls`,
 `tokens_in`, `tokens_out` e, quando recebeu preços, `usd`. Contam o leitor
 caro, os baratos e o de `confirm=`. O valor é a diferença entre o início e o
 fim da chamada, e por isso o que o cache serviu não conta. As contagens de
-páginas e os segundos incluem o que o cache serviu: os `*_cached` dizem
-quanto foi. A biblioteca não
+páginas e os segundos incluem o que o cache serviu. Os `*_cached` dizem
+quantas páginas vieram dele. A biblioteca não
 traz tabela de preços: o preço é de quem chama, e muda com o tempo.
 
 ## `DocumentFacts`
@@ -362,7 +362,7 @@ chave do cache. Ela diz o que muda a leitura sem mudar o nome do leitor:
 |---|---|
 | `text_layer` | a versão do pypdfium2 |
 | `tesseract` | a versão do binário, o idioma e as opções |
-| `ppocr` | os pesos, ou o hash do detector próprio (`det=<hash>`) e o do reconhecedor próprio e do dicionário, a versão do RapidOCR, e o motor quando não é o ONNX Runtime na CPU (`onnxruntime`) |
+| `ppocr` | os pesos, ou o hash de cada peso próprio: o do detector (`det=<hash>`), e o do reconhecedor com o do dicionário. Depois, a versão do RapidOCR. Por fim, o motor, quando não é o ONNX Runtime na CPU (`onnxruntime`) |
 | `vlm` | o modelo servido, o conjunto de prompts, o detector de layout e o esforço de raciocínio |
 
 Dois leitores de mesmo nome em papéis diferentes, como dois `PPOCR` em motores

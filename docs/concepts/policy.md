@@ -248,11 +248,12 @@ leitor caro, a linha barata mal decodificada fora das caixas dele sai. Ela
 é lixo por definição.
 
 O leitor caro que falha numa página, com `RuntimeError`, conta a página em
-`pages_strong_failed`. Ela fica com a leitura barata quando a política a
-fez, como `evidence`. Numa política que decide antes de ler, como
-`all_strong`, a página fica sem a leitura do corpo, e
-`RoutingDecision.incomplete` diz isso quando ela não tem linha nenhuma. Um servidor ausente,
-com `ConnectionError`, interrompe o documento.
+`pages_strong_failed`. Numa política que decide depois da leitura barata,
+como `evidence`, a página fica com a leitura barata. Numa política que
+decide antes da leitura barata, como `all_strong`, a página fica sem a
+leitura do corpo. `RoutingDecision.incomplete` diz isso quando ela não tem
+linha nenhuma. Um servidor ausente, com `ConnectionError`, interrompe o
+documento.
 
 ## Sinais e verificações próprios
 
@@ -272,15 +273,15 @@ por passo e na ordem:
 - o que a releitura por outra família concluiu;
 - o que o leitor caro leu, e quantas linhas substituiu.
 
-Essa é a ordem numa política que decide sobre a leitura barata, como
-`evidence`. Numa política que decide antes de ler, como `all_strong`, o
-passo da política vem primeiro, e a leitura barata vem depois dele, quando
+Essa é a ordem numa política que decide depois da leitura barata, como
+`evidence`. Numa política que decide antes da leitura barata, como
+`all_strong`, o passo da política vem primeiro, e a leitura barata vem depois dele, quando
 houver.
 
 `RoutingDecision.seconds` traz os segundos de cada etapa que tocou a
 página. `visualize` desenha, na imagem de cada página, a caixa de cada
 linha na cor do leitor que a leu. `Result.spent` relata o gasto da
 chamada. As contagens de páginas e os segundos incluem o que o cache
-serviu, e os `*_cached` dizem quanto foi. Chamadas, tokens e dólares não
-contam o que o cache serviu. As chaves estão em
+serviu, e os `*_cached` dizem quantas páginas foram. Chamadas, tokens e
+dólares não contam o que o cache serviu. As chaves estão em
 [Campos do resultado](../response/fields.md#spent).
