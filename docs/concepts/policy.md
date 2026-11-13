@@ -29,11 +29,13 @@ páginas e em tempo:
 | `max_strong_fraction` | a fração das páginas processadas, arredondada para cima |
 | `max_seconds` | o tempo de parede da execução a partir do qual a etapa cara não começa página nova |
 
-Com os dois limites em páginas, vale o mais restritivo. A política
-`evidence` corta pela ordem de prioridade dos sinais, `all_strong` pela
-ordem das páginas, e uma política própria pela ordem em que devolve as
-decisões. A página que passa do teto fica na [etapa barata](../glossary.md#etapa-barata), e o motivo
-diz isso.
+Com os dois limites em páginas, vale o mais restritivo. A página que passa
+do teto fica na [etapa barata](../glossary.md#etapa-barata). A política
+`evidence` corta ela mesma, pela ordem de prioridade dos sinais. O motivo
+da página cortada é o do sinal, como `2 x CPF que falha a verificação`, e
+o `tier` é `cheap`. `all_strong` é cortada na ordem das páginas, e uma
+política própria na ordem em que devolve as decisões. Nas duas, o motivo
+termina com `fora do teto de N página(s)`.
 
 Quando `max_seconds` vence, a releitura por outra família termina mesmo
 assim. A página que o teto de tempo alcançou fica com a leitura barata, que
@@ -204,8 +206,8 @@ linha. O recorte não tem folga em volta. O leitor caro substitui só o que
 leu ali, e o resto da página fica da leitura barata.
 
 Mesmo com `reread="region"`, a página vai inteira quando disparou nela um
-sinal que não aponta linha: leitura vazia, texto mal decodificado ou um
-sinal próprio. Um recorte ali deixaria o resto da falha na página. Numa
+sinal que não é uma verificação (`FailsCheck`), como leitura vazia ou texto
+mal decodificado. Um recorte ali deixaria o resto da falha na página. Numa
 política sem verificação, toda página vai inteira. O padrão de `reread` é
 `"page"`, a página inteira.
 
@@ -245,8 +247,11 @@ Na página encaminhada por texto mal decodificado e lida inteira pelo
 leitor caro, a linha barata mal decodificada fora das caixas dele sai. Ela
 é lixo por definição.
 
-O leitor caro que falha numa página, com `RuntimeError`, deixa a página com
-a leitura barata e a conta em `pages_strong_failed`. Um servidor ausente,
+O leitor caro que falha numa página, com `RuntimeError`, conta a página em
+`pages_strong_failed`. Ela fica com a leitura barata quando a política a
+fez, como `evidence`. Numa política que decide antes de ler, como
+`all_strong`, a página fica sem a leitura do corpo, e
+`RoutingDecision.incomplete` diz isso quando ela não tem linha nenhuma. Um servidor ausente,
 com `ConnectionError`, interrompe o documento.
 
 ## Sinais e verificações próprios
@@ -267,8 +272,15 @@ por passo e na ordem:
 - o que a releitura por outra família concluiu;
 - o que o leitor caro leu, e quantas linhas substituiu.
 
+Essa é a ordem numa política que decide sobre a leitura barata, como
+`evidence`. Numa política que decide antes de ler, como `all_strong`, o
+passo da política vem primeiro, e a leitura barata vem depois dele, quando
+houver.
+
 `RoutingDecision.seconds` traz os segundos de cada etapa que tocou a
 página. `visualize` desenha, na imagem de cada página, a caixa de cada
 linha na cor do leitor que a leu. `Result.spent` relata o gasto da
-chamada, sem o que o cache poupou; as chaves estão em
+chamada. As contagens de páginas e os segundos incluem o que o cache
+serviu, e os `*_cached` dizem quanto foi. Chamadas, tokens e dólares não
+contam o que o cache serviu. As chaves estão em
 [Campos do resultado](../response/fields.md#spent).

@@ -1542,7 +1542,7 @@ def _strong_stage(
             # (`ConnectionError`) não é por página e sobe.
             run.failures[page.index].append(_warn_failure(backend, page, read.error))
             run.spent["pages_strong_failed"] += 1
-            steps.append(f"{backend.name} falhou: {read.error}; fica a leitura barata")
+            steps.append(f"{backend.name} falhou: {read.error}; fica a leitura barata, se houve")
         else:
             fails = failures.get(page.index, ())
             rejected, notes = _rejected_strong(cheap, read.strong, fails, checks)
@@ -1616,10 +1616,13 @@ def process(
             tier barato e encaminha só onde a leitura provou ter falhado.
         budget: teto opcional do leitor caro, em páginas e em segundos
             (`max_seconds`). Sem ele, a política encaminha toda página em que
-            achou evidência. O teto de páginas vale para qualquer política:
-            o que passar dele fica em `CHEAP`, na ordem das páginas, com o
-            motivo dizendo isso. A página que o leitor caro começaria depois
-            de `max_seconds` fica com a leitura barata, e o motivo vai em
+            achou evidência. O teto de páginas vale para qualquer política, e
+            o que passar dele fica em `CHEAP`. `evidence` corta na ordem de
+            prioridade dos sinais, e o motivo da página cortada é o do sinal.
+            As outras políticas são cortadas na ordem em que devolvem as
+            decisões, e o motivo diz que a página ficou fora do teto. A
+            página que o leitor caro começaria depois de `max_seconds` fica
+            com a leitura barata, e o motivo vai em
             `RoutingDecision.steps`. Tokens e dólares não têm teto: são
             relatados em `Result.spent`.
         cheap: a cascata do tier barato, em ordem de preferência. A primeira
@@ -1635,15 +1638,17 @@ def process(
             página fica em `CHEAP`, com o motivo dizendo isso. Se a releitura
             traz, no lugar de cada valor inválido, um valor que confere, essas
             linhas trocam e a página também fica em `CHEAP`. Nos outros casos
-            a página segue ao leitor caro. Não vale para a página encaminhada
-            por leitura vazia ou texto mal decodificado. `None` desliga.
+            a página segue ao leitor caro. A releitura vale para toda página
+            encaminhada em que um valor falha uma verificação, qualquer que
+            seja o sinal que a encaminhou. A página sem valor que falha, como a
+            de leitura vazia, segue direto ao leitor caro. `None` desliga.
         reread: o que o leitor caro recebe de uma página encaminhada.
             `"page"`, o padrão, é a página inteira. `"region"` é um recorte
             por linha da leitura barata com um valor que falha uma
             verificação, e o leitor caro substitui só o que leu ali.
             A página vai inteira, nos dois modos, quando disparou nela um
-            sinal que não aponta linha: leitura vazia, texto mal decodificado
-            ou um sinal próprio. Numa política sem verificação, tudo vai
+            sinal que não é uma verificação (`FailsCheck`), como leitura
+            vazia ou texto mal decodificado. Numa política sem verificação, tudo vai
             inteiro.
         layout: detector de regiões, como `PPDocLayout(drop=())`. Com ele, as
             linhas de cada página saem na ordem dos blocos que o detector
@@ -1715,9 +1720,13 @@ def process(
         estar em `STRONG` ali e mesmo assim ter sido lida só no barato, que é o
         modo de ensaio de uma política; `spent.pages_strong` conta o que rodou.
         Cada decisão traz em `steps` o que aconteceu com a página, na ordem.
-        Uma página que o leitor caro recusou com `RuntimeError` fica com a
-        leitura barata, entra em `pages_strong_failed` e emite um `RuntimeWarning`;
-        um servidor ausente (`ConnectionError`) interrompe o processamento.
+        Uma página que o leitor caro recusou com `RuntimeError` entra em
+        `pages_strong_failed` e emite um `RuntimeWarning`. Ela fica com a
+        leitura barata numa política que lê antes de decidir, como
+        `evidence`. Numa que decide antes de ler, como `all_strong`, não há
+        leitura barata a que voltar: a página fica sem a leitura do corpo, e
+        sai com `incomplete` quando não tem linha nenhuma. Um servidor
+        ausente (`ConnectionError`) interrompe o processamento.
         Um leitor barato que falha numa página com `RuntimeError` dá a vez ao
         seguinte da cascata; a página entra em `pages_cheap_failed` e o aviso
         diz qual leitor falhou.

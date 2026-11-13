@@ -132,7 +132,7 @@ O tipo da exceção diz a `process()` o tamanho da falha:
 
 | exceção | significa | o que `process()` faz |
 |---|---|---|
-| `RuntimeError` | esta página não pôde ser lida | na cascata barata, passa ao leitor seguinte; no leitor caro, a página fica com a leitura barata. A página entra em `pages_cheap_failed` ou `pages_strong_failed`, e sai um `RuntimeWarning` |
+| `RuntimeError` | esta página não pôde ser lida | na cascata barata, passa ao leitor seguinte; no leitor caro, a página fica com a leitura barata, quando a política a fez. A página entra em `pages_cheap_failed` ou `pages_strong_failed`, e sai um `RuntimeWarning` |
 | `ConnectionError` | o serviço não está lá | interrompe o documento, porque as páginas seguintes falhariam do mesmo jeito |
 | qualquer outra | um defeito do leitor | interrompe o documento |
 

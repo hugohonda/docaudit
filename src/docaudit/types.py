@@ -816,7 +816,9 @@ class RoutingDecision(_Frozen):
         description=(
             "Um leitor falhou e nenhum outro leu no lugar dele: as linhas da página, se "
             "houver, são só parte dela. Falso quando o seguinte da cascata leu, e quando só o "
-            "leitor caro falhou e a leitura barata ficou."
+            "leitor caro falhou e a leitura barata ficou. Numa política que decide antes de "
+            "ler, como `all_strong`, a página que o leitor caro recusou não tem leitura "
+            "barata, e sem linha nenhuma sai verdadeiro."
         ),
     )
     seconds: dict[str, float] = PField(

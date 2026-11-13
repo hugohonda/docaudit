@@ -51,8 +51,11 @@ result = process("documento.pdf", policy="evidence", strong=PPOCR("v6-medium"))
 print(result.spent.pages_strong)
 ```
 
-O leitor caro relê a página encaminhada. A linha dele entra no lugar da
-barata só onde conserta o valor que falhou sem perder outro que conferia.
+O leitor caro relê a página encaminhada. Cada linha dele entra no lugar das
+linhas baratas cujo centro ela cobre. Ela é recusada, e a linha barata fica,
+quando perde um valor que a barata trazia certo ou quando não conserta o
+valor que falhou ali. As regras estão em
+[A leitura cara passa pelas mesmas verificações](../concepts/policy.md#a-leitura-cara-passa-pelas-mesmas-verificacoes).
 
 O exemplo usa o PP-OCR `v6-medium` porque ele roda sem servidor. Não é uma
 recomendação: o que cada leitor custa e o que compra está em
@@ -92,9 +95,10 @@ A releitura tem três desfechos:
 | a outra família leu, no mesmo lugar, um valor que confere | `corrigido por <leitor>` | as linhas trocam, e a página fica sem leitor caro |
 | outra coisa | o motivo original | a página segue ao leitor caro |
 
-`confirm=` não tem relação com o estado `confirmed` de uma entidade. Ele só
-vale para a página encaminhada por uma verificação. A página encaminhada por
-leitura vazia ou por texto mal decodificado vai direto ao leitor caro. O que
+`confirm=` não tem relação com o estado `confirmed` de uma entidade. Ele
+relê toda página encaminhada em que um valor falha uma verificação, qualquer
+que seja o sinal que a encaminhou. A página sem valor que falha, como a de
+leitura vazia, vai direto ao leitor caro. O que
 `printed` prova está em [Entidades padrão](../entities.md).
 
 ## Pôr um teto
@@ -116,13 +120,13 @@ result = process(
 | campo | limita |
 |---|---|
 | `max_strong_pages` | o número de páginas que o leitor caro lê |
-| `max_strong_fraction` | a fração das páginas do documento, arredondada para cima: `0.2` num documento de quatro páginas permite uma |
+| `max_strong_fraction` | a fração das páginas processadas, arredondada para cima: `0.2` em quatro páginas permite uma |
 | `max_seconds` | o tempo de parede, contado do início da chamada; depois dele o leitor caro não começa página nova |
 
 Com os dois tetos em páginas, vale o menor. Quando o teto não cobre todas as
 páginas encaminhadas, passam primeiro as do sinal que vem antes na lista da
-política. A página que ficou de fora mantém a leitura barata, e o motivo diz
-isso. A página que o teto de páginas deixou de fora também não passa pela
+política. A página que ficou de fora mantém a leitura barata, com `tier`
+igual a `cheap` e o motivo do sinal que disparou nela. A página que o teto de páginas deixou de fora também não passa pela
 releitura por outra família: a releitura só vê a página que continua
 encaminhada. A leitura barata e a releitura por outra família terminam
 sempre: `max_seconds` corta só a etapa cara.
@@ -150,8 +154,9 @@ result = process(
 print(result.spent.regions_strong)  # páginas em que o leitor caro leu só o recorte
 ```
 
-A página vai inteira, nos dois modos, quando o sinal que disparou não aponta
-linha: leitura vazia, texto mal decodificado ou um sinal seu.
+A página vai inteira, nos dois modos, quando disparou nela um sinal que não
+é uma verificação (`FailsCheck`), como leitura vazia ou texto mal
+decodificado.
 
 ## Exigir mais de uma falha
 

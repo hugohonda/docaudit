@@ -58,7 +58,7 @@ tempo do leitor caro. Ver [Política, conferência e escalada](policy.md).
 ## Releitura por outra família
 
 Uma família é um motor de outra arquitetura e outro treino. Quando duas
-famílias leem o mesmo valor inválido no mesmo lugar, o erro está impresso
+famílias leem na página os mesmos valores inválidos, o erro está impresso
 no documento, e a página não paga o leitor caro. Quando a releitura traz um
 valor que confere no mesmo lugar, a linha troca. Ver
 [Reler com outra família](policy.md#reler-com-outra-familia-antes-do-leitor-caro).
