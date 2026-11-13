@@ -83,6 +83,35 @@ def test_amount_in_words_confirms_or_fails_the_figure():
     assert [e.state for e in found] == [EntityState.CONFIRMED, EntityState.FAILED]
 
 
+def test_amount_in_words_without_evidence_is_not_confirmed():
+    """O parêntese sem número por extenso e o número mal escrito não comparam nada."""
+    page = make_page(0)
+    no_number = _line(page, 0.1, "R$ 9.999,99 (valor em reais atualizado)")
+    misread = _line(page, 0.2, "R$ 1.O00,00 (mil reais)")
+    found = entities_of([AMOUNT_IN_WORDS], page, [no_number, misread])
+    assert [e.state for e in found] == [EntityState.WELL_FORMED, EntityState.WELL_FORMED]
+
+
+def test_a_cnpj_with_a_letter_in_the_body_is_not_confirmed():
+    """Cada letra vale, módulo 11, o mesmo que um dígito ou outra letra: o verificador não vê."""
+    page = make_page(0)
+    lines = [
+        _line(page, 0.1, "CNPJ 18.236.120/0001-58"),
+        _line(page, 0.2, "CNPJ 18.S36.1S0/0001-58"),
+        _line(page, 0.3, "CNPJ 1N.236.120/0001-58"),
+        _line(page, 0.4, "CNPJ 11.444.777/QQQ1-61"),
+        _line(page, 0.5, "CNPJ 12.ABC.345/01DE-35"),
+    ]
+    found = entities_of([CNPJ], page, lines)
+    assert [e.state for e in found] == [
+        EntityState.CONFIRMED,
+        EntityState.WELL_FORMED,
+        EntityState.WELL_FORMED,
+        EntityState.WELL_FORMED,
+        EntityState.WELL_FORMED,
+    ]
+
+
 def test_default_entities_are_the_policy_checks_and_then_the_defaults():
     pis = Check("PIS", re.compile(r"\d{3}\.\d{5}\.\d{2}-\d"), lambda _: True)
     policy = EvidenceRouter([*DEFAULT_SIGNALS, FailsCheck(pis)])

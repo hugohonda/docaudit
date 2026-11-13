@@ -225,6 +225,15 @@ class Check:
     A página segue ao leitor caro, e a entidade sai sem `printed`, salvo quando
     o valor está em texto composto.
     """
+    unproven: Callable[[str], bool] | None = None
+    """Se um valor que confere fica sem prova, mesmo com `redundant`.
+
+    A redundância de alguns campos não cobre todo valor. O CNPJ com letra
+    confere igual ao CNPJ com o dígito que a letra substituiu, e o valor por
+    extenso sem número entre parênteses não compara nada. O valor assim sai
+    `well_formed`, e a linha da camada oculta que o traz não entra no lugar
+    da linha dos pixels.
+    """
 
 
 def _check_digit(chars: str, weights: Sequence[int]) -> int:
@@ -252,6 +261,12 @@ def _cnpj_is_valid(printed: str) -> bool:
     return _check_digit(digits[:12], _CNPJ_WEIGHTS) == int(digits[12]) and _check_digit(
         digits[:13], (6, *_CNPJ_WEIGHTS)
     ) == int(digits[13])
+
+
+def _cnpj_has_letter(printed: str) -> bool:
+    # Cada letra vale, módulo 11, o mesmo que um dígito, salvo E e P, que valem
+    # o mesmo entre si: trocar a letra por esse dígito não muda o verificador.
+    return any(c.isalpha() for c in _ID_PUNCTUATION.sub("", "".join(printed.split()))[:12])
 
 
 def _cnj_is_valid(printed: str) -> bool:
@@ -347,15 +362,18 @@ CNPJ = Check(
     _cnpj_is_valid,
     redundant=True,
     labeled=_CNPJ_LABELED,
+    unproven=_cnpj_has_letter,
 )
 """CNPJ numérico ou alfanumérico.
 
 Desde a IN RFB 2.229/2024, as doze primeiras posições aceitam letra maiúscula,
 e cada caractere vale o código menos 48 no módulo 11. Caracteres de mesmo valor
 módulo 11 trocam sem mudar o dígito verificador: O e D, 0 e Q, 2 e S, 8 e N.
-Essa leitura errada passa pela verificação. Letra minúscula, ou letra nos dois
-dígitos verificadores, é sempre leitura errada. Vírgula no lugar de ponto é a
-troca de pontuação que o OCR faz, e casa.
+Essa leitura errada passa pela verificação. Toda letra, salvo E e P, vale
+módulo 11 o mesmo que um dígito, e E e P valem o mesmo entre si: o CNPJ com
+letra que confere sai `well_formed`, e só o numérico sai `confirmed`. Letra
+minúscula, ou letra nos dois dígitos verificadores, é sempre leitura errada.
+Vírgula no lugar de ponto é a troca de pontuação que o OCR faz, e casa.
 """
 CNJ = Check(
     "CNJ",
@@ -678,15 +696,27 @@ def _spelled_cents(text: str) -> int | None:
     return None if cents is None else whole * 100 + cents
 
 
-def _amount_in_words_is_valid(printed: str) -> bool:
+def _amount_in_words_pair(printed: str) -> tuple[int, int] | None:
+    """O número e o extenso em centavos, ou None quando não há os dois para comparar.
+
+    A grafia do número é de `AMOUNT_BRL`, e um parêntese que não é só um valor
+    por extenso não diz nada.
+    """
     digits, _, spelled = printed.partition("(")
     figure = digits.removeprefix("R$").strip()
     words = _spelled_cents(spelled.removesuffix(")"))
     if _WELL_FORMED_AMOUNT.fullmatch(figure) is None or words is None:
-        # Sem evidência: a grafia do número é de AMOUNT_BRL, e um parêntese
-        # que não é só um valor por extenso não diz nada.
-        return True
-    return int(re.sub(r"[.,]", "", figure)) == words
+        return None
+    return int(re.sub(r"[.,]", "", figure)), words
+
+
+def _amount_in_words_is_valid(printed: str) -> bool:
+    pair = _amount_in_words_pair(printed)
+    return pair is None or pair[0] == pair[1]
+
+
+def _amount_in_words_unproven(printed: str) -> bool:
+    return _amount_in_words_pair(printed) is None
 
 
 AMOUNT_IN_WORDS = Check(
@@ -696,6 +726,7 @@ AMOUNT_IN_WORDS = Check(
     ),
     _amount_in_words_is_valid,
     redundant=True,
+    unproven=_amount_in_words_unproven,
 )
 """Valor em reais seguido do mesmo valor por extenso, entre parênteses.
 
@@ -703,8 +734,8 @@ Os dois têm de ser o mesmo número: `R$ 214.000,00 (duzentos e quatorze mil
 reais)`. Uma troca de dígito que forma outro valor bem escrito passa pela
 grafia, e não passa por aqui. Fica sem evidência o parêntese que não é só um
 valor por extenso, como `(sem os acréscimos legais)`, e o número mal escrito,
-que é de `AMOUNT_BRL`. Um documento que imprime os dois diferentes também
-dispara: é o falso positivo conhecido.
+que é de `AMOUNT_BRL`: não falha, e sai `well_formed`. Um documento que
+imprime os dois diferentes também dispara: é o falso positivo conhecido.
 
 Não está em `DEFAULT_SIGNALS`. Entra por escolha: `EvidenceRouter([*DEFAULT_SIGNALS,
 FailsCheck(AMOUNT_IN_WORDS)])`.
@@ -1130,7 +1161,8 @@ def entities_of(
     for check in checks:
         for start, end, value, valid, lines in _matches(check, chunks, text=text):
             if valid:
-                state = EntityState.CONFIRMED if check.redundant else EntityState.WELL_FORMED
+                proven = check.redundant and not (check.unproven and check.unproven(value))
+                state = EntityState.CONFIRMED if proven else EntityState.WELL_FORMED
             else:
                 state = EntityState.FAILED
             entity = Entity(

@@ -37,7 +37,7 @@ saída é esta:
 | campo | `kind` | regra | estado quando confere |
 |---|---|---|---|
 | CPF | `CPF` | dois dígitos verificadores, em módulo 11 | `confirmed` |
-| CNPJ | `CNPJ` | dois dígitos verificadores, no CNPJ numérico ou alfanumérico | `confirmed` |
+| CNPJ | `CNPJ` | dois dígitos verificadores, no CNPJ numérico ou alfanumérico | `confirmed`; `well_formed` quando há letra nas doze primeiras posições, porque a letra confere igual ao dígito de mesmo valor módulo 11 |
 | número de processo | `CNJ` | módulo 97 da Resolução CNJ 65/2008 | `confirmed` |
 | valor em reais | `valor em reais` | a grafia brasileira: grupos de três, vírgula e dois centavos, depois de `R$` ou antes do `C` ou `D` de um extrato | `well_formed` |
 | valor em moeda anterior ao real | `valor em moeda anterior ao real` | `Cr$`, `NCr$`, `Cz$`, `NCz$` ou `CR$` na mesma grafia, com centavos opcionais | `well_formed` |
@@ -75,7 +75,9 @@ de `DEFAULT_SIGNALS`. Para encaminhar por um deles, acrescente o sinal à
 política: `EvidenceRouter([*DEFAULT_SIGNALS, FailsCheck(NFE_KEY)])`.
 
 `AMOUNT_IN_WORDS` confere o valor em reais contra o mesmo valor por extenso
-entre parênteses. Ele fica fora de `DEFAULT_ENTITIES` e entra por escolha.
+entre parênteses. Ele fica fora de `DEFAULT_ENTITIES` e entra por escolha. O
+parêntese sem número por extenso, e o número mal escrito, não comparam nada:
+o valor sai `well_formed`.
 
 ## Os três estados
 
