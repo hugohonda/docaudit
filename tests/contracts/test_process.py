@@ -1988,6 +1988,20 @@ def test_a_checkbox_mark_repeated_in_the_middle_of_the_page_is_not_a_margin_stri
     assert not any(c.furniture for chunks in mark_furniture(pages).values() for c in chunks)
 
 
+def test_a_tall_letter_of_one_page_does_not_break_the_header_below_it():
+    """Uma letra solta acima do cabeçalho, alta como um glifo, não é linha própria da página."""
+    pages = {
+        page: [
+            _line(page, "TRIBUNAL DE JUSTICA", 0.05, 0),
+            _line(page, f"Corpo proprio {name}", 0.3, 0),
+        ]
+        for page, name in enumerate(("Alfa", "Beta"))
+    }
+    pages[0].append(Chunk.make(make_page(0), BBox(x0=0.5, y0=0.01, x1=0.505, y1=0.025), "ocr", "l"))
+    marked = {c.text for c in mark_furniture(pages)[0] if c.furniture}
+    assert marked == {"TRIBUNAL DE JUSTICA"}
+
+
 def test_a_line_of_the_layer_stays_at_its_edge_on_a_page_read_sideways():
     """A linha própria no alto da leitura girada não interrompe a tarja no alto da camada."""
     pages = {
