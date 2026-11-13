@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING, NamedTuple, cast
 from zoneinfo import ZoneInfo
 
 from docaudit import pdf as _pdf
+from docaudit.backends.tesseract import TesseractOCR
 from docaudit.backends.textlayer import TextLayerReader
 from docaudit.cache import call_key
 from docaudit.pdf import PageView, merge_touching
@@ -1108,6 +1109,11 @@ def _confirm_stage(
     Numa `SEARCHABLE_SCAN` a primeira família é a camada de OCR embutida,
     que já está lida e custa zero; depois vem `confirm`. A primeira que
     decide encerra. Muda `decisions`, `reads` e `failures` no lugar.
+
+    A camada que o Tesseract escreveu não é outra família para uma linha que
+    o Tesseract leu: os dois erram junto. A fonte `GlyphLessFont` em
+    `Page.hidden_fonts` diz que o Tesseract escreveu a camada da página, e
+    então ela não relê a página em que uma linha que falha veio dele.
     """
     for k, decision in enumerate(decisions):
         if decision.tier is not Tier.STRONG:
@@ -1117,14 +1123,19 @@ def _confirm_stage(
         before = failures.get(page.index, [])
         if not before:
             continue
-        families = [
-            b
-            for b in (layer if page.substrate is Substrate.SEARCHABLE_SCAN else None, confirm)
-            if b is not None
-        ]
+        same_engine = TesseractOCR.layer_font in page.hidden_fonts and any(
+            c.source == TesseractOCR.name for _, _, c in before
+        )
+        own_layer = layer if page.substrate is Substrate.SEARCHABLE_SCAN else None
+        families = [b for b in (None if same_engine else own_layer, confirm) if b is not None]
         tick = time.perf_counter()
         view = run.view(page)
         steps = run.steps[page.index]
+        if own_layer is not None and same_engine:
+            steps.append(
+                "camada escrita pelo Tesseract, o mesmo motor da leitura que falhou: "
+                "não é outra família"
+            )
         values = ", ".join(dict.fromkeys(value for _, value, _ in before))
         failing = {(c.name, value) for c, value, _ in before}
         alike = ", ".join(

@@ -717,6 +717,26 @@ def test_the_hidden_layer_is_the_first_family_of_the_reread():
     assert vlm.calls == 0
 
 
+def test_a_layer_tesseract_wrote_does_not_confirm_what_tesseract_read():
+    """A camada com `GlyphLessFont` é do Tesseract: não é outra família para o Tesseract."""
+    doc = make_scanned_pdf(["CPF 529.982.247-26"], font="GlyphLessFont")
+    assert load_pages(doc)[0].hidden_fonts == ("GlyphLessFont",)
+    same = process(
+        doc, policy="evidence", cheap=["text_layer", _Says("tesseract", {0: "CPF 529.982.247-26"})]
+    )
+    (decision,) = same.decisions
+    assert not decision.reason.startswith("erro do documento")
+    assert any("mesmo motor" in s for s in decision.steps)
+    (cpf,) = same.entities
+    assert cpf.printed is None
+
+    other = process(
+        doc, policy="evidence", cheap=["text_layer", _Says("cheap", {0: "CPF 529.982.247-26"})]
+    )
+    assert other.decisions[0].reason == "erro do documento: text_layer leu o mesmo"
+    assert other.entities[0].printed == "text_layer"
+
+
 def test_evidence_reads_every_page_cheap_then_escalates_only_the_proven_failures():
     failing_cpf = "BT /F1 24 Tf 100 400 Td (CPF 529.982.247-26) Tj ET"
     doc = make_pdf(TEXT_CENTRAL, failing_cpf, EMPTY_PAGE)

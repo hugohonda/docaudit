@@ -169,7 +169,10 @@ documento".
 
 Numa página `SEARCHABLE_SCAN`, a primeira família é a própria camada de OCR,
 que já está lida. `confirm=` vem depois, e a primeira família que decide
-encerra. Há três desfechos:
+encerra. A camada com a fonte `GlyphLessFont` foi escrita pelo Tesseract, e
+não relê a página em que a linha que falhou veio do Tesseract: os dois erram
+junto. Qualquer `GlyphLessFont` na página basta, porque `Page.hidden_fonts` é
+da página, e não da linha. Há três desfechos:
 
 | a releitura traz | a página | o motivo |
 |---|---|---|

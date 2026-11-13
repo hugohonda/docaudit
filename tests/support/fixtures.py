@@ -182,6 +182,7 @@ def make_scanned_pdf(
     text_y_below: int = 300,
     extra_raster_boxes: Sequence[tuple[float, float, float, float]] = (),
     stamped: Sequence[str] = (),
+    font: str = "Helvetica",
 ) -> bytes:
     """PDF de uma página com raster de página inteira, e opcionalmente camada de texto.
 
@@ -211,7 +212,8 @@ def make_scanned_pdf(
     desenha o mesmo raster de novo em outras posições, antes do principal no
     fluxo, para uma página com mais de uma figura. `stamped` são linhas
     visíveis desenhadas depois de tudo, no pé da folha, como a tarja que o
-    tribunal põe por cima da digitalização.
+    tribunal põe por cima da digitalização. `font` é o nome base da fonte do
+    texto: `GlyphLessFont` é a que o Tesseract deixa na camada que escreve.
     """
     w_px, h_px = pixels
     raw = bytes([200 + (i * 7) % 40 for i in range(w_px * h_px)])
@@ -252,7 +254,7 @@ def make_scanned_pdf(
     objs = [
         b"<</Type/Catalog/Pages 2 0 R>>",
         b"<</Type/Pages/Kids[4 0 R]/Count 1>>",
-        b"<</Type/Font/Subtype/Type1/BaseFont/Helvetica>>",
+        b"<</Type/Font/Subtype/Type1/BaseFont/%s>>" % font.encode(),
         b"<</Type/Page/Parent 2 0 R/MediaBox[0 0 595 842]/Contents 5 0 R"
         b"/Resources<</Font<</F1 3 0 R>>/XObject<</Im0 6 0 R"
         + (b"/Fm0 7 0 R" if text_in_form else b"")

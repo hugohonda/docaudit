@@ -42,6 +42,8 @@ leitura não vazia. O padrão é `("text_layer", "ppocr")`. Ver
 Um motor de OCR de outra arquitetura e de outro treino. Os erros de duas
 famílias não coincidem. O PP-OCR e o Tesseract são famílias diferentes; a
 [camada de OCR](#camada-de-ocr) de uma digitalização conta como uma família.
+A camada que o Tesseract escreveu, com a fonte `GlyphLessFont`, é da mesma
+família que o Tesseract, e não relê o que ele leu.
 
 ### Releitura por outra família { #releitura-por-outra-familia }
 
