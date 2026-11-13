@@ -574,20 +574,45 @@ def _explains(check: FailsCheck, value: str, chunk: Chunk) -> bool:
     return any(_digits(found) == _digits(value) for found in _BARE_AMOUNT.findall(chunk.text))
 
 
+def _keeps_digits(failed: str, found: str) -> bool:
+    """Se `found` traz, na mesma posição, cada dígito que `failed` traz.
+
+    A pontuação não conta, e a letra de `failed` aceita qualquer caractere:
+    `R$ 1.O00,00` aceita `R$ 1.000,00` e recusa `R$ 7.000,00`.
+    """
+    a, b = re.sub(r"[\W_]", "", failed), re.sub(r"[\W_]", "", found)
+    return len(a) == len(b) and all(x == y or not x.isdigit() for x, y in zip(a, b, strict=True))
+
+
+def _fixes(check: FailsCheck, value: str, chunk: Chunk) -> bool:
+    """Se a linha da releitura conserta `value`: traz só valores do campo que conferem.
+
+    Numa regra com redundância, o valor que confere basta. Sem redundância,
+    um valor em reais bem escrito com outro dígito confere e pode estar
+    errado: a releitura precisa trazer, na mesma posição, cada dígito que a
+    leitura barata leu (`_keeps_digits`).
+    """
+    if not check.valid_in(chunk):
+        return False
+    if check.check.redundant:
+        return True
+    return any(_keeps_digits(value, found) for found, _ in check.values(chunk))
+
+
 def _swap_failing(failing: Sequence[Failure], other: Sequence[Chunk]) -> dict[str, Chunk] | None:
     """O chunk da releitura que conserta cada chunk com valor inválido, pelo id do chunk.
 
     O chunk da releitura precisa cair no mesmo lugar (o centro de um dentro
-    da caixa do outro) e trazer só valores do campo que conferem; entre
-    vários, fica o de maior sobreposição com a linha. Se algum valor inválido
-    fica sem conserto, nada troca e sai `None`: a página segue ao leitor caro.
+    da caixa do outro) e consertar o valor (`_fixes`); entre vários, fica o
+    de maior sobreposição com a linha. Se algum valor inválido fica sem
+    conserto, nada troca e sai `None`: a página segue ao leitor caro.
 
-    Aqui vale só `valid_in`, de propósito. Com a regra de `_explains`, uma releitura sem `R$`
-    trocaria a linha e tiraria a página do leitor caro.
+    Aqui não vale a regra de `_explains`: uma releitura sem `R$` trocaria a
+    linha e tiraria a página do leitor caro.
     """
     swaps: dict[str, Chunk] = {}
-    for check, _value, chunk in failing:
-        candidates = [c for c in other if _same_place(c, chunk) and check.valid_in(c)]
+    for check, value, chunk in failing:
+        candidates = [c for c in other if _same_place(c, chunk) and _fixes(check, value, c)]
         if not candidates:
             return None
         best = max(candidates, key=lambda c: c.bbox.intersection(chunk.bbox))
@@ -1077,7 +1102,8 @@ def _confirm_stage(
 
     Duas famílias que devolvem o mesmo valor inválido confirmam o erro do
     documento, salvo na troca que as famílias fazem juntas (`Check.alike`);
-    um valor que confere no mesmo lugar conserta a linha. "Vale o
+    um valor que confere no mesmo lugar conserta a linha, e num campo sem
+    redundância só quando mantém os dígitos lidos (`_fixes`). "Vale o
     valor válido" seria a regra errada: uma leitura errada pode conferir.
     Numa `SEARCHABLE_SCAN` a primeira família é a camada de OCR embutida,
     que já está lida e custa zero; depois vem `confirm`. A primeira que

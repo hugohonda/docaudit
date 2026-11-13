@@ -1527,6 +1527,18 @@ def test_a_reader_of_another_family_confirms_or_fixes_before_the_costly_tier(sca
     assert "- CPF: 529.982.247-26 · failed · p2:0" in text, "a outra família leu outro valor"
 
 
+def test_a_rereading_fixes_an_amount_only_where_it_keeps_the_digits_the_cheap_reader_read(
+    scanned_doc,
+):
+    """Valor em reais não tem redundância: outro dígito bem escrito no lugar não prova nada."""
+    cheap = _Says("cheap", {0: "pagar R$ 1.O00,00", 1: "pagar R$ 1.O00,00"})
+    other = _Says("other", {0: "pagar R$ 1.000,00", 1: "pagar R$ 7.000,00"})
+    result = process(scanned_doc, policy="evidence", cheap=[cheap], confirm=other, strong=FakeVLM())
+    decisions = {d.page: d for d in result.decisions}
+    assert decisions[0].reason == "corrigido por other", "só a letra trocou de leitura"
+    assert decisions[1].tier is Tier.STRONG, "o 1 virou 7: nenhum dos dois está provado"
+
+
 class _MeteredSays(_Says):
     """O leitor de outra família como serviço pago: conta uma chamada por leitura."""
 
