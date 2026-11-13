@@ -1890,12 +1890,11 @@ def run_pipeline(
         selected = [p for p in classified if pages is None or p.index in pages]
     if policy.needs_reads:
         # Guarda a renderização só da página que tem por onde escalar: leitura
-        # vazia ou valores que falham até o mínimo da política. A escalada por
+        # vazia ou um valor que falha. A política pode pedir mais falhas, e a
+        # página que ela não encaminha solta a vista logo depois. A escalada por
         # outro sinal renderiza a página de novo, e a conta continua a mesma.
-        least = getattr(policy, "min_failures", 1)
-
         def may_escalate(page: Page, chunks: Sequence[Chunk]) -> bool:
-            return not chunks or sum(len(c.failing(page, chunks)) for c in checks) >= least
+            return not chunks or any(c.failing(page, chunks) for c in checks)
 
         by_page = _cheap_stage(run, selected, readers, workers, trust_layer, may_escalate)
         decisions = list(policy.decide(selected, budget, by_page))
