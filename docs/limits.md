@@ -100,9 +100,8 @@ precisa conhecer antes de confiar num resultado.
 - **A linha de um modelo repetido que só varia nos números pode ser elemento
   fixo.** Basta que esteja na sequência a partir do alto ou do pé, sem linha
   própria entre ela e a borda. O total no pé de um demonstrativo é marcado.
-  A marca não apaga a linha.
-- **A folha precisa de uma linha só dela.** O leitor que junta o carimbo e
-  outro texto na mesma linha deixa a página sem `Page.folha`.
+  Uma citação de folha nessa linha, como `conforme fls. 45`, pode virar
+  `Page.folha`.
 - **Numa página lida de lado, a
   [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) olha
   a página deitada.** Com `layout=`, os blocos, os rótulos e a ordem vêm da

@@ -66,7 +66,7 @@ sai em `Result.entities`, mas não encaminha a página.
 A [folha](glossary.md#folha) é o número que quem lê os autos cita, e não
 coincide com o índice da página. O carimbo no alto da página é a folha daquela
 página, e `fls. 16` no corpo de uma decisão aponta para outra. O carimbo, numa
-linha de elemento fixo que é só ele, vai em `Page.folha`. Um intervalo, como `fls. 08/10`,
+linha de elemento fixo, vai em `Page.folha`. Um intervalo, como `fls. 08/10`,
 não casa.
 
 Os três códigos de pagamento, a chave de acesso, a linha digitável e o código

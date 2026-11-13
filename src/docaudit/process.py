@@ -705,12 +705,10 @@ def folhas_of(
     checks: Sequence[Check] = (FOLHA,),
     drawn: DrawOrder | None = None,
 ) -> dict[int, Folha]:
-    """A folha carimbada de cada página: a linha de elemento fixo que é só uma das `checks`.
+    """A folha carimbada de cada página: o valor de uma das `checks` nas linhas de elemento fixo.
 
     Cada verificação nomeia o número no grupo `number`, e o verso, quando
-    a forma o tem, no grupo `verso`. O carimbo ocupa a linha inteira: a
-    forma dentro de uma frase é citação, mesmo numa linha marcada como
-    elemento fixo.
+    a forma o tem, no grupo `verso`.
 
     Na camada de texto vale o último carimbo desenhado, pela ordem de
     `drawn`, como em `stamps_of`: o tribunal carimba por cima do que a cópia
@@ -725,7 +723,7 @@ def folhas_of(
             (m["number"].replace(".", ""), m.groupdict().get("verso"), c)
             for c in fixed
             for check in checks
-            if (m := check.pattern.fullmatch(fold_lookalikes(c.text).strip()))
+            for m in check.pattern.finditer(fold_lookalikes(c.text))
         ]
         layered = [f for f in found if f[2].source == TextLayerReader.name]
         if len({(n, v) for n, v, _ in layered}) > 1 and drawn is not None:
@@ -776,7 +774,7 @@ def _is_vertical(box: BBox) -> bool:
     return box.y1 - box.y0 > box.x1 - box.x0
 
 
-def _repeated_elsewhere(items: Sequence[Chunk], copy_of: Mapping[int, int]) -> set[str]:
+def _repeated_elsewhere(items: Sequence[Chunk], copy_of: Mapping[int, object]) -> set[str]:
     """Os ids dos trechos de `items` com um igual, no mesmo lugar, em outra página que não é cópia.
 
     Duas páginas com o mesmo valor em `copy_of` são cópia uma da outra, e a
@@ -813,8 +811,9 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     sequência, e por isso um carimbo de uma página só dentro do cabeçalho
     deixa o resto do cabeçalho dessa página sem marca.
 
-    A cópia não prova o elemento fixo. Duas páginas com o mesmo conjunto de
-    formas nas linhas horizontais com letra são cópia uma da outra: a peça
+    A cópia não prova o elemento fixo. Duas páginas com o mesmo conjunto,
+    não vazio, de formas nas linhas horizontais com letra são cópia uma da
+    outra: a peça
     juntada duas vezes repete o corpo inteiro, e a sequência não pararia.
     A linha vertical da margem fica fora da comparação: ela é marcada quando
     se repete em outra página que não é cópia.
@@ -837,12 +836,7 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
                 by_form[form].append(chunk)
                 if not _is_vertical(_as_read(chunk)):
                     forms[chunk.page].add(form)
-    signatures: dict[frozenset[str], int] = {}
-    # A página sem linha horizontal com letra não é cópia de nenhuma: tem número próprio.
-    copy_of = {
-        p: signatures.setdefault(frozenset(forms[p]), len(signatures)) if p in forms else -1 - p
-        for p in {c.page for chunks in by_page.values() for c in chunks}
-    }
+    copy_of = {c.page: frozenset(forms[c.page]) or c.page for cs in by_page.values() for c in cs}
     repeated = set[str]().union(
         *(_repeated_elsewhere(items, copy_of) for items in by_form.values())
     )

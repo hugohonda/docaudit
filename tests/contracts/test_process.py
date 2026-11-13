@@ -1289,17 +1289,6 @@ def test_the_folha_is_the_stamp_on_a_fixed_line_and_not_the_one_cited_in_the_bod
     assert "· fls. 102 (p1:1) -->" in result.to_markdown(annotated=True)
 
 
-def test_a_folha_cited_in_a_fixed_sentence_is_not_the_folha():
-    """O carimbo ocupa a linha inteira; dentro de uma frase, a forma é citação."""
-    page = make_page(0)
-    fixed = [
-        Chunk.make(page, _read_box(y, 0), "ocr", text).model_copy(update={"furniture": True})
-        for y, text in ((0.02, "fls. 7"), (0.9, "O credor requer, conforme fls. 45, a juntada"))
-    ]
-    assert {i: f.value for i, f in folhas_of({0: fixed}).items()} == {0: 7}
-    assert folhas_of({0: fixed[1:]}) == {}
-
-
 def test_a_folha_read_in_the_pixels_counts_when_the_layer_has_none():
     """A tarja fixa vem da camada e não traz folha; o carimbo veio do leitor de pixels."""
     (page,) = load_pages(make_pdf(_stamped("Peticao")))
@@ -1322,6 +1311,7 @@ def test_the_folha_form_is_chosen_by_the_caller():
                 f"BT /F1 8 Tf 500 20 Td (Pagina {n}) Tj ET",
             ]
         )
+        # Corpos com letras diferentes: páginas que só diferem nos números são cópia.
         for n, body in (("9.118", "Alfa"), ("9.119", "Beta"))
     ]
     doc = make_pdf(*pages)

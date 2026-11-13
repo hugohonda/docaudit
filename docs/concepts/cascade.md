@@ -146,8 +146,8 @@ Uma linha sem letra, como o número da folha, não interrompe a sequência e
 não é marcada. O rótulo de um formulário no meio da página e uma lista de
 números ficam sem marca.
 
-Duas páginas são cópia uma da outra quando as linhas horizontais com letra
-têm o mesmo conjunto de formas. A peça juntada duas vezes repete o corpo
+Duas páginas são cópia uma da outra quando têm linhas horizontais com letra
+e o mesmo conjunto de formas nelas. A peça juntada duas vezes repete o corpo
 inteiro no mesmo lugar, e sem essa regra a página toda seria elemento fixo.
 A linha vertical da margem fica fora da comparação: ela é marcada quando se
 repete em outra página que não é cópia.

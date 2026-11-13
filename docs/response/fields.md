@@ -52,9 +52,8 @@ não coincide com o índice da página.
 | `bbox`, `chunk_ids` | a caixa e a linha do carimbo |
 | `in_sequence` | `true` quando a folha segue as das outras páginas da execução |
 
-`folha.value` vem de uma linha de elemento fixo que é só uma forma de
-`folhas=`. Dentro de uma frase, ou no corpo da página, a mesma forma é uma
-citação e sai só em `entities`. `folha`
+`folha.value` vem de uma forma de `folhas=` numa linha de elemento fixo. No
+corpo da página, a mesma forma é uma citação e sai só em `entities`. `folha`
 sai `null` sem carimbo, no verso e numa execução de uma página só.
 
 `in_sequence` compara a diferença entre a folha e o índice da página com a
