@@ -1945,6 +1945,50 @@ def test_a_single_page_has_no_furniture():
     )
 
 
+_SIGNERS = ("Alfa", "Beta", "Gama", "Delta")
+
+
+def _lines_by_body(result) -> dict[str, list[tuple[str, bool]]]:
+    """Cada página pelo corpo próprio dela: as linhas, em ordem, com a marca de elemento fixo."""
+    out: dict[str, list[tuple[str, bool]]] = {}
+    for page in result.pages:
+        lines = sorted(
+            (c for c in result.chunks if c.page == page.index), key=lambda c: c.reading_order or 0
+        )
+        (body,) = (c.text for c in lines if c.text.startswith("Corpo proprio"))
+        out[body] = [(c.text, c.furniture) for c in lines]
+    return out
+
+
+def test_the_page_order_does_not_change_what_is_furniture():
+    """As mesmas folhas em ordem inversa: cada página sai com as mesmas linhas e marcas."""
+    streams = [_page_with_furniture(n, s) for n, s in enumerate(_SIGNERS, start=1)]
+    forward = process(make_pdf(*streams), policy="all_cheap", cheap=["text_layer"])
+    backward = process(make_pdf(*reversed(streams)), policy="all_cheap", cheap=["text_layer"])
+    assert _lines_by_body(forward) == _lines_by_body(backward)
+    assert any(c.furniture for c in forward.chunks)
+
+
+def test_a_partial_read_marks_the_furniture_it_can_prove_as_the_whole_read_does():
+    """Duas páginas com o mesmo cabeçalho e rodapé bastam: a marca é a da leitura inteira."""
+    doc = make_pdf(*(_page_with_furniture(n, s) for n, s in enumerate(_SIGNERS, start=1)))
+    whole = _lines_by_body(process(doc, policy="all_cheap", cheap=["text_layer"]))
+    part = _lines_by_body(process(doc, policy="all_cheap", cheap=["text_layer"], pages={1, 2}))
+    assert set(part) == {
+        "Corpo proprio desta folha, assunto Beta",
+        "Corpo proprio desta folha, assunto Gama",
+    }
+    assert part == {body: whole[body] for body in part}
+
+
+def test_a_read_of_one_page_of_a_longer_document_has_no_furniture():
+    """O limite documentado: a repetição é vista só sobre as páginas lidas."""
+    doc = make_pdf(*(_page_with_furniture(n, s) for n, s in enumerate(_SIGNERS, start=1)))
+    result = process(doc, policy="all_cheap", cheap=["text_layer"], pages={1})
+    assert result.chunks
+    assert not any(c.furniture for c in result.chunks)
+
+
 def _read_box(y0: float, turn: Literal[0, 90, 270]) -> BBox:
     """A caixa de uma linha larga à altura `y0` da leitura, no sistema da imagem."""
     return BBox(x0=0.1, y0=y0, x1=0.9, y1=y0 + 0.02).unturned(turn)
