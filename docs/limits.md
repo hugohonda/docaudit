@@ -96,6 +96,8 @@ precisa conhecer antes de confiar num resultado.
   marca até a primeira linha própria. Ao contrário, páginas cujas linhas com
   letra só diferem nos números contam como cópia. Num documento só delas,
   nada é elemento fixo, e a folha não sai.
+- **O valor em centavos nunca é elemento fixo.** O cabeçalho que traz um
+  valor fica sem marca dessa linha para dentro.
 - **Numa página lida de lado, a
   [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) olha
   a página deitada.** Com `layout=`, os blocos, os rótulos e a ordem vêm da

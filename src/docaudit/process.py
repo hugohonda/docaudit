@@ -742,6 +742,7 @@ def folhas_of(
 
 
 _DIGITS = re.compile(r"\d+")
+_CENTS = re.compile(r"\b\d{1,3}(?:\.\d{3})*,\d{2}\b")
 _ROMAN = re.compile(r"\b[IVXLC]+\b")
 _LETTER = re.compile(r"[^\W\d_]")
 
@@ -818,6 +819,9 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     formas nas linhas horizontais com letra são cópia uma da outra: a peça
     juntada duas vezes repete o corpo inteiro, e a sequência não pararia.
     A tarja vertical fica fora da comparação, porque cada juntada tem a sua.
+    A linha com um valor em centavos é da página: não é marcada e
+    interrompe a sequência. O total de um demonstrativo do mesmo modelo,
+    perto do pé, fica no corpo.
 
     A linha é julgada como é lida. A sequência corre por giro: a camada de texto
     de uma página lida de lado continua em pé, e as duas leituras não têm o mesmo
@@ -847,6 +851,8 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
             )
             for sequence in (horizontal, reversed(horizontal)):
                 for chunk in sequence:
+                    if _CENTS.search(chunk.text):
+                        break
                     if chunk.id in repeated:
                         marked.add(chunk.id)
                     elif _has_letter(chunk.text):

@@ -1937,6 +1937,17 @@ def test_a_blank_page_keeps_its_furniture():
     assert _marked(pages)[1] == {"TRIBUNAL DE JUSTICA", "Demonstrativo do calculo", "Pagina 2"}
 
 
+def test_a_line_with_cents_is_not_furniture():
+    """O total perto do pé, num modelo que se repete, é da página e não vira elemento fixo."""
+    pages = {
+        p: [*_statement(p, (_FIRST, _SECOND)[p]), _line(p, "Total 4.005,00", 0.8, 0)]
+        for p in range(2)
+    }
+    for page, marked in _marked(pages).items():
+        assert "Total 4.005,00" not in marked
+        assert f"Pagina {page + 1}" in marked
+
+
 # ── A leitura cara passa pelas mesmas verificações ───────────────────────────
 
 
