@@ -1289,12 +1289,20 @@ def _in_sequence(folhas: Mapping[int, Folha]) -> dict[int, Folha]:
     é uma só. A folha que não a segue é a de um documento juntado com
     numeração própria, ou a de uma cópia. Uma diferença que só uma página tem não
     confirma nada. O verso digitalizado ocupa uma página sem folha, e com ele
-    a diferença muda a cada folha.
+    a diferença muda a cada folha. Duas diferenças empatadas no topo não dizem
+    qual é o auto, e nenhuma folha segue.
+
+    A regra vê só as páginas lidas e conta páginas, não sabe qual trecho é o
+    auto. Numa execução com `pages=` só sobre a cópia juntada, a numeração
+    da cópia é a sequência. Um anexo com mais páginas que o trecho do auto
+    na execução fica com a sequência.
     """
-    offsets = Counter(f.value - index for index, f in folhas.items())
-    best, count = offsets.most_common(1)[0] if offsets else (None, 0)
+    offsets = Counter(f.value - index for index, f in folhas.items()).most_common(2)
+    count = offsets[0][1] if offsets else 0
+    tied = len(offsets) > 1 and offsets[1][1] == count
+    best = offsets[0][0] if count > 1 and not tied else None
     return {
-        index: f.model_copy(update={"in_sequence": count > 1 and f.value - index == best})
+        index: f.model_copy(update={"in_sequence": f.value - index == best})
         for index, f in folhas.items()
     }
 

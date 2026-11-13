@@ -1429,6 +1429,23 @@ def test_a_folha_out_of_the_sequence_of_the_run_is_flagged():
     ]
 
 
+def test_two_sequences_of_the_same_length_leave_every_folha_out_of_sequence():
+    """Com duas diferenças empatadas, nada diz qual é o auto: o resultado não depende da ordem."""
+    doc = make_pdf(
+        _folha_page(101, body="Alfa"),
+        _folha_page(102, body="Beta"),
+        _folha_page(1, body="Anexo"),
+        _folha_page(2, body="Anexo continua"),
+    )
+    result = process(doc, policy="all_cheap", cheap=["text_layer"])
+    assert [(p.folha.value, p.folha.in_sequence) for p in result.pages if p.folha] == [
+        (101, False),
+        (102, False),
+        (1, False),
+        (2, False),
+    ]
+
+
 def test_a_single_page_has_no_folha():
     doc = make_pdf(_folha_page(101))
     assert process(doc, policy="all_cheap", cheap=["text_layer"]).pages[0].folha is None

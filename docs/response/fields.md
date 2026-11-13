@@ -59,7 +59,10 @@ sai `null` sem carimbo, no verso e numa execução de uma página só.
 `in_sequence` compara a diferença entre a folha e o índice da página com a
 diferença mais comum da execução. Um documento juntado com numeração própria
 sai com a numeração dele, e `in_sequence` o aponta. Num PDF que junta peças de
-vários processos, vale a sequência do maior trecho. A regra supõe uma página
+vários processos, vale a sequência do maior trecho, mesmo que seja um anexo.
+Com dois trechos do mesmo tamanho no topo, nenhuma folha segue. Só as páginas
+da execução contam: com `pages=` só sobre uma cópia juntada, a numeração da
+cópia é a sequência. A regra supõe uma página
 por folha: num processo digitalizado com o verso de cada folha, nenhuma folha
 segue a sequência.
 

@@ -99,6 +99,12 @@ precisa conhecer antes de confiar num resultado.
   elemento fixo. Um carimbo que só uma página tem, dentro do cabeçalho,
   deixa o resto do cabeçalho dessa página sem marca. O cabeçalho e o rodapé
   de um formulário pré-impresso contam como elementos fixos.
+- **`Folha.in_sequence` também só vê o que a execução leu.** A sequência é
+  a diferença entre a folha e o índice da página que mais páginas têm. Ela
+  não sabe qual trecho é o auto. Com `pages=` só sobre uma cópia juntada com
+  numeração própria, a numeração da cópia sai na sequência. Um anexo com mais
+  páginas que o trecho do auto na execução fica com a sequência. Com dois
+  trechos do mesmo tamanho no topo, nenhuma folha segue.
 - **A cópia é reconhecida só quando as formas são as mesmas.** Uma linha
   horizontal com letra a mais ou a menos desfaz a cópia. É o caso do carimbo
   de juntada novo e do ruído de outra digitalização. A página original de uma
