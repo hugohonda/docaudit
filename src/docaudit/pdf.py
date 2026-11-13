@@ -106,6 +106,7 @@ class PageView:
         self._pixels: dict[bool, Image.Image] = {}
         self._images: dict[bool, bytes] = {}
         self._drawn: Sequence[DrawnLine] | None = None
+        self._requests = 0
         self.box: BBox | None = None
         """A caixa do recorte, numa `RegionView`; `None` é a página inteira."""
         self.turn: Turn = 0
@@ -125,6 +126,7 @@ class PageView:
         numa cascata em que um leitor pede cinza e o seguinte pede RGB, o
         segundo recebe o que pediu, não o que o primeiro deixou.
         """
+        self._requests += 1
         if grayscale not in self._pixels:
             self._pixels[grayscale] = pixels_of(
                 self._pdf,
@@ -136,6 +138,7 @@ class PageView:
 
     def image(self, *, grayscale: bool = True) -> bytes:
         """PNG de `pixels`, para um leitor que pede o arquivo e não a matriz."""
+        self._requests += 1
         if grayscale not in self._images:
             self._images[grayscale] = _png(self.pixels(grayscale=grayscale))
         return self._images[grayscale]
@@ -154,6 +157,15 @@ class PageView:
     def rendered(self) -> bool:
         """True se alguém já pediu os pixels desta página."""
         return bool(self._pixels)
+
+    @property
+    def requests(self) -> int:
+        """Quantas vezes alguém pediu `pixels` ou `image` desta vista.
+
+        Diz se um leitor pediu os pixels durante a leitura dele, mesmo que
+        outra etapa já tenha renderizado a vista antes.
+        """
+        return self._requests
 
     def region(self, box: BBox, *, turn: Turn = 0) -> RegionView:
         """A mesma página vista só dentro de `box`: o que um leitor de pixels lê de um raster.
@@ -214,6 +226,7 @@ class RegionView(PageView):
         self._pixels: dict[bool, Image.Image] = {}
         self._images: dict[bool, bytes] = {}
         self._drawn: Sequence[DrawnLine] | None = ()
+        self._requests = 0
 
     @property
     @override
@@ -224,6 +237,7 @@ class RegionView(PageView):
     @override
     def pixels(self, *, grayscale: bool = True) -> Image.Image:
         """O recorte, tirado da renderização da página inteira."""
+        self._requests += 1
         if grayscale not in self._pixels:
             full = self._parent.pixels(grayscale=grayscale)
             assert self.box is not None

@@ -24,6 +24,7 @@ from docaudit.policies import CPF, ESAJ_STAMP, Check, StampFormat
 from docaudit.process import (
     RASTER_MARGIN,
     _in_place_of_pixels,
+    _read_cached,
     _read_cascade,
     folhas_of,
     stamps_of,
@@ -942,6 +943,22 @@ def test_a_region_line_centred_on_a_text_layer_line_is_dropped():
     doc = make_scanned_pdf([stamp], render_mode=0, text_y=712)
     result = process(doc, cheap=["text_layer", FakeOCR()])
     assert [c.source for c in result.chunks] == ["text_layer"]
+
+
+def test_a_layer_read_on_a_view_already_rendered_leaves_the_rasters_to_the_next_reader(tmp_path):
+    """Os pixels que outra etapa pediu não são os que a camada pediu; o cache guarda o do leitor."""
+    doc = make_scanned_pdf(["Num. 41560374 - Pag. 2"], render_mode=0, text_y=30)
+    cache = ModelCallCache(tmp_path / "c.sqlite")
+    with opened(doc) as pdf:
+        (page,) = pages_of(pdf, "t")
+        rendered = PageView(pdf, page)
+        rendered.pixels()
+        live = _read_cascade(rendered, [TextLayerReader(), FakeOCR()], cache).chunks
+        cached = _read_cascade(PageView(pdf, page), [TextLayerReader(), FakeOCR()], cache).chunks
+        assert _read_cached(rendered, FakeOCR(), None)[2], "o leitor de pixels pediu os pixels"
+    cache.close()
+    assert "ocr pagina 0" in [c.text for c in live]
+    assert "ocr pagina 0" in [c.text for c in cached]
 
 
 def test_a_diagonal_watermark_does_not_hide_the_scan_under_it():

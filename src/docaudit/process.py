@@ -301,8 +301,9 @@ def _read_cached(
         if hit is not None and "rendered" in hit:
             chunks = [Chunk.model_validate(c) for c in cast("list[object]", hit["chunks"])]
             return chunks, True, bool(hit["rendered"])
+    before = view.requests
     produced = list(reader.read(view))
-    rendered = view.rendered
+    rendered = view.requests > before
     if cache is not None:
         cache.put(
             key,

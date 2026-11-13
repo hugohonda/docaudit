@@ -106,7 +106,7 @@ PP-OCR e os modelos de visão e linguagem, pede `grayscale=False`.
 
 ## Quando o leitor recebe uma região
 
-`rendered` decide o que vem depois. Um leitor que devolve texto sem pedir os pixels é tratado como camada de texto.
+O que decide o que vem depois é se o leitor pediu os pixels durante a leitura dele. Um leitor que devolve texto sem chamar `view.pixels()` nem `view.image()` é tratado como camada de texto, mesmo que outra etapa já tenha renderizado a página.
 A leitura dele não cobre os rasters de `Page.unread`, as imagens da página
 que nenhuma camada leu. O leitor seguinte
 da cascata lê esses rasters.
