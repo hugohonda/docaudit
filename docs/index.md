@@ -5,7 +5,9 @@ leitura e diz de onde veio cada trecho.
 
 - **Lê toda página com um leitor barato.** Usa a
   [camada de texto](glossary.md#camada-de-texto) do PDF onde ela existe e o
-  OCR na CPU onde ela falta.
+  OCR na CPU onde ela falta. Numa digitalização com
+  [camada de OCR](glossary.md#camada-de-ocr), o OCR lê os pixels, e a
+  camada fica como outra leitura.
 - **Aponta o valor que não confere.** O dígito verificador de um CPF, de um
   CNPJ ou do número de um processo prova que o valor lido é inválido. Outra
   família de OCR pode reler essas páginas e separar o erro impresso do erro

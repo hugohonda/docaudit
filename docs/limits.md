@@ -31,8 +31,10 @@ precisa conhecer antes de confiar num resultado.
   olhar o documento inteiro. Para isso não há gancho além de uma política
   própria.
 - **Tipo de cada [peça](glossary.md#peca).** `Result.pieces()` agrupa as páginas seguidas com a
-  mesma [tarja](glossary.md#tarja). Dizer se a peça é petição, decisão ou certidão fica com quem
-  lê.
+  mesma [tarja](glossary.md#tarja). A tarja é achada na camada de texto, nos formatos de
+  `stamps=`. Por padrão, só a do e-SAJ
+  ([Tarja e folha de outro sistema](recipes/stamps.md)). Dizer se a peça é
+  petição, decisão ou certidão fica com quem lê.
 - **Exportação além de JSON e Markdown simples.** Não há DocTags, HTML de
   documento nem formato de layout.
 - **Hierarquia de seções.** O texto sai como linhas na ordem de leitura, com

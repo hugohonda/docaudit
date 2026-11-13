@@ -18,7 +18,9 @@ result = docaudit.process(
 A cascata é percorrida na ordem declarada, e vale a primeira leitura não
 vazia. A camada de texto é um leitor como os outros. Ela lê toda página com
 texto embutido, uma linha por [trecho](../glossary.md#trecho). Numa página `IMAGE_ONLY` ela volta
-vazia, e o leitor seguinte lê os pixels.
+vazia, e o leitor seguinte lê os pixels. Numa página `SEARCHABLE_SCAN`, com o
+padrão `trust_layer="visible"`, ela não lê, e o leitor seguinte também lê
+os pixels ([abaixo](#a-camada-de-uma-digitalizacao-com-ocr)).
 
 A linha da camada é a que o pdfium monta, e não um retângulo por letra. Um
 gerador que posiciona cada letra isolada faria "Banco" virar cinco trechos.
@@ -50,7 +52,9 @@ leitura já paga. Ela serve a quatro coisas:
   página. Cada linha trocada vai para `Result.others`, com `replaced`.
 - **Tarja e folha.** A [tarja](../glossary.md#tarja) e o carimbo de folha que o tribunal desenha à
   vista por cima da digitalização são texto exato. Entram da mesma forma,
-  no lugar das linhas dos pixels.
+  no lugar das linhas dos pixels. Valem só os formatos de `stamps=` e
+  `folhas=`: por padrão, a tarja do e-SAJ e `fls. N`
+  ([Tarja e folha de outro sistema](../recipes/stamps.md)).
 - **Valor em reais.** Um valor em reais não tem dígito verificador. Quando
   a linha da camada no mesmo lugar lê outro número, ela vai para
   `Result.others`, com `check` e `value`. Isso só aponta a diferença: não

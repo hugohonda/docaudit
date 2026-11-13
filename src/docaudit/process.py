@@ -111,6 +111,9 @@ __all__ = [
 DEFAULT_CASCADE: tuple[str, ...] = ("text_layer", "ppocr")
 """A camada de texto onde houver, o PP-OCR no resto.
 
+Numa `SEARCHABLE_SCAN`, com o padrão `trust_layer="visible"`, o PP-OCR lê
+os pixels, e a camada fica como outra família.
+
 PP-OCR, e não Tesseract, porque lê melhor páginas escaneadas, a um custo
 maior. O Tesseract é registrado como a alternativa
 rápida.
@@ -1627,7 +1630,9 @@ def process(
             relatados em `Result.spent`.
         cheap: a cascata do tier barato, em ordem de preferência. A primeira
             leitura não vazia vence. O padrão lê a camada de texto onde
-            houver e manda o resto ao PP-OCR.
+            houver e manda o resto ao PP-OCR. Numa `SEARCHABLE_SCAN`, com o
+            padrão `trust_layer="visible"`, a camada não é a leitura, e os
+            pixels vão ao leitor seguinte.
         strong: leitor caro, como instância ou nome de um leitor registrado por
             entry point. É o mesmo contrato dos leitores baratos; o que muda é
             quem decide chamá-lo. `None` desliga a escalada: a decisão da

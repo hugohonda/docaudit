@@ -205,7 +205,8 @@ renderizar a página e sem OCR.
 ## O que você viu
 
 - `process` lê cada página na etapa barata: com a camada de texto onde ela
-  existe, com o PP-OCR onde ela falta.
+  existe, com o PP-OCR onde ela falta. Numa digitalização com camada de OCR,
+  o PP-OCR lê os pixels.
 - Cada trecho traz a página, a caixa e o leitor que o leu.
 - As verificações acham CPFs, valores e datas, e dizem qual valor não pode
   estar certo.

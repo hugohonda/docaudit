@@ -26,7 +26,9 @@ as tarefas passo a passo estão nos guias, como
    antes de substituir a barata.
 6. **Resultado.** Sobre as linhas finais, a biblioteca marca os elementos
    fixos, acha a [tarja](../glossary.md#tarja) e a [folha](../glossary.md#folha), refaz a ordem por layout quando pedido e
-   extrai as entidades. Cada [trecho](../glossary.md#trecho) sai com página, caixa, leitor e ordem.
+   extrai as entidades. A tarja e a folha seguem os formatos de `stamps=` e
+   `folhas=`: por padrão, a tarja do e-SAJ e `fls. N`
+   ([Tarja e folha de outro sistema](../recipes/stamps.md)). Cada [trecho](../glossary.md#trecho) sai com página, caixa, leitor e ordem.
 
 ## Substrato
 
