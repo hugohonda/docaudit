@@ -63,6 +63,11 @@ precisa conhecer antes de confiar num resultado.
   sinal dispara por eles, e a página não é encaminhada. Uma página sem valor
   `failed` não é uma página conferida. Quem precisa de um campo em toda
   folha confere a presença dele com `Result.entities` e `Page.stamp`.
+- **Dois valores em reais lidos certo falham.** Na digitalização, o número
+  com ponto decimal sozinho na linha, como a taxa `0.50` de uma tabela, e o
+  valor com espaço fino entre os grupos de milhar, `R$ 1 234,56`, têm a
+  forma da troca que os leitores de pixels fazem. Nada na forma os separa
+  dela. A página vai ao leitor caro, e o valor pode sair `failed`.
 - **Um valor errado pode passar no dígito verificador.** O dígito prova que
   o valor é possível, não que é o impresso. No CPF e no CNPJ, que escrevem o
   resto 10 como 0, a troca de um só dígito passa em alguns casos. No número
