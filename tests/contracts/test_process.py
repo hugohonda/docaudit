@@ -737,6 +737,17 @@ def test_a_layer_tesseract_wrote_does_not_confirm_what_tesseract_read():
     assert other.entities[0].printed == "text_layer"
 
 
+def test_a_layer_tesseract_wrote_does_not_fix_what_tesseract_read_but_its_id_still_enters():
+    """Sem releitura pela camada, a página escala; o id que confere na camada entra depois."""
+    doc = make_scanned_pdf(["CPF 529.982.247-25"], font="GlyphLessFont")
+    result = process(
+        doc, policy="evidence", cheap=["text_layer", _Says("tesseract", {0: "CPF 529.982.247-26"})]
+    )
+    (decision,) = result.decisions
+    assert decision.tier is Tier.STRONG, "a camada do mesmo motor não conserta"
+    assert ("CPF 529.982.247-25", "text_layer") in [(c.text, c.source) for c in result.chunks]
+
+
 def test_evidence_reads_every_page_cheap_then_escalates_only_the_proven_failures():
     failing_cpf = "BT /F1 24 Tf 100 400 Td (CPF 529.982.247-26) Tj ET"
     doc = make_pdf(TEXT_CENTRAL, failing_cpf, EMPTY_PAGE)
