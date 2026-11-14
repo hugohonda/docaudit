@@ -1249,7 +1249,7 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
     Cada linha vem com a posição, na ordem de desenho da página, do primeiro
     objeto de texto dela, contando os objetos de dentro dos formulários, e
     com se ela está à vista (`DrawnLine`). A ordem das linhas é a do texto
-    do pdfium, e nem sempre é a do desenho: o carimbo posto por cima de
+    do pdfium na folha sem giro, e nem sempre é a do desenho: o carimbo posto por cima de
     outro, como a folha do tribunal sobre a da cópia, vem depois só na ordem
     de desenho. Numa digitalização com camada de OCR, a linha à vista é a
     que o produtor desenhou com tinta por cima, como a tarja do tribunal; a
@@ -1261,7 +1261,16 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
         displayed = _displayed(page)
         drawing = _drawing_of(page)
         out: list[DrawnLine] = []
-        with closing(page.get_textpage()) as textpage:
+        # O pdfium monta e ordena as linhas na folha exibida. Com o giro, linhas
+        # vizinhas trocam de lugar; sem ele, a ordem é a da folha como foi escrita.
+        # As caixas dos caracteres não dependem do giro.
+        turn = page.get_rotation()
+        page.set_rotation(0)
+        try:
+            textpage = page.get_textpage()
+        finally:
+            page.set_rotation(turn)
+        with closing(textpage):
             unmapped = _unmapped_fonts(textpage)
             chars: list[str] = []
             glyphs: list[_Glyph | None] = []
