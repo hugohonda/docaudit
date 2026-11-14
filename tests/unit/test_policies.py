@@ -613,15 +613,9 @@ def test_a_generated_amount_matches_and_is_well_formed():
 
 
 def test_an_amount_digit_read_as_a_letter_fails():
-    """A troca num valor com mais de um dígito antes da vírgula.
-
-    Com um dígito só, a troca não deixa dígito antes da vírgula, e a forma não
-    casa: esse caso fica de fora daqui.
-    """
+    """Toda troca de um dígito por letra falha, inclusive na parte inteira de um dígito."""
     rng = random.Random(_SEED)
     for _ in range(500):
         value = _amount(rng)
-        if len(value.removeprefix("R$ ").split(",")[0]) == 1:
-            continue
         for _, misread in _misreads(value):
             assert failures(AMOUNT_BRL, f"total {misread} pago") == 1, misread
