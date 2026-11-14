@@ -1527,6 +1527,28 @@ def test_a_reader_of_another_family_confirms_or_fixes_before_the_costly_tier(sca
     assert "- CPF: 529.982.247-26 · failed · p2:0" in text, "a outra família leu outro valor"
 
 
+def test_a_rereading_fixes_an_amount_only_where_it_keeps_the_digits_the_cheap_reader_read(
+    scanned_doc,
+):
+    """Valor em reais não tem redundância: outro dígito bem escrito no lugar não prova nada."""
+    cheap = _Says("cheap", {0: "pagar R$ 1.O00,00", 1: "pagar R$ 1.O00,00"})
+    other = _Says("other", {0: "pagar R$ 1.000,00", 1: "pagar R$ 7.000,00"})
+    result = process(scanned_doc, policy="evidence", cheap=[cheap], confirm=other, strong=FakeVLM())
+    decisions = {d.page: d for d in result.decisions}
+    assert decisions[0].reason == "corrigido por other", "só a letra trocou de leitura"
+    assert decisions[1].tier is Tier.STRONG, "o 1 virou 7: nenhum dos dois está provado"
+
+
+def test_a_rereading_with_an_unproven_valid_value_fixes_only_where_it_keeps_the_digits(scanned_doc):
+    """O CNPJ com letra confere sem prova: não conserta o dígito que a leitura barata leu."""
+    cheap = _Says("cheap", {0: "CNPJ 18.236.120/0001-5B", 1: "CNPJ 18.236.120/0001-5B"})
+    other = _Says("other", {0: "CNPJ 18.236.120/0001-58", 1: "CNPJ 18.S36.1S0/0001-58"})
+    result = process(scanned_doc, policy="evidence", cheap=[cheap], confirm=other, strong=FakeVLM())
+    decisions = {d.page: d for d in result.decisions}
+    assert decisions[0].reason == "corrigido por other"
+    assert decisions[1].tier is Tier.STRONG, "o 2 virou S: o verificador não vê"
+
+
 class _MeteredSays(_Says):
     """O leitor de outra família como serviço pago: conta uma chamada por leitura."""
 
@@ -1944,7 +1966,7 @@ def test_a_blank_page_keeps_its_furniture():
 # ── A leitura cara passa pelas mesmas verificações ───────────────────────────
 
 
-def _strong_outcome(cheap_text: str, strong_text: str, policy: str, scanned_doc):
+def _strong_outcome(cheap_text: str, strong_text: str, policy, scanned_doc):
     cheap = _Says("cheap", {0: cheap_text})
     strong = _Says("strong", {0: strong_text})
     return process(scanned_doc, cheap=[cheap], strong=strong, policy=policy, pages={0})
@@ -1958,6 +1980,61 @@ def test_a_costly_line_that_loses_a_valid_value_is_refused_and_the_cheap_line_st
     assert [c.source for c in result.chunks] == ["cheap"]
     assert result.spent.lines_strong_rejected == 1
     assert any("perdeu CPF" in s for s in result.decisions[0].steps)
+
+
+def test_a_refused_costly_line_with_another_amount_is_a_doubt_beside_the_cheap_line(scanned_doc):
+    """Dois valores bem escritos e diferentes: fica a barata, e a cara fica ao lado como dúvida."""
+    from docaudit import Document
+    from docaudit.policies import AllStrong
+
+    class ReadThenStrong(AllStrong):
+        needs_reads = True
+
+    result = _strong_outcome(
+        "Valor da causa R$ 1.284,56", "Valor da causa R$ 1.234,56", ReadThenStrong(), scanned_doc
+    )
+    assert [c.source for c in result.chunks] == ["cheap"]
+    (other,) = result.others
+    assert (other.reading.source, other.same, other.replaced) == ("strong", False, False)
+    assert (other.check, other.value) == ("valor em reais", "1.284,56")
+    with Document(scanned_doc) as session:
+        (doubt,) = session.doubts(result)
+    assert (doubt.chunk.id, doubt.check, doubt.value) == (
+        result.chunks[0].id,
+        "valor em reais",
+        "1.284,56",
+    )
+
+
+def test_a_refused_costly_line_with_another_valid_id_names_the_field_and_the_printed_value(
+    scanned_doc,
+):
+    """A dúvida traz o nome do campo e o valor como a linha barata o imprime."""
+    from docaudit.policies import CPF, AllStrong, FailsCheck
+
+    class ReadThenStrong(AllStrong):
+        needs_reads = True
+        checks = (FailsCheck(CPF),)
+
+    result = _strong_outcome(
+        "CPF 529.982.247-25", "CPF 111.444.777-35", ReadThenStrong(), scanned_doc
+    )
+    assert [c.source for c in result.chunks] == ["cheap"]
+    (other,) = result.others
+    assert (other.check, other.value) == ("CPF", "529.982.247-25")
+
+
+def test_a_refused_costly_line_beside_a_failing_line_is_listed_once(scanned_doc):
+    """Na linha que falha, a dúvida já existe: a linha cara fica ao lado uma vez, sem `check`."""
+    result = _strong_outcome(
+        "CPF 529.982.247-26 valor R$ 1.284,56",
+        "CPF 529.982.247-25 valor R$ 1.234,56",
+        "evidence",
+        scanned_doc,
+    )
+    assert [c.source for c in result.chunks] == ["cheap"]
+    (other,) = result.others
+    assert (other.reading.source, other.check, other.value) == ("strong", None, None)
 
 
 def test_a_costly_line_that_reads_the_decimal_comma_as_a_point_is_refused(scanned_doc):
@@ -2079,6 +2156,18 @@ def test_a_confirmed_id_only_the_hidden_layer_read_takes_the_place_of_the_pixel_
     assert any("no lugar de 1 linha" in s for s in result.decisions[0].steps)
     trusted = process(doc, policy="all_cheap", cheap=["text_layer", reader], trust_layer="always")
     assert not any(o.replaced for o in trusted.others), "a camada já é a leitura"
+
+
+def test_a_layer_value_without_proof_does_not_take_the_place_of_the_pixel_line():
+    """O CNPJ com letra e a data com dia da semana conferem sem prova: a linha dos pixels fica."""
+    cnpj, date = "CNPJ 18.S36.1S0/0001-58", "segunda-feira, 17/03/2025"
+    doc = make_scanned_pdf([cnpj, date])
+    reader = _OverLayer({cnpj: "CNPJ 18.236.120/0001-58", date: "segunda-feira, 10/03/2025"})
+    result = process(doc, policy="all_cheap", cheap=[reader])
+    assert [(c.text, c.source) for c in result.chunks] == [
+        ("CNPJ 18.236.120/0001-58", "pixels"),
+        ("segunda-feira, 10/03/2025", "pixels"),
+    ]
 
 
 def test_a_short_layer_line_inside_a_wide_pixel_line_does_not_erase_it():

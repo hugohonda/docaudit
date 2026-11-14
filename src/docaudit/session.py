@@ -239,8 +239,9 @@ class Document:
             for signal in (signals if signals is not None else self.signals)
             for value, chunk in signal.failing(pages[index], chunks)
         ]
-        # Na linha que nenhum sinal aponta, a dúvida vem da outra família que leu
-        # outro valor: a leitura ao lado traz o campo e o valor que contradiz.
+        # Na linha que nenhum sinal aponta, a dúvida vem do outro leitor que leu
+        # outro valor, a camada de OCR ou a linha recusada do leitor caro: a
+        # leitura ao lado traz o campo e o valor que contradiz.
         doubted = {d.chunk.id for d in doubts}
         lines = {c.id: c for c in result.chunks}
         doubts.extend(

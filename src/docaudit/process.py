@@ -574,20 +574,45 @@ def _explains(check: FailsCheck, value: str, chunk: Chunk) -> bool:
     return any(_digits(found) == _digits(value) for found in _BARE_AMOUNT.findall(chunk.text))
 
 
+def _keeps_digits(failed: str, found: str) -> bool:
+    """Se `found` traz, na mesma posição, cada dígito que `failed` traz.
+
+    A pontuação não conta, e a letra de `failed` aceita qualquer caractere:
+    `R$ 1.O00,00` aceita `R$ 1.000,00` e recusa `R$ 7.000,00`.
+    """
+    a, b = re.sub(r"[\W_]", "", failed), re.sub(r"[\W_]", "", found)
+    return len(a) == len(b) and all(x == y or not x.isdigit() for x, y in zip(a, b, strict=True))
+
+
+def _fixes(check: FailsCheck, value: str, chunk: Chunk) -> bool:
+    """Se a linha da releitura conserta `value`: traz só valores do campo que conferem.
+
+    O valor que a redundância da regra prova (`Check.proves`) basta. Sem essa
+    prova, um valor bem escrito com outro dígito confere e pode estar errado,
+    como o valor em reais ou o CNPJ com letra: a releitura precisa trazer, na
+    mesma posição, cada dígito que a leitura barata leu (`_keeps_digits`).
+    """
+    if not check.valid_in(chunk):
+        return False
+    return any(
+        check.check.proves(found) or _keeps_digits(value, found) for found, _ in check.values(chunk)
+    )
+
+
 def _swap_failing(failing: Sequence[Failure], other: Sequence[Chunk]) -> dict[str, Chunk] | None:
     """O chunk da releitura que conserta cada chunk com valor inválido, pelo id do chunk.
 
     O chunk da releitura precisa cair no mesmo lugar (o centro de um dentro
-    da caixa do outro) e trazer só valores do campo que conferem; entre
-    vários, fica o de maior sobreposição com a linha. Se algum valor inválido
-    fica sem conserto, nada troca e sai `None`: a página segue ao leitor caro.
+    da caixa do outro) e consertar o valor (`_fixes`); entre vários, fica o
+    de maior sobreposição com a linha. Se algum valor inválido fica sem
+    conserto, nada troca e sai `None`: a página segue ao leitor caro.
 
-    Aqui vale só `valid_in`, de propósito. Com a regra de `_explains`, uma releitura sem `R$`
-    trocaria a linha e tiraria a página do leitor caro.
+    Aqui não vale a regra de `_explains`: uma releitura sem `R$` trocaria a
+    linha e tiraria a página do leitor caro.
     """
     swaps: dict[str, Chunk] = {}
-    for check, _value, chunk in failing:
-        candidates = [c for c in other if _same_place(c, chunk) and check.valid_in(c)]
+    for check, value, chunk in failing:
+        candidates = [c for c in other if _same_place(c, chunk) and _fixes(check, value, c)]
         if not candidates:
             return None
         best = max(candidates, key=lambda c: c.bbox.intersection(chunk.bbox))
@@ -1077,7 +1102,8 @@ def _confirm_stage(
 
     Duas famílias que devolvem o mesmo valor inválido confirmam o erro do
     documento, salvo na troca que as famílias fazem juntas (`Check.alike`);
-    um valor que confere no mesmo lugar conserta a linha. "Vale o
+    um valor que confere no mesmo lugar conserta a linha, e um valor sem
+    prova só quando mantém os dígitos lidos (`_fixes`). "Vale o
     valor válido" seria a regra errada: uma leitura errada pode conferir.
     Numa `SEARCHABLE_SCAN` a primeira família é a camada de OCR embutida,
     que já está lida e custa zero; depois vem `confirm`. A primeira que
@@ -1165,6 +1191,8 @@ def _valid_values(check: FailsCheck, chunk: Chunk) -> set[str]:
 
 _BARE_AMOUNT = re.compile(r"(?<![0-9.,])[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}(?![0-9.,])")
 """O número com vírgula decimal e milhar com ponto, com ou sem o `R$` antes."""
+_BARE_AMOUNT_FIELD = AMOUNT_BRL.name
+"""O campo com que a leitura ao lado aponta um número de `_BARE_AMOUNT`."""
 
 
 def _amount_disagreements(
@@ -1201,7 +1229,7 @@ def _amount_disagreements(
             if a != b:
                 out.append(
                     OtherReading(
-                        line=line.id, reading=h, same=False, check=AMOUNT_BRL.name, value=a
+                        line=line.id, reading=h, same=False, check=_BARE_AMOUNT_FIELD, value=a
                     )
                 )
                 break
@@ -1367,8 +1395,8 @@ def _rejected_strong(
     strong: Sequence[Chunk],
     failures: Sequence[Failure],
     checks: Sequence[FailsCheck],
-) -> tuple[set[str], list[str]]:
-    """As linhas da leitura cara que não entram no lugar da barata, e o porquê de cada recusa.
+) -> tuple[set[str], list[str], list[OtherReading]]:
+    """As linhas caras que não entram no lugar da barata, o porquê, e as que perderam valor.
 
     A leitura cara passa pelas mesmas verificações que a barata, com o
     veredito da releitura por outra família. Uma linha cara que cobre uma
@@ -1384,25 +1412,46 @@ def _rejected_strong(
     coisa não explicou nada, e a barata fica. O leitor caro não é declarado
     de outra família, e por isso a repetição dele não prova erro do
     documento: o padrão é um PP-OCR maior, que erra junto com o barato.
+
+    A linha cara recusada por perder um valor fica ao lado da linha barata,
+    com `same=False`, o campo em `check` e o valor que ela não trouxe: nada
+    prova qual das duas leituras está certa, e quem revisa vê a
+    discordância. Na linha barata que falha, ela já fica ao lado pela falha.
     """
     rejected: set[str] = set()
+    lost: dict[tuple[str, str], OtherReading] = {}
+    # Na linha que falha, a dúvida já existe, e a linha cara fica ao lado dela
+    # por `_other_readings`, sem `check`.
+    failing = {line.id for _, _, line in failures}
+
+    def lose(line: Chunk, s: Chunk, check: str, value: str) -> None:
+        rejected.add(s.id)
+        if line.id not in failing:
+            lost.setdefault(
+                (line.id, s.id),
+                OtherReading(line=line.id, reading=s, same=False, check=check, value=value),
+            )
+
     # O porquê de cada recusa, uma vez cada, na ordem em que aparece.
     notes: dict[str, None] = {}
     covering = {line.id: _covering(line.bbox, strong) for line in cheap}
     for check in checks:
         carried = {s.id: _valid_values(check, s) for s in strong}
         for line in cheap:
-            values: set[str] = _valid_values(check, line) if covering[line.id] else set()
+            # Cada valor que confere, sem espaços para comparar e como impresso.
+            printed = {
+                "".join(v.split()): " ".join(v.split()) for v, ok in check.values(line) if ok
+            }
             for s in covering[line.id]:
-                if values and not values <= carried[s.id]:
-                    rejected.add(s.id)
+                if missing := [v for k, v in printed.items() if k not in carried[s.id]]:
+                    lose(line, s, check.field, missing[0])
                     notes[f"perdeu {check.name} que a leitura barata trazia"] = None
     amounts = {s.id: set(_BARE_AMOUNT.findall(s.text)) for s in strong}
     for line in cheap:
-        values = set(_BARE_AMOUNT.findall(line.text)) if covering[line.id] else set()
+        values: set[str] = set(_BARE_AMOUNT.findall(line.text))
         for s in covering[line.id]:
-            if values and not values <= amounts[s.id]:
-                rejected.add(s.id)
+            if missing := sorted(values - amounts[s.id]):
+                lose(line, s, _BARE_AMOUNT_FIELD, missing[0])
                 notes["perdeu um valor com vírgula decimal que a leitura barata trazia"] = None
     for check, value, line in failures:
         covering = [s for s in strong if _same_place(line, s)]
@@ -1416,7 +1465,7 @@ def _rejected_strong(
             else f"outro valor no lugar de {check.name} ({value}); não explicou"
         )
         notes[note] = None
-    return rejected, list(notes)
+    return rejected, list(notes), list(lost.values())
 
 
 class _StrongRead(NamedTuple):
@@ -1548,10 +1597,11 @@ def _strong_stage(
             steps.append(f"{backend.name} falhou: {read.error}; fica a leitura barata, se houve")
         else:
             fails = failures.get(page.index, ())
-            rejected, notes = _rejected_strong(cheap, read.strong, fails, checks)
+            rejected, notes, lost = _rejected_strong(cheap, read.strong, fails, checks)
             accepted = [s for s in read.strong if s.id not in rejected]
             refused = [s for s in read.strong if s.id in rejected]
             run.others.extend(_other_readings(fails, refused))
+            run.others.extend(lost)
             merged, replaced = _replace_read(cheap, accepted)
             run.others.extend(replaced)
             # A linha barata que sobra fora das caixas do leitor caro fica

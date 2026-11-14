@@ -615,8 +615,10 @@ class OtherReading(_Frozen):
     falhou. A leitura que confere no mesmo lugar substitui a linha; a que não
     confere fica aqui, ao lado da linha que continuou no resultado. Numa
     digitalização com camada de OCR, a linha da camada que lê outro valor em
-    reais também fica aqui, com `check` e `value`. São as linhas lidas de
-    dois modos: uma pessoa, ou um terceiro leitor, decide qual é a certa.
+    reais também fica aqui, com `check` e `value`, como a linha do leitor caro
+    recusada por não trazer um valor que a linha barata trazia. São as linhas
+    lidas de dois modos: uma pessoa, ou um terceiro leitor, decide qual é a
+    certa.
 
     Quando a substituição troca o texto, a linha que saiu também fica aqui,
     com `replaced`: a leitura que saiu ao lado da que entrou no mesmo recorte.
@@ -643,11 +645,12 @@ class OtherReading(_Frozen):
     check: str | None = PField(
         default=None,
         description=(
-            "Numa linha que não falha: o `Check.name` do valor que a outra família lê diferente."
+            "Numa linha que não falha: o `Check.name` do valor que o outro leitor lê "
+            "diferente, a camada de OCR ou a linha recusada do leitor caro."
         ),
     )
     value: str | None = PField(
-        default=None, description="O valor da linha que a outra família lê diferente."
+        default=None, description="O valor da linha que o outro leitor lê diferente."
     )
 
 

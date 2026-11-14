@@ -279,8 +279,8 @@ modelo e devolve só as referências que passam.
 ### Dúvida { #duvida }
 
 Uma linha lida que merece revisão: o valor que falhou uma verificação, ou
-que outra família leu diferente, com as outras leituras do mesmo lugar ao
-lado. Tipo `Doubt`, em `Document.doubts`.
+que outro leitor leu diferente, a camada de OCR ou o leitor caro, com as
+outras leituras do mesmo lugar ao lado. Tipo `Doubt`, em `Document.doubts`.
 
 ### Figura { #figura }
 

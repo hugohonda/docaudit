@@ -51,7 +51,7 @@ encaminha. O porquê completo está em
 ## Um campo seu
 
 A assinatura completa é
-`Check(name, pattern, is_valid, redundant=False, labeled=None, alike=None)`.
+`Check(name, pattern, is_valid, redundant=False, labeled=None, alike=None, unproven=None)`.
 Duas regras fazem a falha provar alguma coisa:
 
 - `pattern` casa só a forma daquele campo. Onze dígitos soltos como CPF
@@ -61,7 +61,9 @@ Duas regras fazem a falha provar alguma coisa:
 
 `redundant=True` diz que a regra tem redundância: o valor que confere sai
 `confirmed`. Sem ele, sai `well_formed`, que só diz que a forma é possível.
-Declare `True` só quando há dígito verificador ou regra equivalente.
+Declare `True` só quando há dígito verificador ou regra equivalente. Quando a
+redundância não cobre todo valor, `unproven` diz qual valor que confere sai
+`well_formed` mesmo assim.
 
 O Cartão Nacional de Saúde (CNS) tem quinze dígitos. O definitivo começa por
 1 ou 2, o provisório por 7, 8 ou 9. Nos dois, a soma de cada dígito
