@@ -409,7 +409,8 @@ vírgula no lugar de um ponto interno casa, como no CPF e no CNPJ.
 AMOUNT_BRL = Check(
     "valor em reais",
     re.compile(
-        r"(?<![A-Za-z])R\$[^\S\n]*\n?[^\S\n]*(?=[0-9A-Za-z.]*[0-9])[0-9A-Za-z][0-9A-Za-z.]*,[0-9A-Za-z]{2}(?![\w,])(?!\.\d)"
+        r"(?<![A-Za-z])R\$[^\S\n]*\n?[^\S\n]*(?=[0-9A-Za-z.]*,?[0-9A-Za-z]{0,2}(?<=[0-9]))"
+        r"[0-9A-Za-z][0-9A-Za-z.]*,[0-9A-Za-z]{2}(?![\w,])(?!\.\d)"
         r"|(?<![A-Za-z])RS[^\S\n]*\n?[^\S\n]*" + _WELL_FORMED_AMOUNT.pattern + r"(?![\w,])(?!\.\d)"
         r"|\b[0-9]{1,3}(?:,[0-9]{3})+,[0-9]{2}\b"
         r"|\b[0-9]{1,3}(?::[0-9]{3})+[,.][0-9]{2}\b"
@@ -427,7 +428,8 @@ AMOUNT_BRL = Check(
 """Valor em reais.
 
 Casa o valor depois de `R$`, separado por espaços e no máximo uma quebra de
-linha, com o que o motor tiver posto no lugar dos dígitos,
+linha, com o que o motor tiver posto no lugar dos dígitos, desde que reste um
+dígito no valor: `R$ G,06` casa e falha, `R$ mil,oo` não é valor;
 o valor com duas vírgulas, o valor com dois-pontos entre grupos, o valor
 com espaço entre grupos logo depois do `R$` e o valor com ponto no lugar da
 vírgula decimal, `4.329.30`. O espaço entre grupos sem o `R$` não casa: duas
