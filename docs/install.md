@@ -147,7 +147,8 @@ PP-OCR antes da primeira página, chame `prepare()`:
 '3:PP-OCRv5_mobile_det+latin_PP-OCRv5_mobile_rec:rapidocr=<versão>:openvino'
 ```
 
-O fim de `output_version` diz o motor em uso. Os pesos ficam em
+O fim de `output_version` diz o motor em uso. Com o ONNX Runtime na CPU
+(`onnxruntime`), a versão não traz o nome do motor. Os pesos ficam em
 `~/.cache/docaudit/models`, ou em `<DOCAUDIT_CACHE_DIR>/models` quando a
 variável existe.
 

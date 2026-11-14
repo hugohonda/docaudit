@@ -6,9 +6,10 @@ Cada título é o sintoma. Abaixo dele vêm a causa e o que fazer.
 
 O `llama-server` rejeita a própria saída com um 500 numa parte das chamadas.
 Um serviço [externo](glossary.md#externo) responde 429 quando você passa do
-limite de uso. Nos dois casos, a página encaminhada fica com a leitura
-barata, entra em `spent.pages_strong_failed`, e `process` emite um
-`RuntimeWarning`. O documento segue.
+limite de uso. Nos dois casos, a página encaminhada entra em
+`spent.pages_strong_failed`, e `process` emite um `RuntimeWarning`. Ela
+fica com a leitura barata numa política que decide depois da leitura
+barata, como `evidence`. O documento segue.
 
 Peça ao leitor que repita a chamada:
 
@@ -148,7 +149,8 @@ from docaudit.backends.ppocr import PPOCR
 reader = PPOCR(engine="onnxruntime")
 ```
 
-`reader.output_version` termina com o motor em uso. Quem compara execuções
+`reader.output_version` termina com o motor em uso quando ele não é o
+ONNX Runtime na CPU (`onnxruntime`). Quem compara execuções
 pelo cache, ou fixa uma leitura em produção, passa `engine=` sempre.
 
 ## O processo cai com sinal 11 em ARM64

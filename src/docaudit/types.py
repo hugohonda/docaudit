@@ -578,7 +578,12 @@ class Entity(_Frozen):
     """Um valor que uma verificação (`Check`) casou no texto lido, com estado e linha de origem."""
 
     kind: str = PField(description="O nome do campo, o `name` do `Check` que o casou.")
-    value: str = PField(description="O valor como impresso, com os espaços colapsados.")
+    value: str = PField(
+        description=(
+            "O valor lido, com hífens, espaços e formas de largura total tipográficos trocados "
+            "pelo ASCII (`fold_lookalikes`) e com os espaços colapsados."
+        )
+    )
     state: EntityState
     page: int = PField(ge=0, description="zero-based, como em Page.index")
     bbox: BBox = PField(description="A menor caixa que contém as linhas do valor.")
@@ -816,7 +821,9 @@ class RoutingDecision(_Frozen):
         description=(
             "Um leitor falhou e nenhum outro leu no lugar dele: as linhas da página, se "
             "houver, são só parte dela. Falso quando o seguinte da cascata leu, e quando só o "
-            "leitor caro falhou e a leitura barata ficou."
+            "leitor caro falhou e a leitura barata ficou. Numa política que decide antes da "
+            "leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura "
+            "barata, e sem linha nenhuma sai verdadeiro."
         ),
     )
     seconds: dict[str, float] = PField(

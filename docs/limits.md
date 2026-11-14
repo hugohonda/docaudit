@@ -31,8 +31,10 @@ precisa conhecer antes de confiar num resultado.
   olhar o documento inteiro. Para isso não há gancho além de uma política
   própria.
 - **Tipo de cada [peça](glossary.md#peca).** `Result.pieces()` agrupa as páginas seguidas com a
-  mesma [tarja](glossary.md#tarja). Dizer se a peça é petição, decisão ou certidão fica com quem
-  lê.
+  mesma [tarja](glossary.md#tarja). A tarja é achada na camada de texto, nos formatos de
+  `stamps=`. Por padrão, só a do e-SAJ
+  ([Tarja e folha de outro sistema](recipes/stamps.md)). Dizer se a peça é
+  petição, decisão ou certidão fica com quem lê.
 - **Exportação além de JSON e Markdown simples.** Não há DocTags, HTML de
   documento nem formato de layout.
 - **Hierarquia de seções.** O texto sai como linhas na ordem de leitura, com
@@ -79,8 +81,10 @@ precisa conhecer antes de confiar num resultado.
   barata.
 - **O leitor `vlm` sem detector devolve a página como um trecho só.** A
   caixa cobre a página inteira, a página tem uma referência só em
-  `Result.refs()`, e `Document.crop` dessa caixa é a página inteira. A
-  linha, com a sua caixa, vem com `reread="region"` ou com `layout=`.
+  `Result.refs()`, e `Document.crop` dessa caixa é a página inteira. Um
+  trecho por recorte vem com `reread="region"`. Um trecho por região vem com
+  o detector no próprio leitor, `VLM(layout=PPDocLayout())`. O `layout=` de
+  `process()` não divide a página que o `vlm` lê.
 - **A releitura por região faz um [recorte](glossary.md#recorte) por valor que falhou.** Uma
   página com muitos valores inválidos custa muitas chamadas ao leitor caro.
   O recorte é justo, sem folga em volta. O que o leitor caro devolve é o

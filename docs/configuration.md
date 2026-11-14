@@ -310,7 +310,7 @@ O teto limita o leitor caro numa chamada, em páginas e em segundos.
 | campo | limite |
 |---|---|
 | `max_strong_pages` | quantas páginas o leitor caro lê, no máximo |
-| `max_strong_fraction` | a fração das páginas que o leitor caro lê, arredondada para cima: `0.2` num documento de quatro páginas permite uma |
+| `max_strong_fraction` | a fração das páginas processadas que o leitor caro lê, arredondada para cima: `0.2` em quatro páginas permite uma |
 | `max_seconds` | os segundos de parede, contados do início da chamada, depois dos quais o leitor caro não começa página nova |
 
 Com as duas formas em páginas, vale a mais restritiva. O teto de páginas vale

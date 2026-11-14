@@ -26,7 +26,9 @@ as tarefas passo a passo estão nos guias, como
    antes de substituir a barata.
 6. **Resultado.** Sobre as linhas finais, a biblioteca marca os elementos
    fixos, acha a [tarja](../glossary.md#tarja) e a [folha](../glossary.md#folha), refaz a ordem por layout quando pedido e
-   extrai as entidades. Cada [trecho](../glossary.md#trecho) sai com página, caixa, leitor e ordem.
+   extrai as entidades. A tarja e a folha seguem os formatos de `stamps=` e
+   `folhas=`: por padrão, a tarja do e-SAJ e `fls. N`
+   ([Tarja e folha de outro sistema](../recipes/stamps.md)). Cada [trecho](../glossary.md#trecho) sai com página, caixa, leitor e ordem.
 
 ## Substrato
 
@@ -58,7 +60,7 @@ tempo do leitor caro. Ver [Política, conferência e escalada](policy.md).
 ## Releitura por outra família
 
 Uma família é um motor de outra arquitetura e outro treino. Quando duas
-famílias leem o mesmo valor inválido no mesmo lugar, o erro está impresso
+famílias leem na página os mesmos valores inválidos, o erro está impresso
 no documento, e a página não paga o leitor caro. Quando a releitura traz um
 valor que confere no mesmo lugar, a linha troca. Ver
 [Reler com outra família](policy.md#reler-com-outra-familia-antes-do-leitor-caro).

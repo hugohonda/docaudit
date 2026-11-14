@@ -93,9 +93,9 @@ acima da resolução do raster não cria pixels que a digitalização não tem,
 e custa mais. Renderizar abaixo perde o que a digitalização tem. Uma página
 sem raster é renderizada em `DEFAULT_DPI`.
 
-O teto existe porque renderizar todas as páginas na resolução mais alta
-custou mais e não leu melhor. O piso não tem medição que o separe de outro
-valor. `process(dpi=)` fixa um DPI para todas as páginas.
+O teto existe porque a renderização numa resolução mais alta custa mais, e
+acima dele a leitura não melhora. O piso não tem medição que o separe
+de outro valor. `process(dpi=)` fixa um DPI para todas as páginas.
 
 ## Seleção de páginas
 

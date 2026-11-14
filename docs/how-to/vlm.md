@@ -101,6 +101,8 @@ Os pesos do detector baixam na primeira detecção, para
 
 Cada região vira um trecho com a caixa dela. Uma tabela chega num trecho só,
 uma linha de texto por linha da tabela, com as células separadas por ` | `.
+A linha da resposta sem letra latina nem dígito é descartada. Numa página
+sem texto, o modelo repete uma frase em outro alfabeto.
 Num servidor que serve mais de um modelo, diga qual com `served=`. Sem ele, o
 leitor pergunta ao servidor qual é o único modelo servido.
 

@@ -123,7 +123,7 @@ A chave tem estes componentes:
 | componente | por quê |
 |---|---|
 | hash do documento, índice da página, DPI | a entrada: juntos determinam os pixels |
-| caixa do recorte, quando o leitor lê um | um recorte da página é outra leitura |
+| caixa do recorte, quando o leitor lê um, e o giro, quando o leitor vê a imagem girada | um recorte, ou a mesma imagem em pé, é outra leitura |
 | nome do leitor | quem leu |
 | `output_version` do leitor | pesos, idioma, prompt e formato do que ele produz |
 | digest do esquema de `Chunk` | a forma do que está guardado |

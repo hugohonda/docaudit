@@ -95,7 +95,9 @@ for record in result.records():
 `to_markdown(furniture=False)` tira do texto os elementos fixos: cabeçalho,
 rodapé e tarja. Nos autos, as peças de um mesmo cartório repetem no mesmo
 lugar as linhas do formulário, como `Processo Digital nº`, `Classe` e
-`Requerente`, e elas também saem marcadas. Para um modelo que responde quem é
+`Requerente`. Elas saem marcadas quando estão na sequência de linhas
+repetidas que começa no alto ou no pé da página. O rótulo de formulário no
+meio da página, depois de uma linha própria dela, fica sem marca. Para um modelo que responde quem é
 a parte ou qual é o juízo, entregue o texto com os elementos fixos, que é o
 padrão de `to_markdown`. A marca fica em `Chunk.furniture`, e quem lê decide
 o que esconder.
@@ -330,12 +332,14 @@ existe, e o modelo sabe dela sem gastar um token de imagem.
 from pathlib import Path
 
 from docaudit import Document
+from docaudit.policies import DEFAULT_ENTITIES, IDENTIFIERS
 
 out = Path("figuras")
 out.mkdir(exist_ok=True)
 wanted = {"CNPJ", "RENAVAM"}
 with Document("autos.pdf") as doc:
-    result = doc.read()
+    # O RENAVAM está em IDENTIFIERS, fora das entidades padrão.
+    result = doc.read(entities=[*DEFAULT_ENTITIES, *IDENTIFIERS])
     with_entity = {cid for e in result.entities if e.kind in wanted for cid in e.chunk_ids}
     for figure in result.figures():
         if with_entity.intersection(figure.chunk_ids):

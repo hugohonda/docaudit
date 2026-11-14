@@ -2,7 +2,11 @@
 
 A relação de pagamentos de um diário oficial, ou o anexo de um edital, é uma
 tabela longa de nome, identificador e valor, muitas vezes digitalizada. A
-etapa barata lê todas as páginas. Só a página em que um valor em reais ou um CPF (Cadastro de Pessoas Físicas) não confere vai ao leitor caro.
+etapa barata lê todas as páginas. Só a página em que a leitura barata
+provou ter falhado vai ao leitor caro. Os sinais são a leitura vazia e o
+texto mal decodificado. São também um CPF (Cadastro de Pessoas Físicas), um
+CNPJ, um número de processo ou um valor em reais ou em moeda anterior ao
+real que não confere.
 Ele lê por região e devolve cada tabela num trecho, uma linha de texto por
 linha da tabela.
 

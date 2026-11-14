@@ -26,7 +26,13 @@ def keep(pdf: Path, **kwargs: Any) -> Result:
 
 A releitura por outra família pode consertar uma linha, e o leitor caro pode
 trocá-la por outro texto. Nos dois casos, a linha que saiu fica em
-`result.others`, com `replaced`. É a leitura que saiu ao lado da que ficou. O par é um exemplo de
+`result.others`, com `replaced`. Numa digitalização com camada de OCR, a
+camada de texto também entra no lugar das linhas dos pixels. Isso acontece
+na tarja e na folha à vista, e no identificador que confere na camada
+oculta. A linha que ficou tem então `source` igual a `text_layer`, e pode
+cobrir só parte da linha que saiu. O código abaixo pula esses casos. Pula
+também a linha que a camada de OCR consertou na releitura, que tem o mesmo
+`source`. É a leitura que saiu ao lado da que ficou. O par é um exemplo de
 treino para o leitor que errou. O formato abaixo é o rótulo do PaddleOCR: o
 nome da imagem e o texto, separados por tabulação.
 
@@ -48,8 +54,9 @@ def pairs(pdf: Path, out: Path) -> list[str]:
         for other in result.others:
             kept = lines[other.line]
             # Uma linha só dos dois lados: o leitor caro que leu a página
-            # inteira num trecho não dá rótulo de linha.
-            if not other.replaced or "\n" in kept.text:
+            # inteira num trecho não dá rótulo de linha. A linha da camada
+            # de texto pode cobrir só parte da linha que saiu.
+            if not other.replaced or "\n" in kept.text or kept.source == "text_layer":
                 continue
             old = other.reading
             name = f"{result.doc_id}_{old.id}.png"
