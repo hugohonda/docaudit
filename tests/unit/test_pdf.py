@@ -621,21 +621,28 @@ def test_line_boxes_follow_the_visible_box_origin_and_the_page_rotation():
     assert rotated.y0 == pytest.approx(base.x0, abs=0.01)
 
 
-@pytest.mark.parametrize("rotate", [180, 270])
-def test_the_page_rotation_does_not_change_the_lines_or_their_order(rotate):
-    """A mesma folha exibida girada: as mesmas linhas, na mesma ordem.
+@pytest.mark.parametrize("rotate", [90, 180, 270])
+def test_the_page_rotation_does_not_change_the_order_of_the_lines(rotate):
+    """O giro muda como a folha é exibida, e não a ordem do texto.
 
-    A 90 graus as linhas saem na ordem inversa, e esse giro fica de fora.
+    Duas colunas e uma linha desenhada por último no alto: a ordem é a da
+    folha sem giro.
     """
     body = "\n".join(
-        f"BT /F1 10 Tf 70 {700 - 40 * i} Td (Linha {i} do corpo) Tj ET" for i in range(5)
+        f"BT /F1 10 Tf {x} {y} Td ({label}) Tj ET"
+        for x, y, label in (
+            (70, 700, "A1 esquerda"),
+            (70, 680, "A2 esquerda"),
+            (320, 700, "B1 direita"),
+            (320, 680, "B2 direita"),
+            (70, 400, "C1 baixo"),
+            (70, 750, "Z0 alto"),
+        )
     )
     with opened(make_pdf(body)) as doc:
-        upright = [text for _, text, _ in text_lines_of(doc, 0)]
+        upright = [line.text for line in text_lines_of(doc, 0)]
     with opened(make_pdf(body, rotate=rotate)) as doc:
-        turned = [text for _, text, _ in text_lines_of(doc, 0)]
-    assert upright == [f"Linha {i} do corpo" for i in range(5)]
-    assert turned == upright
+        assert [line.text for line in text_lines_of(doc, 0)] == upright
 
 
 def test_unreadable_documents_raise_one_plain_error():

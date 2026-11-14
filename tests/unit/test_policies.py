@@ -136,6 +136,10 @@ def test_amounts_the_brazilian_grafia_does_not_allow():
     assert failures(AMOUNT_BRL, "Item 3 150,00 e 1 500,00") == 0, "células vizinhas, sem R$"
     assert failures(AMOUNT_BRL, "R$741 732,15 e 10:000,00") == 2
     assert failures(AMOUNT_BRL, "R$ 4.00o,0o e R$ 1,0o") == 2, "letra no lugar de dígito"
+    assert failures(AMOUNT_BRL, "R$ G,06 e R$ B,01") == 2, (
+        "a parte inteira de um dígito lido como letra"
+    )
+    assert failures(AMOUNT_BRL, "R$ X,XX e R$ mil,oo") == 0, "sem dígito nenhum, não é valor"
     assert failures(AMOUNT_BRL, "R$ 1.00,00 e R$ 1.2345,00") == 2, "grupo sem três dígitos"
     assert failures(AMOUNT_BRL, "4.329.30 e R$ 15.062.39") == 2, "ponto no lugar da vírgula decimal"
     assert failures(AMOUNT_BRL, "R$ 18.77 e R$18.77") == 2, "ponto decimal logo depois do R$"
@@ -609,15 +613,9 @@ def test_a_generated_amount_matches_and_is_well_formed():
 
 
 def test_an_amount_digit_read_as_a_letter_fails():
-    """A troca num valor com mais de um dígito antes da vírgula.
-
-    Com um dígito só, a troca não deixa dígito antes da vírgula, e a forma não
-    casa: esse caso fica de fora daqui.
-    """
+    """Toda troca de um dígito por letra falha, inclusive na parte inteira de um dígito."""
     rng = random.Random(_SEED)
     for _ in range(500):
         value = _amount(rng)
-        if len(value.removeprefix("R$ ").split(",")[0]) == 1:
-            continue
         for _, misread in _misreads(value):
             assert failures(AMOUNT_BRL, f"total {misread} pago") == 1, misread

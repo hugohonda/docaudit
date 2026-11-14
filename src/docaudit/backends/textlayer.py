@@ -40,7 +40,7 @@ class TextLayerReader:
     external = False
     # O pdfium monta as linhas, e `text_lines_of` as põe na ordem da folha:
     # trocar qualquer dos dois pode mudar a saída.
-    output_version = "3:pypdfium2=" + version("pypdfium2")
+    output_version = "4:pypdfium2=" + version("pypdfium2")
 
     def read(self, view: PageView) -> Sequence[Chunk]:
         """Um chunk por linha, na ordem do texto do pdfium, que nem sempre é a do desenho."""
