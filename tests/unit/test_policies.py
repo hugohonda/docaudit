@@ -587,19 +587,16 @@ def test_a_digit_read_as_a_letter_never_confirms_another_value(check, make):
             assert _confirmed(check, f"id {misread} fim") == [], misread
 
 
-def test_a_cnpj_letter_where_no_letter_is_possible_never_confirms_another_value():
-    """A letra minúscula em qualquer posição, e qualquer letra nos dígitos verificadores.
+def test_a_digit_of_a_cnpj_read_as_a_letter_never_confirms_another_value():
+    """Nenhuma troca de dígito por letra sai `confirmed`, em nenhuma posição.
 
-    A maiúscula nas doze primeiras posições forma um CNPJ alfanumérico, que a
-    regra aceita quando o módulo 11 confere: esse caso fica de fora daqui.
+    A maiúscula nas doze primeiras posições pode conferir pelo módulo 11, e
+    sai no máximo `well_formed`.
     """
     rng = random.Random(_SEED)
-    for _ in range(200):
+    for _ in range(500):
         value = _cnpj(rng)
-        check_digits = len(value) - 2
-        for i, misread in _misreads(value):
-            if i < check_digits and misread[i].isupper():
-                continue
+        for _, misread in _misreads(value):
             assert _confirmed(CNPJ, f"id {misread} fim") == [], misread
 
 
