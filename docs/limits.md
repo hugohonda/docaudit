@@ -96,7 +96,8 @@ precisa conhecer antes de confiar num resultado.
   cópia com uma linha a mais sai inteira como elemento fixo, corpo inclusive.
 - **Páginas cujas linhas com letra só diferem nos números contam como
   cópia.** São as folhas seguidas de uma planilha de cálculo. Se só elas
-  trazem o cabeçalho, nada nelas é elemento fixo, e a folha não sai.
+  trazem o cabeçalho, e outra página da leitura não o traz, nada nelas é
+  elemento fixo, e a folha não sai.
 - **A linha de um modelo repetido que só varia nos números pode ser elemento
   fixo.** Basta que esteja na sequência a partir do alto ou do pé, sem linha
   própria entre ela e a borda. O total no pé de um demonstrativo é marcado.

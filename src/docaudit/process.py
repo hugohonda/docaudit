@@ -816,7 +816,9 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     outra: a peça
     juntada duas vezes repete o corpo inteiro, e a sequência não pararia.
     A linha vertical da margem fica fora da comparação: ela é marcada quando
-    se repete em outra página que não é cópia.
+    se repete em outra página que não é cópia. Quando todas as páginas lidas
+    são cópia umas das outras, não há página diferente, e a regra não vale:
+    a peça só de anexos digitalizados fica com o cabeçalho e a folha.
 
     A linha é julgada como é lida. A sequência corre por giro: a camada de texto
     de uma página lida de lado continua em pé, e as duas leituras não têm o mesmo
@@ -837,6 +839,9 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
                 if not _is_vertical(_as_read(chunk)):
                     forms[chunk.page].add(form)
     copy_of = {c.page: frozenset(forms[c.page]) or c.page for cs in by_page.values() for c in cs}
+    if len(set(copy_of.values())) == 1:
+        # Todas cópia de todas: não há página diferente que prove nada.
+        copy_of = {page: page for page in copy_of}
     repeated = set[str]().union(
         *(_repeated_elsewhere(items, copy_of) for items in by_form.values())
     )

@@ -1920,6 +1920,15 @@ def test_a_page_repeated_in_the_file_keeps_its_body():
         assert marked == {"TRIBUNAL DE JUSTICA", "Demonstrativo do calculo", f"Pagina {page + 1}"}
 
 
+def test_pages_that_are_all_copies_of_each_other_keep_their_furniture():
+    """Sem página diferente, a cópia não se reconhece: a peça só de anexos fica com a folha."""
+    pages = {
+        p: [_line(p, "TRIBUNAL DE JUSTICA", 0.02, 0), _line(p, f"fls. {p + 10}", 0.95, 0)]
+        for p in range(3)
+    }
+    assert _marked(pages) == {p: {"TRIBUNAL DE JUSTICA", f"fls. {p + 10}"} for p in range(3)}
+
+
 def test_pages_with_only_the_margin_strip_still_mark_it():
     """Duas páginas sem linha horizontal com letra não são cópia uma da outra."""
     pages = {p: [Chunk.make(make_page(p), _MARGIN, "ocr", "Assinado por Alfa")] for p in range(2)}

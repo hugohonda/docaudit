@@ -150,7 +150,8 @@ Duas páginas são cópia uma da outra quando têm linhas horizontais com letra
 e o mesmo conjunto de formas nelas. A peça juntada duas vezes repete o corpo
 inteiro no mesmo lugar, e sem essa regra a página toda seria elemento fixo.
 A linha vertical da margem fica fora da comparação: ela é marcada quando se
-repete em outra página que não é cópia.
+repete em outra página que não é cópia. Quando todas as páginas lidas são
+cópia umas das outras, não há página diferente, e a regra não vale.
 
 A regra é do documento inteiro. Numa leitura de uma página só, nada é
 elemento fixo. Um carimbo que só uma página tem, dentro do cabeçalho,
