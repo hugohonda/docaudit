@@ -80,7 +80,7 @@ O [trecho](../glossary.md#trecho) é a unidade de texto lido.
 | `kind` | o tipo da região de layout de onde o texto veio, como `text`, `table` ou `paragraph_title`, quando há detector de layout |
 | `line_break_hyphens` | os índices em `text` dos hífens que estavam numa quebra de linha do PDF, na camada de texto. O hífen fica no texto, e quem lê decide se junta as metades. A palavra que continua noutra coluna, ou depois de outra linha, sai em dois trechos, o primeiro terminando no hífen |
 | `region` | o índice em `Page.unread` do raster de onde a linha veio, quando um leitor de pixels a leu num raster que a camada de texto não leu; `null` nos outros casos |
-| `furniture` | `true` no [elemento fixo](../glossary.md#elemento-fixo): a linha que se repete, no mesmo lugar, em outra página lida. São o cabeçalho, o rodapé e a tarja. A linha fica no resultado |
+| `furniture` | `true` no [elemento fixo](../glossary.md#elemento-fixo): a linha que se repete, no mesmo lugar, em outra página lida que não é cópia desta, numa sequência a partir do alto ou do pé da folha, ou na vertical da margem. São o cabeçalho, o rodapé e a tarja. A linha fica no resultado |
 
 A unidade depende do leitor. A camada de texto, o Tesseract e o PP-OCR
 devolvem uma linha por trecho. O leitor `vlm` com detector de layout devolve

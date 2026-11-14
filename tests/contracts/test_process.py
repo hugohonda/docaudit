@@ -8,6 +8,7 @@ anonimização barra um backend externo.
 
 import re
 import time
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Literal
 
@@ -1306,11 +1307,12 @@ def test_the_folha_form_is_chosen_by_the_caller():
     pages = [
         "\n".join(
             [
-                f"BT /F1 10 Tf 70 600 Td (Corpo {n}) Tj ET",
+                f"BT /F1 10 Tf 70 600 Td (Corpo {body}) Tj ET",
                 f"BT /F1 8 Tf 500 20 Td (Pagina {n}) Tj ET",
             ]
         )
-        for n in ("9.118", "9.119")
+        # Corpos com letras diferentes: páginas que só diferem nos números são cópia.
+        for n, body in (("9.118", "Alfa"), ("9.119", "Beta"))
     ]
     doc = make_pdf(*pages)
     page_form = Check("pagina", re.compile(r"Pagina (?P<number>[0-9.]+)"), lambda _: True)
@@ -1871,8 +1873,7 @@ def test_a_page_read_sideways_marks_furniture_as_read_and_not_as_scanned(turn):
         ]
         for page, name in enumerate(("Alfa", "Beta"))
     }
-    marked = {c.text for c in mark_furniture(pages)[0] if c.furniture}
-    assert marked == {"TRIBUNAL DE JUSTICA", "Comarca da Capital"}
+    assert _marked(pages)[0] == {"TRIBUNAL DE JUSTICA", "Comarca da Capital"}
 
 
 def test_a_line_of_the_layer_stays_at_its_edge_on_a_page_read_sideways():
@@ -1884,7 +1885,60 @@ def test_a_line_of_the_layer_stays_at_its_edge_on_a_page_read_sideways():
         ]
         for page, name in enumerate(("Alfa", "Beta"))
     }
-    assert {c.text for c in mark_furniture(pages)[0] if c.furniture} == {"Tarja da camada"}
+    assert _marked(pages)[0] == {"Tarja da camada"}
+
+
+def _statement(page: int, names: Sequence[str]) -> list[Chunk]:
+    """Uma folha de demonstrativo: cabeçalho, título, uma linha por nome e o rodapé."""
+    return [
+        _line(page, "TRIBUNAL DE JUSTICA", 0.02, 0),
+        _line(page, "Demonstrativo do calculo", 0.1, 0),
+        *(_line(page, f"Credor {name}", 0.3 + 0.05 * i, 0) for i, name in enumerate(names)),
+        _line(page, f"Pagina {page + 1}", 0.95, 0),
+    ]
+
+
+def _marked(pages: Mapping[int, Sequence[Chunk]]) -> dict[int, set[str]]:
+    return {p: {c.text for c in cs if c.furniture} for p, cs in mark_furniture(pages).items()}
+
+
+_MARGIN = BBox(x0=0.96, y0=0.1, x1=0.98, y1=0.9)
+_FIRST, _SECOND = ("Alfa", "Beta", "Gama"), ("Delta", "Epsilon", "Zeta")
+
+
+def test_a_page_repeated_in_the_file_keeps_its_body():
+    """A página e a cópia não provam o elemento fixo uma da outra, nem com a margem diferente."""
+    signers = ("Alfa", "Beta", "Gama", "Delta")
+    pages = {
+        p: [
+            *_statement(p, (_FIRST, _SECOND)[p % 2]),
+            Chunk.make(make_page(p), _MARGIN, "ocr", f"Assinado por {signers[p]}"),
+        ]
+        for p in range(4)
+    }
+    for page, marked in _marked(pages).items():
+        assert marked == {"TRIBUNAL DE JUSTICA", "Demonstrativo do calculo", f"Pagina {page + 1}"}
+
+
+def test_pages_that_are_all_copies_of_each_other_keep_their_furniture():
+    """Sem página diferente, a cópia não se reconhece: a peça só de anexos fica com a folha."""
+    pages = {
+        p: [_line(p, "TRIBUNAL DE JUSTICA", 0.02, 0), _line(p, f"fls. {p + 10}", 0.95, 0)]
+        for p in range(3)
+    }
+    assert _marked(pages) == {p: {"TRIBUNAL DE JUSTICA", f"fls. {p + 10}"} for p in range(3)}
+
+
+def test_pages_with_only_the_margin_strip_still_mark_it():
+    """Duas páginas sem linha horizontal com letra não são cópia uma da outra."""
+    pages = {p: [Chunk.make(make_page(p), _MARGIN, "ocr", "Assinado por Alfa")] for p in range(2)}
+    assert _marked(pages) == {0: {"Assinado por Alfa"}, 1: {"Assinado por Alfa"}}
+
+
+def test_a_blank_page_keeps_its_furniture():
+    """A folha só com cabeçalho e rodapé está contida nas outras, e continua marcada."""
+    pages = {0: _statement(0, _FIRST), 1: _statement(1, ()), 2: _statement(2, _SECOND)}
+    assert _marked(pages)[1] == {"TRIBUNAL DE JUSTICA", "Demonstrativo do calculo", "Pagina 2"}
 
 
 # ── A leitura cara passa pelas mesmas verificações ───────────────────────────
