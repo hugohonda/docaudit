@@ -8,6 +8,50 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 <!-- --8<-- [start:versoes] -->
 ## [Não lançado]
 
+## [0.1.0.dev3] - 2026-11-13
+
+### Corrigido
+
+- A página e a cópia dela não provam o elemento fixo uma da outra. Duas páginas com o mesmo
+  conjunto de formas nas linhas horizontais com letra são cópia; a linha vertical da margem fica
+  fora da comparação. A peça juntada duas vezes marcava a página inteira, corpo e valores
+  inclusive. Quando todas as páginas lidas são cópia umas das outras, a regra não vale.
+- Leituras erradas que saíam `confirmed` ou corrigidas:
+  - `DATE_WEEKDAY` não tem redundância: o dia da semana se repete a cada sete dias, e a data que
+    confere sai `well_formed`.
+  - O CNPJ com letra que confere sai `well_formed`; só o numérico sai `confirmed`.
+  - O valor por extenso sem número entre parênteses sai `well_formed`.
+  - A releitura de outra família só conserta um valor sem prova quando mantém, na mesma
+    posição, cada dígito que a leitura barata leu.
+  - A linha do leitor caro recusada por perder um valor vai a `Result.others`, com o campo e o
+    valor, e aparece em `Document.doubts()`.
+- Leituras certas que falhavam, e texto que sumia:
+  - `pagou Cr$ 1.000.` não falha: o ponto final da frase não é parte do número.
+  - O espaço entre grupos do valor em reais só falha logo depois do `R$`: duas células vizinhas,
+    `3` e `150,00`, não falham.
+  - A linha da camada escrita em diagonal, como a marca d'água de uma cópia, não esconde as
+    linhas do raster embaixo dela.
+  - O cache guarda se o leitor pediu os pixels, e não se a vista já estava renderizada.
+  - Com `layout=`, a página lida de lado sai, dentro de cada bloco, de cima para baixo.
+  - Uma letra só não é tarja vertical.
+  - Duas sequências de folha empatadas deixam todas as folhas fora da sequência.
+
+### Alterado
+
+- A regra do número sem `R$` segue a verificação marcada com `Check.bare`, e não a identidade de
+  `AMOUNT_BRL`. Quem passa `entities=` sem uma verificação `bare` fica sem ela.
+- A camada oculta escrita pelo Tesseract não confirma o que o Tesseract leu: não é outra família.
+- A documentação diz o que o código faz: a receita de tarja redige pela posição do valor, o teto
+  do leitor caro, a página que o leitor caro recusa com `all_strong`, a camada de OCR que não é a
+  leitura por padrão, e o carimbo e a folha que seguem `stamps=` e `folhas=`.
+
+### Adicionado
+
+- `Check.unproven`, `Check.proves` e `Check.bare`; `TesseractOCR.layer_font`;
+  `DrawnLine.slanted`, `PageView.drawn_lines()` e `PageView.requests`.
+
+## [0.1.0.dev2] - 2026-11-08
+
 ### Corrigido
 
 - A linha da camada de texto cuja palavra hifenizada continua noutra coluna, ou depois de
@@ -15,17 +59,14 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   caixa que atravessava a coluna. Muda o id desses trechos.
 - Em `Result.records()`, a linha que cobre duas linhas que não se tocam, como uma célula mesclada
   ou uma tarja vertical, fica numa fileira sozinha. Ela juntava a tabela inteira numa fileira.
+- O pacote volta a construir num commit depois de uma tag `.devN`: a versão é a da tag mais o
+  commit (`0.1.0.dev1+g<commit>`).
 
 ### Alterado
 
 - A documentação passa a ter tutorial, guias, explicação e referência separados, um glossário,
   instalação por plataforma, problemas comuns e a página de versões. `Record` e `Piece` são
   exportados por `docaudit`.
-
-### Corrigido
-
-- O pacote volta a construir num commit depois de uma tag `.devN`: a versão é a da tag mais o
-  commit (`0.1.0.dev1+g<commit>`).
 
 ## [0.1.0.dev1] - 2026-11-08
 
@@ -86,7 +127,9 @@ com a página, a caixa e o leitor de origem.
   `Doubt` para uma sessão; `visualize` para a imagem com as caixas.
 - Cache de leituras em SQLite; nada sai da máquina sem `allow_external=True`.
 
-[Não lançado]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev1...HEAD
+[Não lançado]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev3...HEAD
+[0.1.0.dev3]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev2...v0.1.0.dev3
+[0.1.0.dev2]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev1...v0.1.0.dev2
 [0.1.0.dev1]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev0...v0.1.0.dev1
 [0.1.0.dev0]: https://github.com/hugohonda/docaudit/releases/tag/v0.1.0.dev0
 <!-- --8<-- [end:versoes] -->
