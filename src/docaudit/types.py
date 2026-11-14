@@ -292,9 +292,12 @@ class Folha(_Frozen):
         description=(
             "A folha segue a das outras páginas da execução: a diferença entre a "
             "folha e o índice da página é a mais comum entre as páginas com folha, "
-            "e mais de uma página a tem. Um PDF que junta peças de vários "
-            "processos, ou trechos separados de um auto, fica com a sequência do "
-            "maior trecho. A regra supõe uma página por folha: no auto digitalizado "
+            "e mais de uma página a tem. Com duas diferenças empatadas, nenhuma "
+            "folha segue. Um PDF que junta peças de vários processos, ou trechos "
+            "separados de um auto, fica com a sequência do maior trecho na "
+            "execução, mesmo que seja um anexo. Com `pages=`, só as páginas lidas "
+            "contam: a cópia juntada com numeração própria, lida sozinha, sai "
+            "na sequência. A regra supõe uma página por folha: no auto digitalizado "
             "com o verso de cada folha, a folha sobe uma a cada duas páginas, e "
             "nenhuma segue."
         ),

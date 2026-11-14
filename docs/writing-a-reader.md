@@ -94,10 +94,12 @@ pede a imagem em cor.
 |---|---|---|
 | `view.page` | nenhum | metadados, dimensões e substrato |
 | `view.text_lines()` | baixo | a camada de texto, uma linha por item, com caixa |
+| `view.drawn_lines()` | baixo | as mesmas linhas, com a ordem de desenho, se estão à vista e se estão em diagonal |
 | `view.pixels(grayscale=True)` | alto | a página renderizada, como imagem do Pillow |
 | `view.image(grayscale=True)` | alto | a mesma renderização em PNG, para um motor que pede o arquivo |
 | `view.region(box)` | o do recorte | uma `RegionView` com só a parte `box` da página |
 | `view.rendered` | nenhum | `True` depois que alguém pediu os pixels |
+| `view.requests` | nenhum | quantas vezes alguém pediu `pixels()` ou `image()` desta vista |
 
 Peça só o que usar: o que não for pedido não é calculado. Cada modo de cor é
 renderizado no máximo uma vez por página. Um motor treinado em cor, como o
@@ -105,7 +107,7 @@ PP-OCR e os modelos de visão e linguagem, pede `grayscale=False`.
 
 ## Quando o leitor recebe uma região
 
-`rendered` decide o que vem depois. Um leitor que devolve texto sem pedir os pixels é tratado como camada de texto.
+O que decide o que vem depois é se o leitor pediu os pixels durante a leitura dele. Um leitor que devolve texto sem chamar `view.pixels()` nem `view.image()` é tratado como camada de texto, mesmo que outra etapa já tenha renderizado a página.
 A leitura dele não cobre os rasters de `Page.unread`, as imagens da página
 que nenhuma camada leu. O leitor seguinte
 da cascata lê esses rasters.

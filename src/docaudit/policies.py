@@ -412,7 +412,8 @@ AMOUNT_BRL = Check(
         r"(?<![A-Za-z])R\$[^\S\n]*\n?[^\S\n]*(?=[0-9A-Za-z.]*[0-9])[0-9A-Za-z][0-9A-Za-z.]*,[0-9A-Za-z]{2}(?![\w,])(?!\.\d)"
         r"|(?<![A-Za-z])RS[^\S\n]*\n?[^\S\n]*" + _WELL_FORMED_AMOUNT.pattern + r"(?![\w,])(?!\.\d)"
         r"|\b[0-9]{1,3}(?:,[0-9]{3})+,[0-9]{2}\b"
-        r"|\b[0-9]{1,3}(?:[ :][0-9]{3})+[,.][0-9]{2}\b"
+        r"|\b[0-9]{1,3}(?::[0-9]{3})+[,.][0-9]{2}\b"
+        r"|(?<![A-Za-z])R\$[^\S\n]*[0-9]{1,3}(?:[ :][0-9]{3})+[,.][0-9]{2}\b"
         r"|(?<![\d.,])[0-9]{1,3}(?:\.[0-9]{3})+\.[0-9]{2}(?![\d.,])"
         r"|(?<![A-Za-z])R\$[^\S\n]*[0-9]{1,3}(?:\.[0-9]{3})*\.[0-9]{2}(?![\d.,])"
         r"|(?m:^[^\S\n]*[0-9]{1,3}(?:\.[0-9]{3})*\.[0-9]{2}[^\S\n]*$)"
@@ -427,8 +428,11 @@ AMOUNT_BRL = Check(
 
 Casa o valor depois de `R$`, separado por espaços e no máximo uma quebra de
 linha, com o que o motor tiver posto no lugar dos dígitos,
-o valor com duas vírgulas, o valor com espaço ou dois-pontos entre grupos e
-o valor com ponto no lugar da vírgula decimal, `4.329.30`. O `RS` no lugar
+o valor com duas vírgulas, o valor com dois-pontos entre grupos, o valor
+com espaço entre grupos logo depois do `R$` e o valor com ponto no lugar da
+vírgula decimal, `4.329.30`. O espaço entre grupos sem o `R$` não casa: duas
+células vizinhas de uma tabela, `3` e `150,00`, chegam na mesma linha com
+um espaço entre elas. O `RS` no lugar
 do `R$` é a troca que um leitor de pixels faz no cifrão, e casa só seguido
 de um número bem escrito: `RS 1.234,56` é valor, a sigla do estado não é.
 Falham a letra no lugar de dígito (`R$ 1.O00,00`), o grupo de milhar sem três
@@ -440,7 +444,10 @@ tabela digitalizada, e fazem juntos: por isso ela é `alike`, e outra família
 que lê o mesmo ponto não prova que ele está impresso. O documento que imprime
 o valor assim vai ao leitor caro. Na página nascida digital, o número com
 ponto sozinho na linha, como uma taxa de uma tabela, sai `failed` e impresso
-pela camada de texto.
+pela camada de texto. Na digitalização, a mesma taxa (`0.50`) falha e vai
+ao leitor caro, mesmo lida certo. O valor impresso com espaço entre grupos
+depois do `R$` (`R$ 1 234,56`) também falha. Nada na forma os separa da troca
+do leitor.
 
 O extrato bancário e o livro contábil não imprimem o `R$`: a coluna diz a
 moeda, e cada lançamento termina em `C` ou `D`, crédito ou débito. O valor
@@ -454,7 +461,8 @@ AMOUNT_PRE_REAL = Check(
     "valor em moeda anterior ao real",
     re.compile(
         r"(?<![A-Za-z])" + _PRE_REAL_SYMBOL.pattern + r"[^\S\n]*\n?[^\S\n]*"
-        r"(?=[0-9A-Za-z.]*[0-9])[0-9A-Za-z][0-9A-Za-z.]*(?:,[0-9A-Za-z]{2})?(?![\w,])(?!\.\d)"
+        r"(?=[0-9A-Za-z.]*[0-9])[0-9A-Za-z](?:[0-9A-Za-z.]*[0-9A-Za-z])?(?:,[0-9A-Za-z]{2})?"
+        r"(?![\w,])(?!\.\d)"
     ),
     _amount_pre_real_is_valid,
 )
@@ -464,8 +472,9 @@ As moedas anteriores ao Real, de 1942 a 1994, aparecem nos autos antigos e
 nos valores antigos citados em peças novas. A grafia é a do real, com os
 centavos opcionais: o valor redondo em cruzeiros costuma vir sem eles. O
 valor sai como impresso, com o símbolo, e quem o lê sabe a moeda. Falham a
-letra no lugar de dígito e o grupo de milhar sem três dígitos. O `R$` de
-`AMOUNT_BRL` não casa dentro de `CR$`.
+letra no lugar de dígito e o grupo de milhar sem três dígitos. O número
+termina num dígito ou numa letra: o ponto final da frase, em `pagou Cr$
+1.000.`, não é parte dele. O `R$` de `AMOUNT_BRL` não casa dentro de `CR$`.
 """
 
 

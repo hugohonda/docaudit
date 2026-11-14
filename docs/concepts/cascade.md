@@ -80,7 +80,9 @@ O leitor seguinte da cascata lê esses rasters:
 3. O recorte que cobre a página inteira é lido como a página, com a mesma
    chave de cache.
 4. Ficam as linhas cujo centro cai num raster e em nada já lido. O rodapé
-   carimbado sobre a digitalização já veio da camada.
+   carimbado sobre a digitalização já veio da camada. A marca d'água escrita
+   em diagonal não conta como lida: a caixa dela cobre quase a folha, e
+   esconderia o corpo da cópia.
 
 `Result.spent.regions_cheap` conta as páginas lidas assim. Se o leitor
 seguinte falha num desses recortes, a página sai com
@@ -122,7 +124,8 @@ estas:
 - Cada linha vai ao bloco de layout que contém o seu centro, ou ao mais
   próximo.
 - Os blocos saem na ordem do detector, e as linhas de cada bloco saem de
-  cima para baixo.
+  cima para baixo. Numa página lida de lado, de cima para baixo na página
+  em pé.
 - A linha recebe o rótulo do bloco em `kind` quando o leitor não deu um.
 - Numa página sem bloco nenhum, a ordem de cada leitor fica como veio.
 

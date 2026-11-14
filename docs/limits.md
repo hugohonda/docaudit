@@ -63,6 +63,12 @@ precisa conhecer antes de confiar num resultado.
   sinal dispara por eles, e a página não é encaminhada. Uma página sem valor
   `failed` não é uma página conferida. Quem precisa de um campo em toda
   folha confere a presença dele com `Result.entities` e `Page.stamp`.
+- **Dois valores em reais lidos certo falham.** O primeiro é o número com
+  ponto decimal sozinho na linha, como a taxa `0.50` de uma tabela
+  digitalizada. O segundo é o valor com espaço entre os grupos de milhar
+  logo depois do `R$`, como `R$ 1 234,56`. Os dois têm a forma da troca que
+  os leitores de pixels fazem, e nada na forma os separa dela. A página vai
+  ao leitor caro, e o valor pode sair `failed`.
 - **Um valor errado pode passar no dígito verificador.** O dígito prova que
   o valor é possível, não que é o impresso. No CPF e no CNPJ, que escrevem o
   resto 10 como 0, a troca de um só dígito passa em alguns casos. No número
@@ -94,6 +100,12 @@ precisa conhecer antes de confiar num resultado.
   elemento fixo. Um carimbo que só uma página tem, dentro do cabeçalho,
   deixa o resto do cabeçalho dessa página sem marca. O cabeçalho e o rodapé
   de um formulário pré-impresso contam como elementos fixos.
+- **`Folha.in_sequence` também só vê o que a execução leu.** A sequência é
+  a diferença entre a folha e o índice da página que mais páginas têm. Ela
+  não sabe qual trecho é o auto. Com `pages=` só sobre uma cópia juntada com
+  numeração própria, a numeração da cópia sai na sequência. Um anexo com mais
+  páginas que o trecho do auto na execução fica com a sequência. Com dois
+  trechos do mesmo tamanho no topo, nenhuma folha segue.
 - **A cópia é reconhecida só quando as formas são as mesmas.** Uma linha
   horizontal com letra a mais ou a menos desfaz a cópia. É o caso do carimbo
   de juntada novo e do ruído de outra digitalização. A página original de uma
@@ -107,10 +119,11 @@ precisa conhecer antes de confiar num resultado.
   própria entre ela e a borda. O total no pé de um demonstrativo é marcado.
   Uma citação de folha nessa linha, como `conforme fls. 45`, pode virar
   `Page.folha`.
-- **Numa página lida de lado, a
-  [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) olha
-  a página deitada.** Com `layout=`, os blocos, os rótulos e a ordem vêm da
-  imagem, e não da leitura.
+- **Numa página lida de lado, os blocos da
+  [ordem por layout](concepts/cascade.md#ordem-de-leitura-por-layout) vêm
+  da página deitada.** Com `layout=`, os blocos, os rótulos e a ordem entre
+  os blocos vêm da imagem, e não da leitura. Dentro de cada bloco, as
+  linhas saem na ordem da página em pé.
 - **A repetição compara o lugar na imagem.** A mesma linha numa página em
   pé e numa página lida de lado não conta como repetida, e os
   [elementos fixos](concepts/cascade.md#os-elementos-fixos-da-pagina) não a

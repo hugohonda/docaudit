@@ -11,6 +11,7 @@ from tests.support.fixtures import EMPTY_PAGE, TEXT_CENTRAL, TEXT_MARGIN
 from docaudit.pdf import (
     PageView,
     doc_id_for,
+    drawn_lines_of,
     is_image,
     load_pages,
     opened,
@@ -265,6 +266,28 @@ def test_rotated_text_keeps_the_order_the_file_draws():
     with opened(doc) as pdf:
         texts = [line.text for line in text_lines_of(pdf, 0)]
     assert texts == ["Pagina 3 de 9"]
+
+
+def test_only_text_written_on_a_diagonal_is_slanted():
+    """A tarja vertical e a linha de cabeça para baixo não são diagonais; a marca d'água é."""
+    doc = make_pdf(
+        "BT /F1 10 Tf 70 800 Td (Linha do corpo) Tj ET\n"
+        "BT /F1 10 Tf 0 1 -1 0 560 100 Tm (Tarja de baixo para cima) Tj ET\n"
+        "BT /F1 10 Tf 0 -1 1 0 30 700 Tm (Tarja de cima para baixo) Tj ET\n"
+        "BT /F1 10 Tf -1 0 0 -1 400 300 Tm (De cabeca para baixo) Tj ET\n"
+        "BT /F1 40 Tf 0.707 0.707 -0.707 0.707 100 300 Tm (COPIA) Tj ET\n"
+        "BT /F1 10 Tf 0.99999 0.00436 -0.00436 0.99999 70 200 Tm (Um quarto de grau) Tj ET"
+    )
+    with opened(doc) as pdf:
+        slanted = {d.line.text: d.slanted for d in drawn_lines_of(pdf, 0)}
+    assert slanted == {
+        "Linha do corpo": False,
+        "Tarja de baixo para cima": False,
+        "Tarja de cima para baixo": False,
+        "De cabeca para baixo": False,
+        "COPIA": True,
+        "Um quarto de grau": True,
+    }
 
 
 # ── Imagens como documento ────────────────────────────────────────────────────

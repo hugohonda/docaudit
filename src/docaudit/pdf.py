@@ -105,7 +105,8 @@ class PageView:
         self._dpi = dpi
         self._pixels: dict[bool, Image.Image] = {}
         self._images: dict[bool, bytes] = {}
-        self._lines: Sequence[TextLine] | None = None
+        self._drawn: Sequence[DrawnLine] | None = None
+        self._requests = 0
         self.box: BBox | None = None
         """A caixa do recorte, numa `RegionView`; `None` é a página inteira."""
         self.turn: Turn = 0
@@ -125,6 +126,7 @@ class PageView:
         numa cascata em que um leitor pede cinza e o seguinte pede RGB, o
         segundo recebe o que pediu, não o que o primeiro deixou.
         """
+        self._requests += 1
         if grayscale not in self._pixels:
             self._pixels[grayscale] = pixels_of(
                 self._pdf,
@@ -136,20 +138,34 @@ class PageView:
 
     def image(self, *, grayscale: bool = True) -> bytes:
         """PNG de `pixels`, para um leitor que pede o arquivo e não a matriz."""
+        self._requests += 1
         if grayscale not in self._images:
             self._images[grayscale] = _png(self.pixels(grayscale=grayscale))
         return self._images[grayscale]
 
     def text_lines(self) -> Sequence[TextLine]:
         """Linhas do texto embutido, com caixa, lidas no máximo uma vez."""
-        if self._lines is None:
-            self._lines = text_lines_of(self._pdf, self._page.index)
-        return self._lines
+        return tuple(drawn.line for drawn in self.drawn_lines())
+
+    def drawn_lines(self) -> Sequence[DrawnLine]:
+        """As linhas de `text_lines`, com o que `drawn_lines_of` diz de cada uma."""
+        if self._drawn is None:
+            self._drawn = drawn_lines_of(self._pdf, self._page.index)
+        return self._drawn
 
     @property
     def rendered(self) -> bool:
         """True se alguém já pediu os pixels desta página."""
         return bool(self._pixels)
+
+    @property
+    def requests(self) -> int:
+        """Quantas vezes alguém pediu `pixels` ou `image` desta vista.
+
+        Diz se um leitor pediu os pixels durante a leitura dele, mesmo que
+        outra etapa já tenha renderizado a vista antes.
+        """
+        return self._requests
 
     def region(self, box: BBox, *, turn: Turn = 0) -> RegionView:
         """A mesma página vista só dentro de `box`: o que um leitor de pixels lê de um raster.
@@ -209,7 +225,8 @@ class RegionView(PageView):
         )
         self._pixels: dict[bool, Image.Image] = {}
         self._images: dict[bool, bytes] = {}
-        self._lines: Sequence[TextLine] | None = ()
+        self._drawn: Sequence[DrawnLine] | None = ()
+        self._requests = 0
 
     @property
     @override
@@ -220,6 +237,7 @@ class RegionView(PageView):
     @override
     def pixels(self, *, grayscale: bool = True) -> Image.Image:
         """O recorte, tirado da renderização da página inteira."""
+        self._requests += 1
         if grayscale not in self._pixels:
             full = self._parent.pixels(grayscale=grayscale)
             assert self.box is not None
@@ -1067,6 +1085,19 @@ _SYMBOL_BULLET = 0xF0B7
 """O marcador de lista que o Word desenha com a fonte Symbol, na área de uso privado."""
 
 
+_ANGLE_NOISE = 1e-4
+"""O erro de arredondamento do ângulo que o pdfium devolve, em radianos.
+
+A tarja vertical sai como 4,712389, e não exatamente como 3π/2. Não é uma
+tolerância de inclinação: a linha inclinada de um quarto de grau já é diagonal.
+"""
+
+
+def _is_slanted(angle: float) -> bool:
+    """Se o ângulo da escrita, em radianos, não é múltiplo de um quarto de volta."""
+    return abs(math.remainder(angle, math.pi / 2)) > _ANGLE_NOISE
+
+
 class _Glyph(NamedTuple):
     """Um caractere desenhado: a caixa justa, a caixa da fonte e o ângulo da escrita."""
 
@@ -1135,6 +1166,13 @@ class DrawnLine(NamedTuple):
     """A posição, na ordem de desenho, do primeiro objeto de texto da linha; -1 sem objeto."""
     visible: bool
     """Desenhada com tinta e sem imagem desenhada depois por cima, o mesmo juízo do substrato."""
+    slanted: bool = False
+    """Se algum caractere está escrito em diagonal, fora da horizontal e da vertical.
+
+    É a marca d'água que atravessa a folha. A caixa da linha é a envoltória
+    dos caracteres e cobre muito mais que o texto: o que fica dentro dela não
+    foi lido pela linha.
+    """
 
 
 def _drawing_of(page: pdfium.PdfPage) -> dict[int, tuple[int, bool]]:
@@ -1236,12 +1274,13 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
             def flush() -> None:
                 drawn = min(at for at, _ in first) if first else -1
                 visible = bool(first) and all(v for _, v in first)
+                slanted = any(_is_slanted(g.angle) for g in glyphs if g is not None)
                 ordered = None if marks else _visual_order(chars, glyphs)
                 if ordered is not None:
                     text_value = unicodedata.normalize("NFC", ordered).strip()
                     if text_value and box is not None:
                         line = TextLine(displayed(box), text_value, ())
-                        out.append(DrawnLine(line, drawn, visible))
+                        out.append(DrawnLine(line, drawn, visible, slanted))
                     return
                 # Cada trecho entre hífens marcados é normalizado à parte: o NFC
                 # pode encurtar um trecho ("c" mais cedilha vira "ç"), e o índice
@@ -1267,7 +1306,9 @@ def drawn_lines_of(pdf: pdfium.PdfDocument, index: int) -> list[DrawnLine]:
                 if line is not None and box is not None:
                     text_value, inside = line
                     out.append(
-                        DrawnLine(TextLine(displayed(box), text_value, inside), drawn, visible)
+                        DrawnLine(
+                            TextLine(displayed(box), text_value, inside), drawn, visible, slanted
+                        )
                     )
                     hyphenated.append((len(out) - 1, halves))
 
@@ -1440,6 +1481,7 @@ def _split_jumps(
                     TextLine(BBox.envelope(found), text, hyphens),
                     min(at) if at else -1,
                     all(h.visible for h in group),
+                    drawn.slanted,
                 )
             )
     return out

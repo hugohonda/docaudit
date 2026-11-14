@@ -130,6 +130,8 @@ def test_amounts_the_brazilian_grafia_does_not_allow():
     assert failures(AMOUNT_BRL, "R$ 5.837,52 e R$ 1.200,00") == 0
     assert failures(AMOUNT_BRL, "R$ 5,837,52 e R$ 741 732,15") == 2
     assert failures(AMOUNT_BRL, "R$ 1.000.000,00. Pago R$ 1500,00") == 0
+    assert failures(AMOUNT_BRL, "Item 3 150,00 e 1 500,00") == 0, "células vizinhas, sem R$"
+    assert failures(AMOUNT_BRL, "R$741 732,15 e 10:000,00") == 2
     assert failures(AMOUNT_BRL, "R$ 4.00o,0o e R$ 1,0o") == 2, "letra no lugar de dígito"
     assert failures(AMOUNT_BRL, "R$ 1.00,00 e R$ 1.2345,00") == 2, "grupo sem três dígitos"
     assert failures(AMOUNT_BRL, "4.329.30 e R$ 15.062.39") == 2, "ponto no lugar da vírgula decimal"
@@ -221,6 +223,8 @@ def test_amounts_in_the_currencies_before_the_real():
     assert failures(AMOUNT_PRE_REAL, "CR$ 1.500,00 e NCr$763.793,75") == 0
     assert failures(AMOUNT_PRE_REAL, "Cr$ 1.5o0,00 e Cz$ 1.00,00") == 2
     assert failures(AMOUNT_PRE_REAL, "R$ 1.5o0,00") == 0, "o real é de AMOUNT_BRL"
+    assert failures(AMOUNT_PRE_REAL, "pagou Cr$ 1.000. Depois, Cr$ 2.000,00.") == 0, "ponto final"
+    assert failures(AMOUNT_PRE_REAL, "pagou Cr$ 1.0O0.") == 1
 
 
 def test_the_cruzeiro_real_is_not_read_as_the_real():

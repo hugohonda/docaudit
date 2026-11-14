@@ -268,7 +268,7 @@ Dentro dele, vence a página com mais ocorrências. Essa ordem não foi medida.
 | `EmptyRead()` | sim | a leitura que não trouxe texto nenhum. Uma folha em branco também volta vazia |
 | `GarbledText()` | sim | caracteres que só uma decodificação quebrada produz: o de substituição U+FFFD, os da área de uso privado, que saem de uma fonte sem tabela ToUnicode, e os de controle, exceto tabulação e quebra de linha. Vale também em texto composto, porque reler os pixels conserta o que a decodificação quebrou |
 | `FailsCheck(CPF)`, `FailsCheck(CNPJ)`, `FailsCheck(CNJ)` | sim | o identificador na pontuação de sempre com dígito verificador errado. O CNPJ pode ser alfanumérico |
-| `FailsCheck(AMOUNT_BRL)` | sim | o valor em reais que a grafia brasileira não permite: duas vírgulas, espaço entre grupos de milhar, letra no lugar de dígito, grupo sem três dígitos |
+| `FailsCheck(AMOUNT_BRL)` | sim | o valor em reais que a grafia brasileira não permite: duas vírgulas, espaço entre grupos de milhar depois do `R$`, letra no lugar de dígito, grupo sem três dígitos |
 | `FailsCheck(AMOUNT_PRE_REAL)` | sim | o mesmo, no valor em cruzeiro, cruzado ou cruzeiro real (`Cr$`, `NCr$`, `Cz$`, `NCz$`, `CR$`) |
 | `MojibakeText()` | não; pede o extra `mojibake` | o texto decodificado com a codificação errada, como `honor·rios` por `honorários`. A camada extrai sem erro e parece texto, mas a tabela ToUnicode está errada |
 | `FailsCheck(AMOUNT_IN_WORDS)` | não | o valor em reais que não bate com o mesmo valor por extenso entre parênteses, como `R$ 214.000,00 (duzentos e quatorze mil reais)`. Pega o dígito trocado que forma outro valor bem escrito |

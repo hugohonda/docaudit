@@ -24,6 +24,7 @@ from docaudit.policies import CPF, ESAJ_STAMP, Check, StampFormat
 from docaudit.process import (
     RASTER_MARGIN,
     _in_place_of_pixels,
+    _read_cached,
     _read_cascade,
     folhas_of,
     stamps_of,
@@ -944,6 +945,32 @@ def test_a_region_line_centred_on_a_text_layer_line_is_dropped():
     assert [c.source for c in result.chunks] == ["text_layer"]
 
 
+def test_a_layer_read_on_a_view_already_rendered_leaves_the_rasters_to_the_next_reader(tmp_path):
+    """Os pixels que outra etapa pediu não são os que a camada pediu; o cache guarda o do leitor."""
+    doc = make_scanned_pdf(["Num. 41560374 - Pag. 2"], render_mode=0, text_y=30)
+    cache = ModelCallCache(tmp_path / "c.sqlite")
+    with opened(doc) as pdf:
+        (page,) = pages_of(pdf, "t")
+        rendered = PageView(pdf, page)
+        rendered.pixels()
+        live = _read_cascade(rendered, [TextLayerReader(), FakeOCR()], cache).chunks
+        cached = _read_cascade(PageView(pdf, page), [TextLayerReader(), FakeOCR()], cache).chunks
+        assert _read_cached(rendered, FakeOCR(), None)[2], "o leitor de pixels pediu os pixels"
+    cache.close()
+    assert "ocr pagina 0" in [c.text for c in live]
+    assert "ocr pagina 0" in [c.text for c in cached]
+
+
+def test_a_diagonal_watermark_does_not_hide_the_scan_under_it():
+    """A caixa da marca d'água em diagonal cobre quase a folha, mas a marca não leu o corpo."""
+    doc = make_scanned_pdf(slanted="COPIA - DOCUMENTO DIGITAL")
+    result = process(doc, cheap=["text_layer", FakeOCR()])
+    (watermark,) = (c for c in result.chunks if c.source == "text_layer")
+    box = watermark.bbox
+    assert (box.x0 < 0.5 < box.x1, box.y0 < 0.15 < box.y1) == (True, True), "cobre a linha do OCR"
+    assert "ocr pagina 0" in [c.text for c in result.chunks]
+
+
 def test_a_typeset_page_without_rasters_never_reaches_the_ocr():
     ocr = FakeOCR()
     result = process(make_pdf(TEXT_CENTRAL), cheap=["text_layer", ocr])
@@ -1399,6 +1426,23 @@ def test_a_folha_out_of_the_sequence_of_the_run_is_flagged():
         (102, True),
         (1, False),
         (104, True),
+    ]
+
+
+def test_two_sequences_of_the_same_length_leave_every_folha_out_of_sequence():
+    """Com duas diferenças empatadas, nada diz qual é o auto: o resultado não depende da ordem."""
+    doc = make_pdf(
+        _folha_page(101, body="Alfa"),
+        _folha_page(102, body="Beta"),
+        _folha_page(1, body="Anexo"),
+        _folha_page(2, body="Anexo continua"),
+    )
+    result = process(doc, policy="all_cheap", cheap=["text_layer"])
+    assert [(p.folha.value, p.folha.in_sequence) for p in result.pages if p.folha] == [
+        (101, False),
+        (102, False),
+        (1, False),
+        (2, False),
     ]
 
 
@@ -1927,6 +1971,35 @@ def test_a_page_read_sideways_marks_furniture_as_read_and_not_as_scanned(turn):
         for page, name in enumerate(("Alfa", "Beta"))
     }
     assert _marked(pages)[0] == {"TRIBUNAL DE JUSTICA", "Comarca da Capital"}
+
+
+def test_a_checkbox_mark_repeated_in_the_middle_of_the_page_is_not_a_margin_strip():
+    """O `x` de uma caixa de seleção é mais alto que largo, mas uma letra só não tem direção."""
+    mark = BBox(x0=0.30, y0=0.40, x1=0.31, y1=0.412)
+    pages = {
+        page: [
+            _line(page, f"Cabecalho {name}", 0.05, 0),
+            _line(page, f"Motivo da devolucao {name}", 0.3, 0),
+            Chunk.make(make_page(page), mark, "ocr", "x"),
+            _line(page, f"Assinatura {name}", 0.6, 0),
+        ]
+        for page, name in enumerate(("Ana", "Bruno"))
+    }
+    assert not any(c.furniture for chunks in mark_furniture(pages).values() for c in chunks)
+
+
+def test_a_tall_letter_of_one_page_does_not_break_the_header_below_it():
+    """Uma letra solta acima do cabeçalho, alta como um glifo, não é linha própria da página."""
+    pages = {
+        page: [
+            _line(page, "TRIBUNAL DE JUSTICA", 0.05, 0),
+            _line(page, f"Corpo proprio {name}", 0.3, 0),
+        ]
+        for page, name in enumerate(("Alfa", "Beta"))
+    }
+    pages[0].append(Chunk.make(make_page(0), BBox(x0=0.5, y0=0.01, x1=0.505, y1=0.025), "ocr", "l"))
+    marked = {c.text for c in mark_furniture(pages)[0] if c.furniture}
+    assert marked == {"TRIBUNAL DE JUSTICA"}
 
 
 def test_a_line_of_the_layer_stays_at_its_edge_on_a_page_read_sideways():

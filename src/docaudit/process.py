@@ -301,8 +301,9 @@ def _read_cached(
         if hit is not None and "rendered" in hit:
             chunks = [Chunk.model_validate(c) for c in cast("list[object]", hit["chunks"])]
             return chunks, True, bool(hit["rendered"])
+    before = view.requests
     produced = list(reader.read(view))
-    rendered = view.rendered
+    rendered = view.requests > before
     if cache is not None:
         cache.put(
             key,
@@ -410,7 +411,8 @@ def _read_cascade(
     seguinte lê o recorte de cada raster com a folga de `RASTER_MARGIN`, e
     ficam as linhas cujo centro cai no raster, menos as que caem em algo já
     lido: o rodapé carimbado sobre uma digitalização já veio da camada de
-    texto. Cada uma dessas linhas diz em `region` de qual raster veio, e
+    texto. A linha da camada escrita em diagonal não conta como lida
+    (`_straight`). Cada uma dessas linhas diz em `region` de qual raster veio, e
     entra na ordem de leitura no lugar do raster (`_in_place`). O recorte, e
     não a página inteira, porque o custo do PP-OCR é por linha reconhecida. É
     assim que a folha digitalizada com o rodapé do PJe carimbado por cima tem o
@@ -443,13 +445,26 @@ def _read_cascade(
             return _Cascade(chunks, hit, 0, failed)
         for filler in readers[position + 1 :]:
             try:
-                extra = _from_rasters(view, filler, cache, chunks, rasters)
+                extra = _from_rasters(view, filler, cache, _straight(view, chunks), rasters)
             except RuntimeError as exc:
                 failed.append(_warn_failure(filler, view.page, exc))
                 return _Cascade(chunks, hit, 0, failed, lost=True)
             return _Cascade(_in_place(chunks, extra, view.page.unread), hit, 1, failed)
         return _Cascade(chunks, hit, 0, failed, lost=bool(failed))
     return _Cascade([], False, 0, failed)
+
+
+def _straight(view: PageView, read: Sequence[Chunk]) -> list[Chunk]:
+    """O que foi lido, menos as linhas da camada escritas em diagonal (`DrawnLine.slanted`).
+
+    A marca d'água que atravessa a folha tem uma caixa que cobre quase a
+    página. Contada como lida, ela esconderia as linhas do raster embaixo
+    dela, e o corpo da cópia sumiria do resultado.
+    """
+    slanted = {(d.line.bbox, d.line.text) for d in view.drawn_lines() if d.slanted}
+    if not slanted:
+        return list(read)
+    return [c for c in read if c.source != TextLayerReader.name or (c.bbox, c.text) not in slanted]
 
 
 def _from_rasters(
@@ -626,7 +641,9 @@ def _order_by_layout(chunks: Sequence[Chunk], regions: Sequence[Region]) -> list
 
     Cada linha vai ao bloco que contém o seu centro, ou ao mais próximo quando
     nenhum a contém, e recebe o rótulo do bloco em `kind` se o leitor não deu
-    um. Sem bloco nenhum, a ordem de cada leitor fica como veio.
+    um. Dentro do bloco, a ordem é a da linha como é lida (`_as_read`): na
+    página lida de lado, de cima para baixo na página em pé. Sem bloco
+    nenhum, a ordem de cada leitor fica como veio.
     """
     if not regions or not chunks:
         return list(chunks)
@@ -637,7 +654,7 @@ def _order_by_layout(chunks: Sequence[Chunk], regions: Sequence[Region]) -> list
         by_block[nearest].append(chunk)
     out: list[Chunk] = []
     for i, block in by_block.items():
-        for chunk in sorted(block, key=lambda c: (c.bbox.y0, c.bbox.x0)):
+        for chunk in sorted(block, key=lambda c: (_as_read(c).y0, _as_read(c).x0)):
             out.append(
                 chunk.model_copy(
                     update={"reading_order": len(out), "kind": chunk.kind or regions[i].label}
@@ -803,6 +820,15 @@ def _is_vertical(box: BBox) -> bool:
     return box.y1 - box.y0 > box.x1 - box.x0
 
 
+def _is_strip(chunk: Chunk) -> bool:
+    """A tarja da margem: uma linha de mais de um caractere escrita na vertical.
+
+    Uma letra só não tem direção. O glifo é mais alto que largo, e o `x` de
+    uma caixa de seleção repetido no meio da página pareceria tarja.
+    """
+    return len("".join(chunk.text.split())) > 1 and _is_vertical(_as_read(chunk))
+
+
 def _repeated_elsewhere(items: Sequence[Chunk], copy_of: Mapping[int, object]) -> set[str]:
     """Os ids dos trechos de `items` com um igual, no mesmo lugar, em outra página que não é cópia.
 
@@ -876,7 +902,7 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     )
     out: dict[int, list[Chunk]] = {}
     for index, chunks in by_page.items():
-        marked = {c.id for c in chunks if c.id in repeated and _is_vertical(_as_read(c))}
+        marked = {c.id for c in chunks if c.id in repeated and _is_strip(c)}
         for turn in {c.turn for c in chunks}:
             horizontal = sorted(
                 (c for c in chunks if c.turn == turn and not _is_vertical(_as_read(c))),
@@ -1267,12 +1293,20 @@ def _in_sequence(folhas: Mapping[int, Folha]) -> dict[int, Folha]:
     é uma só. A folha que não a segue é a de um documento juntado com
     numeração própria, ou a de uma cópia. Uma diferença que só uma página tem não
     confirma nada. O verso digitalizado ocupa uma página sem folha, e com ele
-    a diferença muda a cada folha.
+    a diferença muda a cada folha. Duas diferenças empatadas no topo não dizem
+    qual é o auto, e nenhuma folha segue.
+
+    A regra vê só as páginas lidas e conta páginas, não sabe qual trecho é o
+    auto. Numa execução com `pages=` só sobre a cópia juntada, a numeração
+    da cópia é a sequência. Um anexo com mais páginas que o trecho do auto
+    na execução fica com a sequência.
     """
-    offsets = Counter(f.value - index for index, f in folhas.items())
-    best, count = offsets.most_common(1)[0] if offsets else (None, 0)
+    offsets = Counter(f.value - index for index, f in folhas.items()).most_common(2)
+    count = offsets[0][1] if offsets else 0
+    tied = len(offsets) > 1 and offsets[1][1] == count
+    best = offsets[0][0] if count > 1 and not tied else None
     return {
-        index: f.model_copy(update={"in_sequence": count > 1 and f.value - index == best})
+        index: f.model_copy(update={"in_sequence": f.value - index == best})
         for index, f in folhas.items()
     }
 
