@@ -621,6 +621,23 @@ def test_line_boxes_follow_the_visible_box_origin_and_the_page_rotation():
     assert rotated.y0 == pytest.approx(base.x0, abs=0.01)
 
 
+@pytest.mark.parametrize("rotate", [180, 270])
+def test_the_page_rotation_does_not_change_the_lines_or_their_order(rotate):
+    """A mesma folha exibida girada: as mesmas linhas, na mesma ordem.
+
+    A 90 graus as linhas saem na ordem inversa, e esse giro fica de fora.
+    """
+    body = "\n".join(
+        f"BT /F1 10 Tf 70 {700 - 40 * i} Td (Linha {i} do corpo) Tj ET" for i in range(5)
+    )
+    with opened(make_pdf(body)) as doc:
+        upright = [text for _, text, _ in text_lines_of(doc, 0)]
+    with opened(make_pdf(body, rotate=rotate)) as doc:
+        turned = [text for _, text, _ in text_lines_of(doc, 0)]
+    assert upright == [f"Linha {i} do corpo" for i in range(5)]
+    assert turned == upright
+
+
 def test_unreadable_documents_raise_one_plain_error():
     """Arquivo que não é PDF e PDF sem página nenhuma saem como `DocumentError`."""
     from docaudit.types import DocumentError

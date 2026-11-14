@@ -1,4 +1,6 @@
+import random
 import re
+from collections.abc import Iterator, Sequence
 
 import pytest
 from tests.support.fixtures import make_page
@@ -18,13 +20,14 @@ from docaudit.policies import (
     Check,
     FailsCheck,
     GarbledText,
+    entities_of,
     failures,
     fold_lookalikes,
     garbled_runs,
     get_policy,
     signal,
 )
-from docaudit.types import BBox, Budget, Chunk, Substrate, Tier
+from docaudit.types import BBox, Budget, Chunk, EntityState, Substrate, Tier
 
 
 @pytest.fixture
@@ -488,3 +491,133 @@ class TestMojibake:
         (decision,) = result.decisions
         assert decision.tier is Tier.STRONG
         assert decision.signals.get(MojibakeText.name) == 1
+
+
+# ── Propriedades dos dígitos verificadores e do valor em reais ───────────────
+#
+# O resultado esperado vem da construção: os geradores calculam o dígito
+# verificador aqui, sem a regra da biblioteca, e a semente fixa repete a amostra.
+
+_OCR_LOOKALIKES = {"0": "O", "1": "lI", "2": "Z", "5": "S", "6": "G", "8": "B"}
+"""O dígito e as letras que um leitor de pixels lê no lugar dele."""
+
+_SEED = 20261113
+
+
+def _mod11(digits: list[int], weights: Sequence[int]) -> int:
+    rest = sum(d * w for d, w in zip(digits, weights, strict=True)) % 11
+    return 0 if rest < 2 else 11 - rest
+
+
+def _random_digits(rng: random.Random, size: int) -> list[int]:
+    """`size` dígitos ao acaso, nunca todos iguais: a regra recusa esse id."""
+    while True:
+        digits = [rng.randrange(10) for _ in range(size)]
+        if len(set(digits)) > 1:
+            return digits
+
+
+def _cpf(rng: random.Random) -> str:
+    d = _random_digits(rng, 9)
+    d.append(_mod11(d, range(10, 1, -1)))
+    d.append(_mod11(d, range(11, 1, -1)))
+    s = "".join(map(str, d))
+    return f"{s[:3]}.{s[3:6]}.{s[6:9]}-{s[9:]}"
+
+
+_CNPJ_WEIGHTS = (5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2)
+
+
+def _cnpj(rng: random.Random) -> str:
+    d = _random_digits(rng, 12)
+    d.append(_mod11(d, _CNPJ_WEIGHTS))
+    d.append(_mod11(d, (6, *_CNPJ_WEIGHTS)))
+    s = "".join(map(str, d))
+    return f"{s[:2]}.{s[2:5]}.{s[5:8]}/{s[8:12]}-{s[12:]}"
+
+
+def _cnj(rng: random.Random) -> str:
+    """NNNNNNN-DD.AAAA.J.TR.OOOO, com DD tal que o número com DD no fim deixa resto 1 por 97."""
+    n, year = rng.randrange(10**7), rng.randrange(1990, 2030)
+    j, tr, origin = rng.randrange(1, 10), rng.randrange(1, 28), rng.randrange(10**4)
+    dd = 98 - int(f"{n:07d}{year:04d}{j}{tr:02d}{origin:04d}") * 100 % 97
+    return f"{n:07d}-{dd:02d}.{year:04d}.{j}.{tr:02d}.{origin:04d}"
+
+
+def _amount(rng: random.Random) -> str:
+    """`R$ x.xxx,xx` ao acaso, com o milhar em grupos de três e sem zero à esquerda."""
+    reais = rng.randrange(10 ** rng.randrange(1, 10))
+    return f"R$ {reais:,}".replace(",", ".") + f",{rng.randrange(100):02d}"
+
+
+def _misreads(value: str) -> Iterator[tuple[int, str]]:
+    """Cada leitura com um só dígito trocado pela letra parecida, com a posição trocada."""
+    for i, char in enumerate(value):
+        for letter in _OCR_LOOKALIKES.get(char, ""):
+            yield i, value[:i] + letter + value[i + 1 :]
+
+
+def _found(check: Check, text: str) -> list[tuple[str, EntityState]]:
+    """Cada valor que `entities_of` acha numa linha com `text`, com o estado."""
+    page = make_page(0, substrate=Substrate.BORN_DIGITAL)
+    line = Chunk.make(page, BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.12), "fake", text)
+    return [(e.value, e.state) for e in entities_of([check], page, [line])]
+
+
+def _confirmed(check: Check, text: str) -> list[str]:
+    return [value for value, state in _found(check, text) if state is EntityState.CONFIRMED]
+
+
+@pytest.mark.parametrize(("check", "make"), [(CPF, _cpf), (CNPJ, _cnpj), (CNJ, _cnj)])
+def test_a_generated_valid_id_comes_out_confirmed(check, make):
+    rng = random.Random(_SEED)
+    for _ in range(200):
+        value = make(rng)
+        assert failures(check, f"id {value} fim") == 0, value
+        assert _confirmed(check, f"id {value} fim") == [value]
+
+
+@pytest.mark.parametrize(("check", "make"), [(CPF, _cpf), (CNJ, _cnj)])
+def test_a_digit_read_as_a_letter_never_confirms_another_value(check, make):
+    """CPF e CNJ não têm letra em posição nenhuma: a leitura trocada falha ou não casa."""
+    rng = random.Random(_SEED)
+    for _ in range(200):
+        value = make(rng)
+        for _, misread in _misreads(value):
+            assert _confirmed(check, f"id {misread} fim") == [], misread
+
+
+def test_a_digit_of_a_cnpj_read_as_a_letter_never_confirms_another_value():
+    """Nenhuma troca de dígito por letra sai `confirmed`, em nenhuma posição.
+
+    A maiúscula nas doze primeiras posições pode conferir pelo módulo 11, e
+    sai no máximo `well_formed`.
+    """
+    rng = random.Random(_SEED)
+    for _ in range(500):
+        value = _cnpj(rng)
+        for _, misread in _misreads(value):
+            assert _confirmed(CNPJ, f"id {misread} fim") == [], misread
+
+
+def test_a_generated_amount_matches_and_is_well_formed():
+    rng = random.Random(_SEED)
+    for _ in range(500):
+        value = _amount(rng)
+        assert failures(AMOUNT_BRL, f"total {value} pago") == 0, value
+        assert _found(AMOUNT_BRL, f"total {value} pago") == [(value, EntityState.WELL_FORMED)]
+
+
+def test_an_amount_digit_read_as_a_letter_fails():
+    """A troca num valor com mais de um dígito antes da vírgula.
+
+    Com um dígito só, a troca não deixa dígito antes da vírgula, e a forma não
+    casa: esse caso fica de fora daqui.
+    """
+    rng = random.Random(_SEED)
+    for _ in range(500):
+        value = _amount(rng)
+        if len(value.removeprefix("R$ ").split(",")[0]) == 1:
+            continue
+        for _, misread in _misreads(value):
+            assert failures(AMOUNT_BRL, f"total {misread} pago") == 1, misread
