@@ -20,7 +20,7 @@ from docaudit import Budget, mark_furniture, process
 from docaudit.backends.textlayer import TextLayerReader
 from docaudit.cache import ModelCallCache
 from docaudit.pdf import PageView, RegionView, drawn_lines_of, load_pages, opened, pages_of
-from docaudit.policies import ESAJ_STAMP, Check, StampFormat
+from docaudit.policies import CPF, ESAJ_STAMP, Check, StampFormat
 from docaudit.process import (
     RASTER_MARGIN,
     _in_place_of_pixels,
@@ -715,6 +715,37 @@ def test_the_hidden_layer_is_the_first_family_of_the_reread():
     )
     assert same.decisions[0].reason == "erro do documento: text_layer leu o mesmo"
     assert vlm.calls == 0
+
+
+def test_a_layer_tesseract_wrote_does_not_confirm_what_tesseract_read():
+    """A camada com `GlyphLessFont` é do Tesseract: não é outra família para o Tesseract."""
+    doc = make_scanned_pdf(["CPF 529.982.247-26"], font="GlyphLessFont")
+    assert load_pages(doc)[0].hidden_fonts == ("GlyphLessFont",)
+    same = process(
+        doc, policy="evidence", cheap=["text_layer", _Says("tesseract", {0: "CPF 529.982.247-26"})]
+    )
+    (decision,) = same.decisions
+    assert not decision.reason.startswith("erro do documento")
+    assert any("mesmo motor" in s for s in decision.steps)
+    (cpf,) = same.entities
+    assert cpf.printed is None
+
+    other = process(
+        doc, policy="evidence", cheap=["text_layer", _Says("cheap", {0: "CPF 529.982.247-26"})]
+    )
+    assert other.decisions[0].reason == "erro do documento: text_layer leu o mesmo"
+    assert other.entities[0].printed == "text_layer"
+
+
+def test_a_layer_tesseract_wrote_does_not_fix_what_tesseract_read_but_its_id_still_enters():
+    """Sem releitura pela camada, a página escala; o id que confere na camada entra depois."""
+    doc = make_scanned_pdf(["CPF 529.982.247-25"], font="GlyphLessFont")
+    result = process(
+        doc, policy="evidence", cheap=["text_layer", _Says("tesseract", {0: "CPF 529.982.247-26"})]
+    )
+    (decision,) = result.decisions
+    assert decision.tier is Tier.STRONG, "a camada do mesmo motor não conserta"
+    assert ("CPF 529.982.247-25", "text_layer") in [(c.text, c.source) for c in result.chunks]
 
 
 def test_evidence_reads_every_page_cheap_then_escalates_only_the_proven_failures():
@@ -2082,6 +2113,35 @@ def test_a_costly_read_with_the_comma_and_the_same_digits_repairs_a_bare_amount(
     assert result.spent.lines_strong_rejected == 0
 
 
+def test_a_renamed_amount_check_keeps_the_bare_amount_rule(scanned_doc):
+    """A cópia de `AMOUNT_BRL` com outro nome conserta o valor sem `R$` como o original."""
+    import dataclasses
+
+    from docaudit.policies import AMOUNT_BRL, EvidenceRouter, FailsCheck
+
+    valor = dataclasses.replace(AMOUNT_BRL, name="valor")
+    policy = EvidenceRouter([FailsCheck(valor)])
+    result = _strong_outcome("15.062.39", "15.062,39", policy, scanned_doc)
+    assert [c.source for c in result.chunks] == ["strong"]
+    assert result.spent.lines_strong_rejected == 0
+
+
+def test_without_an_amount_check_a_bare_amount_refuses_nothing(scanned_doc):
+    """Sem verificação de valor em reais pedida, o número com vírgula não segura a linha barata."""
+    from docaudit.policies import AllStrong
+
+    class ReadThenStrong(AllStrong):
+        needs_reads = True
+
+    cheap = _Says("cheap", {0: "Valor da causa R$ 1.284,56"})
+    strong = _Says("strong", {0: "Valor da causa R$ 1.234,56"})
+    result = process(
+        scanned_doc, cheap=[cheap], strong=strong, policy=ReadThenStrong(), entities=[CPF]
+    )
+    assert [c.source for c in result.chunks] == ["strong"]
+    assert result.spent.lines_strong_rejected == 0
+
+
 def test_a_costly_read_with_other_digits_does_not_repair_a_bare_amount(scanned_doc):
     result = _strong_outcome("15.062.39", "15.062,89", "evidence", scanned_doc)
     assert [c.source for c in result.chunks] == ["cheap"]
@@ -2135,6 +2195,8 @@ def test_the_hidden_layer_reading_another_amount_is_a_doubt_and_the_reading_stay
         )
     trusted = process(doc, cheap=["text_layer", reader], trust_layer="always")
     assert trusted.others == (), "com a camada como leitura, não há outra família"
+    unchecked = process(doc, cheap=[reader], policy="all_cheap", entities=[CPF])
+    assert unchecked.others == (), "sem verificação de valor em reais, não há o que comparar"
 
 
 def test_a_confirmed_id_only_the_hidden_layer_read_takes_the_place_of_the_pixel_line():

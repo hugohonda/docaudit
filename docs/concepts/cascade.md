@@ -58,7 +58,9 @@ leitura já paga. Ela serve a quatro coisas:
 - **Valor em reais.** Um valor em reais não tem dígito verificador. Quando
   a linha da camada no mesmo lugar lê outro número, ela vai para
   `Result.others`, com `check` e `value`. Isso só aponta a diferença: não
-  corrige a linha nem encaminha a página.
+  corrige a linha nem encaminha a página. Vale só com uma verificação de
+  valor em reais pedida, na política ou nas entidades, a que declara
+  `Check.bare`.
 
 Uma camada que discorda dos pixels sem deixar valor impossível, fora esses
 casos, passa sem que nenhum sinal a veja. Com `trust_layer="always"`, a

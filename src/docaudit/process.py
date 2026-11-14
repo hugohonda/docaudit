@@ -36,11 +36,11 @@ from typing import TYPE_CHECKING, NamedTuple, cast
 from zoneinfo import ZoneInfo
 
 from docaudit import pdf as _pdf
+from docaudit.backends.tesseract import TesseractOCR
 from docaudit.backends.textlayer import TextLayerReader
 from docaudit.cache import call_key
 from docaudit.pdf import PageView, merge_touching
 from docaudit.policies import (
-    AMOUNT_BRL,
     DEFAULT_ENTITIES,
     DEFAULT_STAMPS,
     FOLHA,
@@ -566,10 +566,11 @@ def _explains(check: FailsCheck, value: str, chunk: Chunk) -> bool:
     certa dele não é campo. Conta quando há nele um número com vírgula decimal e
     os mesmos dígitos do valor que falhou: só o separador mudou. Com outro
     dígito, ela trouxe outro valor, e nada prova qual dos dois é o certo.
+    Vale só para a verificação com `Check.bare`.
     """
     if check.valid_in(chunk):
         return True
-    if check.check is not AMOUNT_BRL:
+    if not check.check.bare:
         return False
     return any(_digits(found) == _digits(value) for found in _BARE_AMOUNT.findall(chunk.text))
 
@@ -1108,6 +1109,11 @@ def _confirm_stage(
     Numa `SEARCHABLE_SCAN` a primeira família é a camada de OCR embutida,
     que já está lida e custa zero; depois vem `confirm`. A primeira que
     decide encerra. Muda `decisions`, `reads` e `failures` no lugar.
+
+    A camada que o Tesseract escreveu não é outra família para uma linha que
+    o Tesseract leu: os dois erram junto. A fonte `GlyphLessFont` em
+    `Page.hidden_fonts` diz que o Tesseract escreveu a camada da página, e
+    então ela não relê a página em que uma linha que falha veio dele.
     """
     for k, decision in enumerate(decisions):
         if decision.tier is not Tier.STRONG:
@@ -1117,14 +1123,19 @@ def _confirm_stage(
         before = failures.get(page.index, [])
         if not before:
             continue
-        families = [
-            b
-            for b in (layer if page.substrate is Substrate.SEARCHABLE_SCAN else None, confirm)
-            if b is not None
-        ]
+        same_engine = TesseractOCR.layer_font in page.hidden_fonts and any(
+            c.source == TesseractOCR.name for _, _, c in before
+        )
+        own_layer = layer if page.substrate is Substrate.SEARCHABLE_SCAN else None
+        families = [b for b in (None if same_engine else own_layer, confirm) if b is not None]
         tick = time.perf_counter()
         view = run.view(page)
         steps = run.steps[page.index]
+        if own_layer is not None and same_engine:
+            steps.append(
+                "camada escrita pelo Tesseract, o mesmo motor da leitura que falhou: "
+                "não é outra família"
+            )
         values = ", ".join(dict.fromkeys(value for _, value, _ in before))
         failing = {(c.name, value) for c, value, _ in before}
         alike = ", ".join(
@@ -1191,12 +1202,15 @@ def _valid_values(check: FailsCheck, chunk: Chunk) -> set[str]:
 
 _BARE_AMOUNT = re.compile(r"(?<![0-9.,])[0-9]{1,3}(?:\.[0-9]{3})*,[0-9]{2}(?![0-9.,])")
 """O número com vírgula decimal e milhar com ponto, com ou sem o `R$` antes."""
-_BARE_AMOUNT_FIELD = AMOUNT_BRL.name
-"""O campo com que a leitura ao lado aponta um número de `_BARE_AMOUNT`."""
+
+
+def _bare_field(checks: Sequence[Check]) -> str | None:
+    """O nome da primeira verificação com `Check.bare`; sem ela, `_BARE_AMOUNT` não conta."""
+    return next((c.name for c in checks if c.bare), None)
 
 
 def _amount_disagreements(
-    run: _Run, page: Page, lines: Sequence[Chunk], trust_layer: TrustLayer
+    run: _Run, page: Page, lines: Sequence[Chunk], trust_layer: TrustLayer, field: str | None
 ) -> list[OtherReading]:
     """As linhas da camada oculta que leem outro número no lugar de um valor lido dos pixels.
 
@@ -1207,8 +1221,9 @@ def _amount_disagreements(
     mesmo número de valores, o primeiro par diferente vira uma leitura ao
     lado, com `same=False`, o `check` e o valor da linha. Só aponta: não
     corrige nem escala. A página sem valor lido dos pixels não lê a camada.
+    `field` é o nome da verificação com `Check.bare`; sem ela, nada compara.
     """
-    if trust_layer != "visible" or page.substrate is not Substrate.SEARCHABLE_SCAN:
+    if field is None or trust_layer != "visible" or page.substrate is not Substrate.SEARCHABLE_SCAN:
         return []
     read = [
         (line, mine)
@@ -1227,11 +1242,7 @@ def _amount_disagreements(
             continue
         for a, (b, h) in zip(mine, theirs, strict=True):
             if a != b:
-                out.append(
-                    OtherReading(
-                        line=line.id, reading=h, same=False, check=_BARE_AMOUNT_FIELD, value=a
-                    )
-                )
+                out.append(OtherReading(line=line.id, reading=h, same=False, check=field, value=a))
                 break
     return out
 
@@ -1395,13 +1406,15 @@ def _rejected_strong(
     strong: Sequence[Chunk],
     failures: Sequence[Failure],
     checks: Sequence[FailsCheck],
+    bare: str | None,
 ) -> tuple[set[str], list[str], list[OtherReading]]:
     """As linhas caras que não entram no lugar da barata, o porquê, e as que perderam valor.
 
     A leitura cara passa pelas mesmas verificações que a barata, com o
     veredito da releitura por outra família. Uma linha cara que cobre uma
     linha barata com um valor que confere, e não traz esse valor, perdeu o
-    valor: fica a linha barata. O mesmo vale para o número com vírgula
+    valor: fica a linha barata. Com uma verificação com `Check.bare`
+    pedida, cujo nome vem em `bare`, o mesmo vale para o número com vírgula
     decimal e milhar no lugar, mesmo sem o `R$` na linha: numa tabela, o
     símbolo fica no cabeçalho ou na linha de cima, e a linha cara que lê o
     ponto no lugar da vírgula perde o valor. Esse número não tem dígito
@@ -1450,8 +1463,8 @@ def _rejected_strong(
     for line in cheap:
         values: set[str] = set(_BARE_AMOUNT.findall(line.text))
         for s in covering[line.id]:
-            if missing := sorted(values - amounts[s.id]):
-                lose(line, s, _BARE_AMOUNT_FIELD, missing[0])
+            if bare is not None and (missing := sorted(values - amounts[s.id])):
+                lose(line, s, bare, missing[0])
                 notes["perdeu um valor com vírgula decimal que a leitura barata trazia"] = None
     for check, value, line in failures:
         covering = [s for s in strong if _same_place(line, s)]
@@ -1527,6 +1540,7 @@ def _strong_stage(
     failures: Mapping[int, Sequence[Failure]],
     backend: Reader | None,
     checks: Sequence[FailsCheck],
+    bare: str | None,
     reread: Reread,
     workers: int,
     deadline: float | None,
@@ -1543,6 +1557,7 @@ def _strong_stage(
     `deadline` é o instante de `time.perf_counter` em que `Budget.max_seconds`
     vence: a página que começa depois dele não vai ao leitor caro. Devolve os
     índices dessas páginas, para que quem chama garanta a leitura barata delas.
+    `bare` é o nome da verificação com `Check.bare`, ou None (`_rejected_strong`).
     """
     deferred: set[int] = set()
     if backend is None:
@@ -1597,7 +1612,7 @@ def _strong_stage(
             steps.append(f"{backend.name} falhou: {read.error}; fica a leitura barata, se houve")
         else:
             fails = failures.get(page.index, ())
-            rejected, notes, lost = _rejected_strong(cheap, read.strong, fails, checks)
+            rejected, notes, lost = _rejected_strong(cheap, read.strong, fails, checks, bare)
             accepted = [s for s in read.strong if s.id not in rejected]
             refused = [s for s in read.strong if s.id in rejected]
             run.others.extend(_other_readings(fails, refused))
@@ -1871,6 +1886,8 @@ def run_pipeline(
     # para a releitura por outra família e para a leitura cara por região.
     checks = list(policy.checks)
     entity_checks = _entity_checks(policy, entities)
+    # O número com vírgula sem `R$` só conta quando uma verificação pedida o declara.
+    bare = _bare_field([*(c.check for c in checks), *entity_checks])
     stamp_formats = _named(stamps, DEFAULT_STAMPS, STAMP_FORMATS)
     folha_checks = _named(folhas, (FOLHA,), FOLHA_FORMATS)
     for check in folha_checks:
@@ -1884,12 +1901,11 @@ def run_pipeline(
         selected = [p for p in classified if pages is None or p.index in pages]
     if policy.needs_reads:
         # Guarda a renderização só da página que tem por onde escalar: leitura
-        # vazia ou valores que falham até o mínimo da política. A escalada por
+        # vazia ou um valor que falha. A política pode pedir mais falhas, e a
+        # página que ela não encaminha solta a vista logo depois. A escalada por
         # outro sinal renderiza a página de novo, e a conta continua a mesma.
-        least = getattr(policy, "min_failures", 1)
-
         def may_escalate(page: Page, chunks: Sequence[Chunk]) -> bool:
-            return not chunks or sum(len(c.failing(page, chunks)) for c in checks) >= least
+            return not chunks or any(c.failing(page, chunks) for c in checks)
 
         by_page = _cheap_stage(run, selected, readers, workers, trust_layer, may_escalate)
         decisions = list(policy.decide(selected, budget, by_page))
@@ -1935,6 +1951,7 @@ def run_pipeline(
             failures,
             strong,
             checks,
+            bare,
             reread,
             workers,
             deadline,
@@ -2009,7 +2026,7 @@ def run_pipeline(
     # As discordâncias de valor com a camada oculta, sobre o texto final.
     for page in selected:
         run.others.extend(
-            _amount_disagreements(run, page, by_page.get(page.index, ()), trust_layer)
+            _amount_disagreements(run, page, by_page.get(page.index, ()), trust_layer, bare)
         )
     # As entidades por último, sobre o texto final de cada página, na ordem
     # de leitura: o valor que o leitor caro trocou sai com a linha dele.

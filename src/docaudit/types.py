@@ -629,8 +629,9 @@ class OtherReading(_Frozen):
     same: bool = PField(
         description=(
             "O outro leitor leu o mesmo valor inválido. Só prova o erro impresso quando "
-            "vem de outra família: `confirm=` ou a camada de OCR. A linha recusada do "
-            "leitor caro repete o valor e não prova nada; a leitura que leu outra coisa "
+            "vem de outra família: `confirm=` ou a camada de OCR que outro motor escreveu. "
+            "A linha recusada do leitor caro repete o valor e não prova nada; a leitura "
+            "que leu outra coisa "
             "não explicou a falha. Sempre `false` numa leitura substituída."
         )
     )

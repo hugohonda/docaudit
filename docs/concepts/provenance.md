@@ -91,7 +91,8 @@ Esses campos provam menos do que parecem:
 - As fontes do texto escondido sobrevivem à divisão. Elas dizem qual motor
   escreveu a camada de OCR de uma digitalização, sem que a biblioteca nomeie
   motor nenhum. O Tesseract deixa `GlyphLessFont`; um montador de PDF deixa
-  as fontes base do PDF.
+  as fontes base do PDF. Com `GlyphLessFont`, a camada não é outra família
+  para uma linha que o Tesseract leu, e não a relê.
 - A assinatura é lida como o arquivo a declara, sem conferir a
   criptografia.
 

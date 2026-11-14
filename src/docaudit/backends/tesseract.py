@@ -39,6 +39,8 @@ class TesseractOCR:
 
     name = "tesseract"
     external = False
+    layer_font = "GlyphLessFont"
+    """A fonte do texto invisível que o Tesseract escreve na camada de um PDF pesquisável."""
 
     def __init__(self, lang: str | None = None, config: str = "") -> None:
         """Configura idioma e flags do motor.
