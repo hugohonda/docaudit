@@ -35,8 +35,11 @@ só onde a leitura barata provou ter falhado, e um
 ## Releitura por outra família
 
 Antes do leitor caro, outra [família](../glossary.md#familia) relê a página
-encaminhada por uma verificação. Ela separa o erro impresso no documento do
-erro de leitura. Ver
+encaminhada por uma verificação. A biblioteca compara as linhas que falharam
+e rotula o caso. O mesmo valor inválido nas duas leituras é tomado como erro
+impresso no documento. Um valor válido no mesmo lugar é tomado como erro de
+leitura. O resto fica sem decisão. O rótulo é uma regra, e
+[Limites](../limits.md#comportamentos-conhecidos) diz onde ela erra. Ver
 [Reler com outra família](policy.md#reler-com-outra-familia-antes-do-leitor-caro).
 
 ## Leitor caro
