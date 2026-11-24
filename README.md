@@ -9,10 +9,12 @@ da leitura e a origem de cada trecho.
 leu com regras que o próprio documento traz: o dígito verificador de um CPF,
 ou o do número de um processo. A página com uma linha que falha a
 conferência pode ser relida por outra família de OCR (`confirm=`), que lê a
-página inteira. A comparação é nas linhas que falharam. O mesmo valor
-inválido nas duas leituras mostra que o erro está impresso no documento; um
-valor válido no mesmo lugar substitui a linha. Só o que continua sem
-explicação vai a um leitor caro, com teto opcional de páginas e de tempo.
+página inteira. A comparação é nas linhas que falharam, e cada caso sai
+rotulado. O mesmo valor inválido nas duas leituras é tomado como erro impresso
+no documento. Um valor válido no mesmo lugar é tomado como erro de leitura e
+substitui a linha. O resto fica sem decisão e vai a um leitor caro, com teto
+opcional de páginas e de tempo. O rótulo é uma regra, e os casos em que ela
+erra estão em [Limites](https://hugohonda.github.io/docaudit/limits/).
 
 O caso principal são os autos judiciais. Qualquer campo com forma impressa e
 regra de validade entra como verificação própria. Tudo roda na sua máquina,
@@ -30,8 +32,9 @@ layer stays as a second reading.
 Categorical checks that need no reference text (CPF, CNPJ and CNJ check
 digits, impossible amount spelling, empty or garbled reads) flag where that
 reading failed. A second OCR family re-reads those pages and compares the
-failing lines, to tell a misprint in the document from a misread. Only what
-remains goes to a stronger reader, under an optional cap in pages and in
+failing lines: the same invalid value in both readings is taken as printed in
+the document, and a valid value in the same place is taken as a misread. What
+remains undecided goes to a stronger reader, under an optional cap in pages and in
 seconds: a larger OCR, a local vision-language model, or an OpenAI-compatible
 endpoint you explicitly allow.
 Every chunk carries page, normalized bounding box, reader and confidence.

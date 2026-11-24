@@ -69,6 +69,24 @@ precisa conhecer antes de confiar num resultado.
   logo depois do `R$`, como `R$ 1 234,56`. Os dois têm a forma da troca que
   os leitores de pixels fazem, e nada na forma os separa dela. A página vai
   ao leitor caro, e o valor pode sair `failed`.
+- **Duas famílias podem errar igual.** A
+  [releitura por outra família](glossary.md#releitura-por-outra-familia)
+  toma o mesmo valor inválido nas duas leituras como erro impresso no
+  documento. Isso não vale quando os dois leitores fazem a mesma troca. O
+  caso conhecido é a vírgula decimal de uma tabela digitalizada, lida como
+  ponto. A [verificação](glossary.md#verificacao) declara a troca em
+  `Check.alike`, e das prontas só o valor em reais declara uma, a do ponto
+  decimal. Na página em que um valor que falha é dessa troca, o mesmo valor
+  inválido não decide. A página segue [encaminhada](glossary.md#encaminhar)
+  ao [leitor caro](glossary.md#leitor-caro), e a
+  [entidade](glossary.md#entidade) sai sem `printed`, salvo quando o valor
+  está em texto composto. Sem `strong=`, a página fica com a leitura barata.
+  Fica descoberta a troca igual que nenhuma verificação declara. Ela sai com
+  o motivo `erro do documento` e com `printed`, e a página não vai ao leitor
+  caro. A biblioteca também não sabe que motor escreveu a
+  [camada de OCR](glossary.md#camada-de-ocr) embutida. Ela conta como outra
+  família, salvo a que o Tesseract escreveu, quando a linha que falhou veio
+  dele.
 - **Um valor errado pode passar no dígito verificador.** O dígito prova que
   o valor é possível, não que é o impresso. No CPF e no CNPJ, que escrevem o
   resto 10 como 0, a troca de um só dígito passa em alguns casos. No número
