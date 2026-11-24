@@ -120,19 +120,10 @@ tem `incomplete`: a leitura barata fica, e a falha aparece em `failures`.
 
 ## A memória do processo sobe a cada lote e não volta
 
-Num serviço em Linux que lê em várias threads, o glibc dá uma arena de
-memória a cada thread. Cada arena guarda os blocos grandes de pixels já
-liberados, e o processo não os devolve ao sistema. O `tracemalloc` não vê
-essa memória, porque ela é do alocador e não do Python.
-
-Limite as arenas no ambiente do processo:
-
-```bash
-export MALLOC_ARENA_MAX=2
-```
-
-No macOS isso não acontece: o alocador dele não tem arenas por thread. Ver
-[Implantar num serviço](how-to/deploy.md).
+Acontece num serviço em Linux que lê em várias threads. A memória que sobe é
+do alocador do sistema, e não do Python. `MALLOC_ARENA_MAX=2` no ambiente do
+processo a limita. A causa, e o que muda em cada plataforma, está em
+[Implantar num serviço](how-to/deploy.md#memoria).
 
 ## O cache para de servir depois de instalar o OpenVINO
 

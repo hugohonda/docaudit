@@ -35,7 +35,9 @@ do teto fica na [etapa barata](../glossary.md#etapa-barata). A política
 da página cortada é o do sinal, como `2 x CPF que falha a verificação`, e
 o `tier` é `cheap`. `all_strong` é cortada na ordem das páginas, e uma
 política própria na ordem em que devolve as decisões. Nas duas, o motivo
-termina com `fora do teto de N página(s)`.
+termina com `fora do teto de N página(s)`. A página que o teto de páginas
+deixou de fora também não passa pela releitura por outra família: a
+releitura só vê a página que continua encaminhada.
 
 Quando `max_seconds` vence, a releitura por outra família termina mesmo
 assim. A página que o teto de tempo alcançou fica com a leitura barata, que
@@ -131,30 +133,11 @@ mínimo.
 
 ## Os três estados
 
-A mesma verificação que encaminha a página também produz
-`Result.entities`. Cada [entidade](../glossary.md#entidade) é um valor que a
-verificação casou, com as linhas de origem e um de três estados:
-
-| estado | o que a verificação diz |
-|---|---|
-| `confirmed` | a regra tem redundância e confere, como o dígito verificador de um CPF |
-| `well_formed` | a forma e a regra passam, sem redundância: um valor bem escrito, uma data que existe |
-| `failed` | a regra falha: erro de leitura ou erro impresso no documento |
-
-A diferença entre os dois primeiros é a redundância (`Check.redundant`). Um
-valor em reais bem escrito pode ter um dígito trocado. Num CPF, a maioria
-das trocas de um dígito falha o dígito verificador, mas não todas: o estado
-`confirmed` é evidência forte, não prova ([Limites](../limits.md#comportamentos-conhecidos)).
-
-Num valor `failed`, `Entity.printed` diz quem mostra que o erro é do
-documento. `text_layer` quer dizer que o valor veio da camada de texto de uma página
-nato-digital, que não tem leitor a errar. O nome de um leitor quer dizer que outra família
-leu o mesmo valor inválido no mesmo lugar. `None` quer dizer que o erro
-pode ser de leitura.
-
-Uma verificação na política encaminha e extrai. Uma verificação em
-`process(entities=)` só extrai. As entidades padrão estão em
-[Entidades](../entities.md).
+A mesma verificação que encaminha a página também produz `Result.entities`,
+e dá a cada [entidade](../glossary.md#entidade) um de três estados:
+`confirmed`, `well_formed` ou `failed`. O que cada estado prova, e o que
+`Entity.printed` diz de um valor `failed`, está em
+[Entidades padrão](../entities.md#os-tres-estados).
 
 ## Reler com outra família antes do leitor caro
 
@@ -204,23 +187,11 @@ leitura. `Result.spent` conta `pages_confirmed`, `pages_confirmed_same`,
 
 ## Reler só o recorte
 
-Uma verificação diz em que linha a leitura falhou: `FailsCheck.failing`
-devolve cada valor inválido com o trecho em que ele está. Com
-`process(..., reread="region")`, o leitor caro recebe um
-[recorte](../glossary.md#recorte) por valor inválido. O recorte é a menor
-caixa que contém as linhas do valor, que são duas quando ele quebra na
-linha. O recorte não tem folga em volta. O leitor caro substitui só o que
-leu ali, e o resto da página fica da leitura barata.
-
-Mesmo com `reread="region"`, a página vai inteira quando disparou nela um
-sinal que não é uma verificação (`FailsCheck`), como leitura vazia ou texto
-mal decodificado. Um recorte ali deixaria o resto da falha na página. Numa
-política sem verificação, toda página vai inteira. O padrão de `reread` é
-`"page"`, a página inteira.
-
-`Result.spent.regions_strong` conta as páginas em que o leitor caro leu só
-os recortes. O recorte entra no cache com a caixa na chave: uma caixa
-diferente é uma leitura diferente.
+Com `process(..., reread="region")`, o leitor caro recebe só o
+[recorte](../glossary.md#recorte) das linhas cujo valor falhou, e não a
+página inteira. O que entra no recorte, e quando a página vai inteira mesmo
+assim, está em
+[Escalar só o que falhou](../how-to/escalate.md#reler-so-o-recorte).
 
 ## A leitura cara passa pelas mesmas verificações
 
