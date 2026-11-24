@@ -1764,7 +1764,8 @@ def process(
             que contém o seu centro, ou ao mais próximo, e recebe o rótulo do
             bloco em `kind` quando o leitor não deu um. Vale para o que todo
             leitor leu, inclusive o caro. A detecção acontece na mesma
-            renderização da leitura, uma vez por página; o tempo está em
+            renderização da leitura, uma vez por página; o tempo dela entra
+            na etapa que renderizou a página, e a ordem de custo está em
             `docs/performance.md`. `None` mantém a ordem de cada leitor.
         trust_layer: o que fazer com a camada de texto de uma página
             `SEARCHABLE_SCAN`, que um OCR desconhecido deixou sob a imagem.

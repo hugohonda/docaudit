@@ -103,7 +103,7 @@ leitura vazia, vai direto ao leitor caro. O que
 
 ## Pôr um teto
 
-`Budget` limita o leitor caro em páginas e em tempo:
+`Budget` é o [teto](../glossary.md#teto) do leitor caro, em páginas e em tempo:
 
 ```python
 from docaudit import Budget, process
@@ -117,29 +117,25 @@ result = process(
 )
 ```
 
-| campo | limita |
-|---|---|
-| `max_strong_pages` | o número de páginas que o leitor caro lê |
-| `max_strong_fraction` | a fração das páginas processadas, arredondada para cima: `0.2` em quatro páginas permite uma |
-| `max_seconds` | o tempo de parede, contado do início da chamada; depois dele o leitor caro não começa página nova |
+Neste exemplo, o leitor caro lê no máximo dez páginas e no máximo um quinto
+das páginas processadas: vale o menor dos dois. Depois de 300 segundos de
+chamada, ele não começa página nova. A página que fica de fora mantém a
+leitura barata.
 
-Com os dois tetos em páginas, vale o menor. Quando o teto não cobre todas as
-páginas encaminhadas, passam primeiro as do sinal que vem antes na lista da
-política. A página que ficou de fora mantém a leitura barata, com `tier`
-igual a `cheap` e o motivo do sinal que disparou nela. A página que o teto de páginas deixou de fora também não passa pela
-releitura por outra família: a releitura só vê a página que continua
-encaminhada. A leitura barata e a releitura por outra família terminam
-sempre: `max_seconds` corta só a etapa cara.
-
-O teto vale para qualquer política, inclusive `all_strong`. Tokens e dólares
-não têm teto. `Result.spent` os relata quando o leitor caro sabe contá-los, e
-quem chama decide o que fazer com eles.
+O que cada campo limita está em
+[Configuração](../configuration.md#teto-budget). Que página o teto corta
+primeiro, e o que acontece com ela, está em
+[Política, conferência e escalada](../concepts/policy.md#teto-budget).
 
 ## Reler só o recorte
 
-Por padrão, o leitor caro lê a página inteira. Com `reread="region"`, ele
-recebe só o recorte das linhas cujo valor falhou e substitui só o que leu
-ali. O resto da página fica com a leitura barata.
+Por padrão, `reread="page"`, o leitor caro lê a página inteira. Uma
+verificação diz em que linha a leitura falhou: `FailsCheck.failing` devolve
+cada valor inválido com o trecho em que ele está. Com `reread="region"`, o
+leitor caro recebe um [recorte](../glossary.md#recorte) por valor inválido.
+O recorte é a menor caixa que contém as linhas do valor, que são duas quando
+ele quebra na linha. O recorte não tem folga em volta. O leitor caro
+substitui só o que leu ali, e o resto da página fica com a leitura barata.
 
 ```python
 from docaudit import process
@@ -156,7 +152,11 @@ print(result.spent.regions_strong)  # páginas em que o leitor caro leu só o re
 
 A página vai inteira, nos dois modos, quando disparou nela um sinal que não
 é uma verificação (`FailsCheck`), como leitura vazia ou texto mal
-decodificado.
+decodificado. Um recorte ali deixaria o resto da falha na página. Numa
+política sem verificação, toda página vai inteira.
+
+O recorte entra no cache com a caixa na chave
+([Origem e cache](../concepts/provenance.md#cache)).
 
 ## Exigir mais de uma falha
 

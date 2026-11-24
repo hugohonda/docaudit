@@ -19,7 +19,9 @@ do resultado sobre as páginas. A tabela dos argumentos de `process()` está em
 `mark_furniture` é a regra que marca os elementos fixos, exposta para quem
 monta as linhas por conta própria. `stamps_of` e `folhas_of` acham a tarja e o
 carimbo de folha de cada página. As duas constantes são a cascata padrão e a
-folga em volta do recorte de um raster.
+folga em volta do recorte de um raster. `resolve`, `refuse_external`,
+`read_region` e `run_pipeline` são os passos de `process()` que `Document`
+também usa, sobre um documento já aberto.
 
 ::: docaudit.process.mark_furniture
     options:
@@ -38,5 +40,21 @@ folga em volta do recorte de um raster.
       heading_level: 3
 
 ::: docaudit.process.RASTER_MARGIN
+    options:
+      heading_level: 3
+
+::: docaudit.process.resolve
+    options:
+      heading_level: 3
+
+::: docaudit.process.refuse_external
+    options:
+      heading_level: 3
+
+::: docaudit.process.read_region
+    options:
+      heading_level: 3
+
+::: docaudit.process.run_pipeline
     options:
       heading_level: 3

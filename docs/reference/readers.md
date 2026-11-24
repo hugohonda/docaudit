@@ -65,3 +65,15 @@ instância. O nome vem do grupo de entry points `docaudit.backends`, e
 ::: docaudit.backends.layout.LABELS
     options:
       heading_level: 3
+
+::: docaudit.backends.layout.regions_from
+    options:
+      heading_level: 3
+
+## Núcleos do processo
+
+`PPOCR` e `PPDocLayout` usam `process_cpus` para o padrão de `threads=`.
+
+::: docaudit.backends.process_cpus
+    options:
+      heading_level: 3

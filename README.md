@@ -45,87 +45,41 @@ English.
 uv add "docaudit[ppocr,openvino] @ git+https://github.com/hugohonda/docaudit"
 ```
 
-Python 3.12 a 3.14, em Linux (x86_64 e aarch64) ou em macOS com Apple
-Silicon. O extra `ppocr` traz o OCR padrão, e os pesos baixam na primeira
-leitura. O extra `openvino` roda o mesmo PP-OCR mais depressa na CPU. Os
-outros extras, o binário do Tesseract e a GPU estão em
-[Instalação](https://hugohonda.github.io/docaudit/install/).
-
-Uma tag `v*` publicada não muda, e a `main` não recebe push forçado: o
-repositório recusa os dois. Fixe o commit ou a tag: o que você fixou continua lá.
+O extra `ppocr` traz o OCR padrão, e o extra `openvino` o roda mais depressa
+na CPU. As plataformas, os outros extras e a GPU estão em
+[Instalação](https://hugohonda.github.io/docaudit/install/). Como fixar um
+commit ou uma tag está em
+[Versões e mudanças](https://hugohonda.github.io/docaudit/changelog/).
 
 ## Uso
 
 ```python
 import docaudit
-from docaudit import Budget
-from docaudit.backends.ppocr import PPOCR
 
-result = docaudit.process(
-    "autos.pdf",
-    policy="evidence",  # encaminha só a página em que a leitura barata falhou numa verificação
-    strong=PPOCR("v6-medium"),  # o leitor caro: aqui, um OCR maior
-    budget=Budget(max_strong_fraction=0.1),  # teto opcional, em páginas
-)
+result = docaudit.process("autos.pdf")
 
 for chunk in result.chunks[:5]:
     print(chunk.page, chunk.source, chunk.bbox, chunk.text[:60])
 
-for decision in result.decisions:
-    if decision.tier == "strong":
-        print(decision.page, decision.reason)  # por exemplo: 1 x CPF que falha a verificação
-
-print(result.spent.pages_strong, "páginas foram ao leitor caro")
+for entity in result.entities:
+    print(entity.page, entity.kind, entity.value, entity.state)
 ```
 
-Só com o documento, `process` lê a camada de texto onde houver, manda o
-resto ao PP-OCR e não encaminha nenhuma página ao leitor caro. Numa
-digitalização com camada de OCR, por padrão, o PP-OCR lê os pixels, e a
-camada fica como outra leitura. Uma imagem
-PNG, JPEG, TIFF, BMP ou WebP é lida como um PDF de uma página por quadro.
+Só com o documento, `process` lê a camada de texto onde houver e manda o
+resto ao PP-OCR. Nenhuma página vai ao leitor caro.
 
-A primeira leitura, passo a passo, está no
-[tutorial](https://hugohonda.github.io/docaudit/tutorial/).
+O resto está na documentação:
 
-## O que volta
-
-Um `Result` com:
-
-- `pages`: o substrato de cada página (nato-digital, digitalizada com camada
-  de OCR, digitalizada sem texto) e as imagens que nenhuma camada de texto leu;
-- `chunks`: o texto lido, um trecho por linha ou por região, cada um com
-  página, caixa normalizada, leitor de origem, confiança e ordem de leitura;
-- `decisions`: para cada página, o destino, o motivo e os passos que
-  `process` deu nela;
-- `entities`: cada CPF, CNPJ, número de processo, valor em reais e data
-  achado nas linhas, com o estado que a regra deu (`confirmed`,
-  `well_formed`, `failed`) e as linhas de onde saiu. Os campos do seu tipo de
-  documento entram como `Check`;
-- `spent`: o que a execução gastou, relatado e não limitado. São as páginas
-  por etapa, as leituras servidas pelo cache, os segundos por etapa e, num
-  leitor externo, os tokens e os dólares.
-
-`result.to_markdown()` dá o texto por página. Com `annotated=True`, cada linha
-ganha uma referência curta para ser citada, e cada página termina com a
-decisão e as entidades. É a forma de entregar a leitura a um modelo: ver
-[Entregar a leitura a um agente](https://hugohonda.github.io/docaudit/agent/).
-`docaudit.visualize(result, "autos.pdf")` dá a imagem de cada página com a
-caixa de cada linha na cor do leitor que a leu. Os campos estão em
-[Formato da resposta](https://hugohonda.github.io/docaudit/response/).
-
-## O que não faz
-
-Não monta tabelas em células, não extrai campos por esquema e não decide
-nada com um modelo de linguagem. A lista completa está em
-[Limites](https://hugohonda.github.io/docaudit/limits/).
-
-## Documentação
-
-O site é <https://hugohonda.github.io/docaudit/>. Comece pela
-[instalação](https://hugohonda.github.io/docaudit/install/) e pela
-[primeira leitura](https://hugohonda.github.io/docaudit/tutorial/). Cada
-argumento e cada variável de ambiente estão em
-[Configuração](https://hugohonda.github.io/docaudit/configuration/).
+- [Primeira leitura](https://hugohonda.github.io/docaudit/tutorial/): o
+  primeiro documento, passo a passo.
+- [Escalar só o que falhou](https://hugohonda.github.io/docaudit/how-to/escalate/):
+  o leitor caro, a releitura por outra família e o teto.
+- [Formato da resposta](https://hugohonda.github.io/docaudit/response/): o
+  que volta no `Result`.
+- [Configuração](https://hugohonda.github.io/docaudit/configuration/): cada
+  argumento e cada variável de ambiente.
+- [Limites](https://hugohonda.github.io/docaudit/limits/): o que a
+  biblioteca não faz.
 
 ## Contribuir
 
