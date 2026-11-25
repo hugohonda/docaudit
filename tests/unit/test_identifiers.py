@@ -79,6 +79,14 @@ def test_the_thirteen_digit_voter_id_of_sao_paulo_enters_by_the_label():
     assert VOTER_ID.is_valid("1234 5678 0191"), "o mesmo título com oito de sequência"
 
 
+def test_thirteen_digits_from_another_state_fail_even_with_the_right_check_digits():
+    # UF 03, com os dois dígitos certos: com doze dígitos confere, com treze não.
+    assert VOTER_ID.is_valid("1234 5678 0396")
+    page = make_page(0)
+    found = entities_of([VOTER_ID], page, [_line(page, 0.1, "Título de Eleitor 1234567890396")])
+    assert [(e.value, e.state) for e in found] == [("1234567890396", EntityState.FAILED)]
+
+
 def test_the_identifiers_stay_out_of_the_defaults_and_enter_by_choice():
     assert not set(IDENTIFIERS) & set(DEFAULT_ENTITIES)
     assert not any(isinstance(s, FailsCheck) and s.check in IDENTIFIERS for s in DEFAULT_SIGNALS)

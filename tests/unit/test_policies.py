@@ -619,3 +619,12 @@ def test_an_amount_digit_read_as_a_letter_fails():
         value = _amount(rng)
         for _, misread in _misreads(value):
             assert failures(AMOUNT_BRL, f"total {misread} pago") == 1, misread
+
+
+@pytest.mark.parametrize(
+    ("check", "printed"),
+    [(CPF, "111.111.111-11"), (CNPJ, "00.000.000/0000-00"), (CNPJ, "11.111.111/1111-11")],
+)
+def test_an_identifier_of_one_repeated_digit_fails_though_the_arithmetic_closes(check, printed):
+    """A conta do módulo 11 fecha para o dígito repetido; a regra o recusa mesmo assim."""
+    assert not check.is_valid(printed)

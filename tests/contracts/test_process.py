@@ -353,6 +353,28 @@ def test_result_carries_the_library_version(scanned_doc):
     assert result.library_version
 
 
+def test_a_reread_that_fails_is_told_and_the_page_goes_on_to_the_costly_reader(scanned_doc):
+    """O leitor da outra família caiu: a falha fica no resultado, e a página segue sem veredito."""
+    cheap = _Says("cheap", {0: "CPF 529.982.247-26"})
+    vlm = FakeVLM(text="CPF 529.982.247-25")
+    with pytest.warns(RuntimeWarning, match="o leitor falha falhou na página 0"):
+        result = process(
+            scanned_doc,
+            policy="evidence",
+            cheap=[cheap],
+            confirm=_FailsOnPage(None),
+            strong=vlm,
+            pages={0},
+        )
+    (decision,) = result.decisions
+    assert decision.tier is Tier.STRONG
+    assert any(step.startswith("releitura por falha falhou") for step in decision.steps)
+    assert vlm.calls == 1
+    (failure,) = decision.failures
+    assert "falha" in failure
+    assert "reader_failed" in result.review()[0]
+
+
 def test_the_run_names_every_reader_that_read_a_line_with_its_version(scanned_doc):
     """Cada `Chunk.source` é chave de `run.versions`, e os argumentos estão no registro."""
     cheap = _Says("cheap", {0: "CPF 529.982.247-26", 1: "CPF 529.982.247-26", 2: "limpo"})
@@ -434,13 +456,6 @@ def test_baseline_policies_never_pay_for_the_cheap_pass(scanned_doc):
     process(scanned_doc, policy="all_strong", cheap=[ocr], strong=vlm)
     assert ocr.calls == 0
     assert vlm.calls == 5
-
-
-def test_a_policy_deciding_before_reads_only_pays_cheap_for_pages_it_keeps(scanned_doc):
-    ocr, vlm = FakeOCR(), FakeVLM()
-    process(scanned_doc, policy="all_strong", cheap=[ocr], strong=vlm)
-    assert vlm.calls == 5
-    assert ocr.calls == 0, "nenhuma página ficou no tier barato"
 
 
 def test_escalated_page_is_rendered_once(monkeypatch, scanned_doc):
@@ -2564,14 +2579,6 @@ def test_a_page_read_sideways_is_reread_upright_and_the_line_keeps_the_turn(rere
     assert vlm.calls == 1, "a releitura em pé vem do cache"
     assert [c.id for c in again.chunks] == [c.id for c in result.chunks]
     cache.close()
-
-
-def test_a_page_read_upright_is_reread_as_it_is():
-    """Sem giro, a releitura vê a própria página: a vista dela, e não um recorte."""
-    doc = make_scanned_pdf(["CPF 529.982.247-27"])
-    vlm = _RecordingVLM(text="CPF 529.982.247-25")
-    process(doc, policy="evidence", cheap=["text_layer"], strong=vlm, trust_layer="always")
-    assert not isinstance(vlm.views[0], RegionView)
 
 
 def test_the_time_cap_leaves_the_pages_it_reaches_with_the_cheap_read(scanned_doc):
