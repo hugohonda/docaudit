@@ -266,6 +266,38 @@ def test_budget_caps_escalation(scanned_doc):
     assert sum(d.tier is Tier.STRONG for d in result.decisions) == 2
 
 
+def test_the_cap_holds_for_a_policy_that_sends_every_page(scanned_doc):
+    """`all_strong` não corta sozinha: o teto é de `process`, e o que sobra é lido no barato."""
+    ocr, vlm = FakeOCR(), FakeVLM()
+    result = process(
+        scanned_doc,
+        policy="all_strong",
+        budget=Budget(max_strong_pages=2),
+        cheap=[ocr],
+        strong=vlm,
+    )
+    tiers = [d.tier for d in result.decisions]
+    assert vlm.calls == 2
+    assert tiers == [Tier.STRONG, Tier.STRONG, Tier.CHEAP, Tier.CHEAP, Tier.CHEAP]
+    assert ocr.calls == 3, "as três páginas fora do teto ficam com a leitura barata"
+    assert result.decisions[2].reason.endswith("fora do teto de 2 página(s)")
+
+
+def test_the_fraction_cap_counts_the_selected_pages(scanned_doc):
+    """Com `pages=`, a fração vale sobre as páginas pedidas, e não sobre o documento."""
+    vlm = FakeVLM()
+    result = process(
+        scanned_doc,
+        policy="all_strong",
+        budget=Budget(max_strong_fraction=0.5),
+        cheap=[FakeOCR()],
+        strong=vlm,
+        pages={0, 1},
+    )
+    assert vlm.calls == 1
+    assert [d.tier for d in result.decisions] == [Tier.STRONG, Tier.CHEAP]
+
+
 def test_without_a_vlm_nothing_escalates(scanned_doc):
     result = process(scanned_doc, policy="all_strong", cheap=[FakeOCR()])
     assert result.spent.pages_strong == 0.0

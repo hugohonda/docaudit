@@ -863,7 +863,7 @@ class Budget(_Frozen):
     max_seconds: float | None = PField(default=None, gt=0.0)
 
     def page_allowance(self, total_pages: int) -> int | None:
-        """Quantas páginas o orçamento permite encaminhar, dado o total do documento.
+        """Quantas páginas o orçamento permite encaminhar, dado o total de páginas lidas.
 
         Devolve `None` quando nenhum limite de página foi declarado.
         """
