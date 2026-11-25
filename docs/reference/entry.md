@@ -17,7 +17,7 @@ do resultado sobre as páginas. A tabela dos argumentos de `process()` está em
 ## Outros nomes de `docaudit.process`
 
 `mark_furniture` é a regra que marca os elementos fixos, exposta para quem
-monta as linhas por conta própria. `stamps_of` e `folhas_of` acham a tarja e o
+monta as linhas por conta própria. `gazettes_of` acha o cabeçalho de diário oficial. `stamps_of` e `folhas_of` acham a tarja e o
 carimbo de folha de cada página. As duas constantes são a cascata padrão e a
 folga em volta do recorte de um raster. `resolve`, `refuse_external`,
 `read_region` e `run_pipeline` são os passos de `process()` que `Document`
@@ -26,6 +26,10 @@ pequenas da cascata, expostas para quem mede o que ela faz: a forma que iguala
 duas linhas de elemento fixo, e o que conta como lido dentro de uma região.
 
 ::: docaudit.process.mark_furniture
+    options:
+      heading_level: 3
+
+::: docaudit.process.gazettes_of
     options:
       heading_level: 3
 

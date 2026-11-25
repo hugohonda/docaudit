@@ -15,7 +15,7 @@ import hashlib
 import itertools
 import math
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import date, datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
@@ -43,6 +43,7 @@ __all__ = [
     "Figure",
     "Folha",
     "FormKind",
+    "Gazette",
     "Layout",
     "Metered",
     "OtherReading",
@@ -281,6 +282,32 @@ class Stamp(_Frozen):
     )
 
 
+class Gazette(_Frozen):
+    """O cabeçalho que um diário oficial imprime em cada página de uma edição.
+
+    Os campos saem do que o formato (`GazetteFormat`) nomeia; o que o
+    cabeçalho não imprime fica None. Páginas da mesma edição trazem o mesmo
+    `format` e a mesma `edition`.
+    """
+
+    format: str = PField(description="O nome do `GazetteFormat` que casou o cabeçalho.")
+    edition: str = PField(description="O número da edição, como impresso.")
+    published: date | None = PField(
+        default=None, description="A data da edição, quando o cabeçalho a imprime."
+    )
+    volume: str | None = PField(
+        default=None, description="O ano de circulação do diário, como impresso: `X`, `4`."
+    )
+    section: str | None = PField(
+        default=None, description="O caderno, quando o diário se divide em cadernos."
+    )
+    page: int | None = PField(
+        default=None, ge=0, description="A página da edição, quando o cabeçalho a imprime."
+    )
+    bbox: BBox = PField(description="A menor caixa que contém as linhas do cabeçalho.")
+    chunk_ids: tuple[str, ...] = PField(min_length=1, description="As linhas do cabeçalho.")
+
+
 class Folha(_Frozen):
     """A folha dos autos carimbada na página, e a linha de onde veio."""
 
@@ -407,6 +434,13 @@ class Page(_Frozen):
         description=(
             "A tarja da camada de texto, num dos formatos de `stamps`; na página "
             "copiada de outro processo, a última desenhada. None sem tarja."
+        ),
+    )
+    gazette: Gazette | None = PField(
+        default=None,
+        description=(
+            "O cabeçalho de diário oficial da camada de texto, num dos formatos de "
+            "`gazettes`. None numa página que não é de diário."
         ),
     )
     folha: Folha | None = PField(
@@ -950,6 +984,9 @@ class Run(_Frozen):
     )
     folhas: tuple[str, ...] = PField(
         default=(), description="Os nomes das formas de folha procuradas, na ordem."
+    )
+    gazettes: tuple[str, ...] = PField(
+        default=(), description="Os nomes dos formatos de cabeçalho de diário procurados."
     )
     spans: bool = PField(default=False, description="Se `Entity.span` foi pedido.")
     min_raster_fraction: float = PField(

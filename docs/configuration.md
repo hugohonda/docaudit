@@ -45,6 +45,7 @@ docaudit.process(
 | `entities` | sequência de `Check` | as da política e `DEFAULT_ENTITIES` | as verificações cujos valores saem em `Result.entities`; ver [Entidades padrão](entities.md) |
 | `stamps` | sequência de `StampFormat` ou de nomes | `DEFAULT_STAMPS`, o e-SAJ | os formatos de [tarja](glossary.md#tarja) procurados na camada de texto, para `Page.stamp`. `[]` não procura nenhum |
 | `folhas` | sequência de `Check` ou de nomes | `FOLHA`, `fls. N` | as formas de folha procuradas nas linhas de elemento fixo, para `Page.folha`. `[]` não procura nenhuma |
+| `gazettes` | sequência de `GazetteFormat` ou de nomes | `DEFAULT_GAZETTES`, os três conhecidos | os formatos de cabeçalho de diário oficial procurados na camada de texto, para `Page.gazette`. `[]` não procura nenhum |
 | `spans` | `bool` | `False` | põe em cada `Entity.span` o começo e o fim do valor no texto das linhas dele |
 | `allow_external` | `bool` | `False` | autoriza os leitores [externos](glossary.md#externo), que enviam a página para fora da máquina |
 | `cache` | `ModelCallCache` | `None` | guarda cada leitura; uma segunda execução lê do disco |
@@ -65,6 +66,9 @@ renderizada em `DEFAULT_DPI`. Os três vivem em `docaudit.pdf`.
 `workers` acima de `1` rende com um motor que solta o GIL do Python fora do
 lock do PDF, como o Tesseract. Com que leitor isso vale a pena está em
 [Desempenho](performance.md).
+
+`gazettes=` aceita os nomes de `GAZETTE_FORMATS`: `dje-sp`, `municipal-ano-edicao`
+e `municipal-ano-numero`.
 
 `stamps=` aceita os nomes de `STAMP_FORMATS`: `e-saj`, `pje`, `projudi-pr`,
 `projudi-go` e `eproc`. `folhas=` aceita os nomes de `FOLHA_FORMATS`: `folha`
