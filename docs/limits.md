@@ -112,7 +112,9 @@ precisa conhecer antes de confiar num resultado.
 - **A releitura por região faz um [recorte](glossary.md#recorte) por valor que falhou.** Uma
   página com muitos valores inválidos custa muitas chamadas ao leitor caro.
   O recorte é justo, sem folga em volta. O que o leitor caro devolve é o
-  que estava dentro da caixa das linhas que falharam.
+  que estava dentro da caixa das linhas que falharam. Um OCR de pixels lê
+  esse recorte pior que a página inteira, porque usa o que está em volta
+  da linha; com ele, a releitura da página traz mais valores.
 - **O elemento fixo depende da repetição e só vê o que a execução leu.**
   Uma página só, ou um documento sem linha repetida no mesmo lugar, não tem
   elemento fixo. Um carimbo que só uma página tem, dentro do cabeçalho,
