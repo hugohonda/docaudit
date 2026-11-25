@@ -851,7 +851,8 @@ class Budget(_Frozen):
 
     Com as duas formas em páginas, vale a mais restritiva. `max_seconds` é o
     tempo de parede da execução a partir do qual o tier caro não começa
-    página nova. A releitura por outra família termina sempre. A página
+    página nova. A releitura por outra família roda em toda página encaminhada,
+    antes do teto: a página que ela explica não o gasta. A página
     escalada que o teto alcançou fica com a leitura barata, feita então se a
     política a tinha dispensado; o motivo vai em `RoutingDecision.steps`. Tokens e dólares não
     têm teto: são relatados em `Result.spent`.

@@ -1634,6 +1634,44 @@ def test_a_reader_of_another_family_confirms_or_fixes_before_the_costly_tier(sca
     assert "- CPF: 529.982.247-26 · failed · p2:0" in text, "a outra família leu outro valor"
 
 
+def test_the_cap_counts_only_the_pages_the_other_family_did_not_explain(scanned_doc):
+    """A releitura roda em toda página encaminhada; o teto corta o que sobra para o leitor caro."""
+    wrong = "CPF 529.982.247-26"
+    cheap = _Says("cheap", dict.fromkeys(range(5), wrong))
+    other = _Says(
+        "other",
+        {
+            0: wrong,
+            1: wrong,
+            2: "CPF 529.982.247-25",
+            3: "CPF 529.982.247-27",
+            4: "CPF 529.982.247-28",
+        },
+    )
+    vlm = FakeVLM()
+    result = process(
+        scanned_doc,
+        policy="evidence",
+        budget=Budget(max_strong_pages=1),
+        cheap=[cheap],
+        confirm=other,
+        strong=vlm,
+    )
+    decisions = {d.page: d for d in result.decisions}
+    assert other.calls == 5, "o teto do leitor caro não limita a releitura barata"
+    assert [e.printed for e in result.entities if e.chunk_ids and e.value.endswith("-26")][:2] == [
+        "other",
+        "other",
+    ]
+    assert decisions[0].reason.startswith("erro do documento: other")
+    assert decisions[2].reason == "corrigido por other"
+    assert decisions[3].tier is Tier.STRONG, "a primeira página sem explicação gasta o teto"
+    assert decisions[4].tier is Tier.CHEAP
+    assert decisions[4].reason.endswith("fora do teto de 1 página(s)")
+    assert decisions[4].steps[-1].startswith("fora do teto de páginas do leitor caro")
+    assert vlm.calls == 1
+
+
 def test_a_rereading_fixes_an_amount_only_where_it_keeps_the_digits_the_cheap_reader_read(
     scanned_doc,
 ):
