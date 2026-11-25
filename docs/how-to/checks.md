@@ -125,7 +125,7 @@ Alguns números não têm forma própria. O registro da CNH são onze dígitos
 soltos, iguais a um protocolo ou a um telefone. Nesse caso o rótulo entra em
 `pattern`, e o valor fica num grupo chamado `value`, como em
 `(?:CNH|Registro):? ?(?P<value>\d{11})`. A verificação e a entidade ficam só
-com o valor. É assim que `CNH` e `RENAVAM` são declarados.
+com o valor. É assim que `CNH` é declarada.
 
 `labeled=` é outra coisa: a forma do campo depois do rótulo, fora da
 pontuação padrão, como `CPF: 22279745836`. O valor assim achado sai em
@@ -140,8 +140,8 @@ segue ao leitor caro.
 
 ## Os identificadores fora do padrão
 
-Quatro identificadores com dígito verificador vêm prontos e ficam fora de
-`DEFAULT_ENTITIES`: o PIS, o título de eleitor, a CNH e o RENAVAM, na tupla
+Três identificadores com dígito verificador vêm prontos e ficam fora de
+`DEFAULT_ENTITIES`: o PIS, o título de eleitor e a CNH, na tupla
 `IDENTIFIERS`. Eles só aparecem em certos tipos de documento. Fora deles, a
 forma casaria protocolos e telefones, e a política gastaria o leitor caro
 numa falha que não é do campo. Entram por escolha, como entidade, como

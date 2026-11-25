@@ -35,6 +35,12 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   da imagem. Com um OCR de pixels em `strong=`, a releitura da página inteira traz mais valores,
   e o exemplo do guia passa a usar um modelo de visão e linguagem.
 
+### Removido
+
+- `RENAVAM` sai de `docaudit.policies` e de `IDENTIFIERS`. Onze dígitos depois do rótulo casavam
+  outros números em documentos reais, e o dígito verificador único não bastava para separar o
+  falso positivo. Quem o usava declara a própria `Check`, como em `docs/how-to/checks.md`.
+
 ## [0.1.0.dev3] - 2026-11-13
 
 ### Corrigido

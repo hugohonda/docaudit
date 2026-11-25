@@ -128,14 +128,12 @@ o leitor caro numa falha que não é do campo.
 | PIS, PASEP ou NIT | `PIS` | `123.45678.90-1`, ou qualquer pontuação depois de `PIS`, `PASEP` ou `NIT` | um dígito em módulo 11 |
 | título de eleitor | `título de eleitor` | `1234 5678 0132`, ou qualquer pontuação depois de `Título de Eleitor`. Os treze dígitos de São Paulo e Minas Gerais só casam depois do rótulo | dois dígitos em módulo 11, e a UF de 01 a 28 |
 | CNH | `CNH` | onze dígitos depois de `CNH` ou `Registro` | dois dígitos verificadores |
-| RENAVAM | `RENAVAM` | onze dígitos colados a `RENAVAM`, com no máximo `nº` ou dois-pontos entre eles. O número antigo, de nove dígitos, fica de fora | um dígito em módulo 11 |
 
-A CNH e o RENAVAM são impressos como onze dígitos soltos, que nada distingue
-de outro número. Só o rótulo diz o que eles são. Por isso o rótulo faz parte
-da forma, e o valor fica no grupo `value`, que é o que sai na entidade. O
-RENAVAM tem um dígito verificador só, e a forma estreita compensa.
+A CNH é impressa como onze dígitos soltos, que nada distingue de outro
+número. Só o rótulo diz o que eles são. Por isso o rótulo faz parte da
+forma, e o valor fica no grupo `value`, que é o que sai na entidade.
 
-Para extrair os quatro, passe `entities=[*DEFAULT_ENTITIES, *IDENTIFIERS]`.
+Para extrair os três, passe `entities=[*DEFAULT_ENTITIES, *IDENTIFIERS]`.
 Para que um deles também encaminhe a página, ponha o `FailsCheck` dele na
 política. O exemplo completo está em
 [Declarar os campos do seu documento](how-to/checks.md).

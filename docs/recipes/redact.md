@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw
 from docaudit import Document, Entity
 from docaudit.policies import DEFAULT_ENTITIES, IDENTIFIERS
 
-PERSONAL = {"CPF", "CNPJ", "PIS", "título de eleitor", "CNH", "RENAVAM"}
+PERSONAL = {"CPF", "CNPJ", "PIS", "título de eleitor", "CNH"}
 
 
 def mask(texts: dict[str, str], entity: Entity) -> None:

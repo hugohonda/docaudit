@@ -20,7 +20,6 @@
 *[PASEP]: Programa de Formação do Patrimônio do Servidor Público
 *[NIT]: Número de Identificação do Trabalhador
 *[CNH]: Carteira Nacional de Habilitação
-*[RENAVAM]: Registro Nacional de Veículos Automotores
 *[CNS]: Cartão Nacional de Saúde
 *[IBAN]: International Bank Account Number, o número internacional de conta bancária
 *[LGPD]: Lei Geral de Proteção de Dados Pessoais
