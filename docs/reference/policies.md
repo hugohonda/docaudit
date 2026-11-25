@@ -181,11 +181,6 @@ doze que saem por padrão está em [Entidades padrão](../entities.md).
       heading_level: 3
       show_attribute_values: false
 
-::: docaudit.policies.RENAVAM
-    options:
-      heading_level: 3
-      show_attribute_values: false
-
 ::: docaudit.policies.IDENTIFIERS
     options:
       heading_level: 3

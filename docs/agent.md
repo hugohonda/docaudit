@@ -336,9 +336,9 @@ from docaudit.policies import DEFAULT_ENTITIES, IDENTIFIERS
 
 out = Path("figuras")
 out.mkdir(exist_ok=True)
-wanted = {"CNPJ", "RENAVAM"}
+wanted = {"CNPJ", "CNH"}
 with Document("autos.pdf") as doc:
-    # O RENAVAM está em IDENTIFIERS, fora das entidades padrão.
+    # A CNH está em IDENTIFIERS, fora das entidades padrão.
     result = doc.read(entities=[*DEFAULT_ENTITIES, *IDENTIFIERS])
     with_entity = {cid for e in result.entities if e.kind in wanted for cid in e.chunk_ids}
     for figure in result.figures():

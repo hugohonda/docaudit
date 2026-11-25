@@ -60,7 +60,6 @@ __all__ = [
     "PROJUDI_GO_STAMP",
     "PROJUDI_PAGE",
     "PROJUDI_PR_STAMP",
-    "RENAVAM",
     "STAMP_FORMATS",
     "VOTER_ID",
     "AllCheap",
@@ -964,9 +963,9 @@ lugar do traço, e os 48 dígitos juntos.
 
 
 # ── Ids com dígito verificador que entram por escolha ──────────────────────
-# O PIS, o título de eleitor, a CNH e o RENAVAM têm forma pública e dígito
+# O PIS, o título de eleitor e a CNH têm forma pública e dígito
 # verificador, como o CPF, e aparecem só em certos tipos de documento: a folha
-# de pagamento, a procuração, o auto de infração, a penhora de veículo. Fora
+# de pagamento, a procuração, o auto de infração. Fora
 # deles, onze dígitos soltos casariam protocolo e telefone, e a política
 # `evidence` gastaria o leitor caro numa falha que não é do campo. Ficam fora
 # de `DEFAULT_ENTITIES` e entram por `IDENTIFIERS`.
@@ -1075,36 +1074,7 @@ rótulo diz que é CNH, e por isso ele está na forma, com o valor no grupo
 """
 
 
-def _renavam_is_valid(printed: str) -> bool:
-    digits = _all_digits(printed, 11)
-    if digits is None or len(set(digits)) == 1:
-        return False
-    # Os dez primeiros, da direita para a esquerda, pelos pesos 2 a 9 e depois 2 e 3.
-    return _check_digit(digits[9::-1], (2, 3, 4, 5, 6, 7, 8, 9, 2, 3)) == int(digits[10])
-
-
-RENAVAM = Check(
-    "RENAVAM",
-    re.compile(
-        r"(?<![^\W\d_])(?i:RENAVAM)[^\S\n]*(?:(?i:n)[º°o]\.?[^\S\n]*)?[:.\-]?[^\S\n]*"
-        + rf"(?P<value>{_HAS_DIGIT}{_SLOT}{{11}})"
-        + _CODE_END
-    ),
-    _renavam_is_valid,
-    redundant=True,
-)
-"""O RENAVAM de um veículo: `RENAVAM`, no máximo `nº` ou dois-pontos, e onze dígitos colados.
-
-É o campo mais fácil de confundir com outro número. O dígito verificador é
-um só, em módulo 11: pega todo dígito trocado, mas um número qualquer de
-onze dígitos passa por ele uma vez em onze. Por isso a forma é estreita.
-O número antigo, de nove dígitos, fica de fora: desde 2013 todo documento o
-imprime com os dois zeros à esquerda, e nove dígitos soltos depois do
-rótulo fariam de um protocolo um candidato. O valor fica no grupo `value`.
-Entra por `IDENTIFIERS`.
-"""
-
-IDENTIFIERS: tuple[Check, ...] = (PIS, VOTER_ID, CNH, RENAVAM)
+IDENTIFIERS: tuple[Check, ...] = (PIS, VOTER_ID, CNH)
 """Os ids por escolha, para `entities=[*DEFAULT_ENTITIES, *IDENTIFIERS]`.
 
 Como sinal, `EvidenceRouter([*DEFAULT_SIGNALS, *map(FailsCheck, IDENTIFIERS)])`.
