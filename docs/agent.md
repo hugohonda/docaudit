@@ -118,7 +118,7 @@ Três razões sustentam a ordem, além do custo:
 
 - **O texto já foi conferido.** Uma entidade `confirmed` passou por um dígito
   verificador. Com `confirm=`, uma `failed` numa página que a política
-  encaminhou, dentro do teto de páginas, já foi relida por outra família, e
+  encaminhou já foi relida por outra família, e
   `Entity.printed` diz se o erro é do documento. A releitura não cobre a
   data nem o valor achado só pelo rótulo (`labeled=`): eles não encaminham a
   página. Pedir ao modelo que decida de novo, olhando a imagem, paga duas

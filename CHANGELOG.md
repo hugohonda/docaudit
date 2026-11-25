@@ -26,6 +26,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Mudado
 
+- O teto de páginas de `Budget` é aplicado depois da releitura por outra família. A releitura roda
+  em toda página que uma verificação encaminhou, e a página que ela explica não gasta o teto. Com
+  um teto curto, `Entity.printed` passa a cobrir toda página encaminhada, e o leitor caro recebe
+  as primeiras páginas que ficaram sem explicação. A releitura lê mais páginas do que lia com teto.
+
 - A documentação de `reread="region"` diz a quem o recorte serve: ao leitor que cobra pela área
   da imagem. Com um OCR de pixels em `strong=`, a releitura da página inteira traz mais valores,
   e o exemplo do guia passa a usar um modelo de visão e linguagem.
