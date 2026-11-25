@@ -71,6 +71,7 @@ __all__ = [
     "load_facts",
     "load_pages",
     "opened",
+    "page_bounds",
     "pages_of",
     "pdf_of_image",
     "pixels_of",
@@ -457,7 +458,7 @@ _Box = tuple[float, float, float, float]
 """Uma caixa em pontos do PDF, origem embaixo à esquerda: x0, y0, x1, y1."""
 
 
-def _page_bounds(obj: pdfium.PdfObject) -> _Box:
+def page_bounds(obj: pdfium.PdfObject) -> _Box:
     """A caixa de um objeto em coordenadas da página, mesmo dentro de um formulário.
 
     O pdfium dá a caixa de um objeto aninhado num formulário XObject no espaço
@@ -642,7 +643,7 @@ def _scan_objects(page: pdfium.PdfPage, unmapped: frozenset[int] = frozenset()) 
     for index, obj in enumerate(page.get_objects()):
         if obj.type not in kinds:
             continue
-        box = _page_bounds(obj)
+        box = page_bounds(obj)
         if obj.type == pdfium_c.FPDF_PAGEOBJ_PATH:
             paths.append(box)
             if _is_outline(obj):
@@ -1188,9 +1189,9 @@ def _drawing_of(page: pdfium.PdfPage) -> dict[int, tuple[int, bool]]:
         if obj.type == pdfium_c.FPDF_PAGEOBJ_TEXT:
             inked = pdfium_c.FPDFTextObj_GetTextRenderMode(obj.raw) != _TR_INVISIBLE
             address = ctypes.cast(obj.raw, ctypes.c_void_p).value or 0
-            texts.append((address, index, _page_bounds(obj), inked))
+            texts.append((address, index, page_bounds(obj), inked))
         elif obj.type == pdfium_c.FPDF_PAGEOBJ_IMAGE:
-            images.append((index, _page_bounds(obj)))
+            images.append((index, page_bounds(obj)))
     rasters = merge_touching(images)
     return {
         address: (

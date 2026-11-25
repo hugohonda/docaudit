@@ -99,6 +99,7 @@ __all__ = [
     "Reread",
     "TrustLayer",
     "folhas_of",
+    "form_of",
     "mark_furniture",
     "process",
     "read_region",
@@ -106,6 +107,7 @@ __all__ = [
     "resolve",
     "run_pipeline",
     "stamps_of",
+    "within",
 ]
 
 DEFAULT_CASCADE: tuple[str, ...] = ("text_layer", "ppocr")
@@ -251,7 +253,7 @@ def _replaced(line: Chunk, reading: Chunk) -> list[OtherReading]:
     return [OtherReading(line=line.id, reading=reading, same=False, replaced=True)]
 
 
-def _within(chunks: Sequence[Chunk], box: BBox) -> list[Chunk]:
+def within(chunks: Sequence[Chunk], box: BBox) -> list[Chunk]:
     """Os trechos cujo centro cai em `box`, com a caixa presa a ela.
 
     O que o leitor viu em volta de `box` é contexto, não região lida: a linha
@@ -498,7 +500,7 @@ def _from_rasters(
     out: list[Chunk] = []
     taken: set[str] = set()
     for index, box in sorted(rasters, key=lambda pair: pair[1].area):
-        for chunk in _within(found, box):
+        for chunk in within(found, box):
             if chunk.id in taken or _already_read(chunk.bbox, read):
                 continue
             taken.add(chunk.id)
@@ -791,7 +793,7 @@ _ROMAN = re.compile(r"\b[IVXLC]+\b")
 _LETTER = re.compile(r"[^\W\d_]")
 
 
-def _form_of(text: str) -> str:
+def form_of(text: str) -> str:
     """A forma da linha: dígitos e romanos viram `@`, os espaços colapsam, tudo em minúsculas.
 
     É o que faz `fls. 12` e `fls. 13`, ou `Página 2 de 9` e `Página 3 de 9`,
@@ -802,7 +804,7 @@ def _form_of(text: str) -> str:
 
 def _has_letter(text: str) -> bool:
     """Se sobra alguma letra depois de mascarar os dígitos e os romanos."""
-    return _LETTER.search(_form_of(text)) is not None
+    return _LETTER.search(form_of(text)) is not None
 
 
 def _same_place(a: Chunk, b: Chunk) -> bool:
@@ -855,7 +857,7 @@ def _repeated_elsewhere(items: Sequence[Chunk], copy_of: Mapping[int, object]) -
 def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chunk]]:
     """Marca `furniture` na linha que se repete, no mesmo lugar, em outra página: o elemento fixo.
 
-    Candidata é a linha com alguma letra cuja forma (`_form_of`) aparece, com o
+    Candidata é a linha com alguma letra cuja forma (`form_of`) aparece, com o
     centro de uma caixa dentro da outra, em outra página: repetir é
     categórico, e numa leitura de uma página só nada é elemento fixo.
     Elemento fixo é a candidata numa sequência de candidatas a partir do
@@ -888,7 +890,7 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
     forms: defaultdict[int, set[str]] = defaultdict(set)
     for chunks in by_page.values():
         for chunk in chunks:
-            form = _form_of(chunk.text)
+            form = form_of(chunk.text)
             if _LETTER.search(form):
                 by_form[form].append(chunk)
                 if not _is_vertical(_as_read(chunk)):
@@ -1550,7 +1552,7 @@ def _strong_one(
             hit = True
             for box, box_turn in boxes.items():
                 found, found_hit = read_region(view, box, backend, run.cache, turn=box_turn)
-                strong.extend(_within(found, box))
+                strong.extend(within(found, box))
                 hit = hit and found_hit
             scope = f"{len(boxes)} recorte(s) das linhas que falharam"
             return _StrongRead(page, strong, hit, scope, True, None, layout_hit=layout_hit)

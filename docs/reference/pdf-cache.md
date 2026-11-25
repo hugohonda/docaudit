@@ -72,6 +72,10 @@ para uso concorrente.
     options:
       heading_level: 3
 
+::: docaudit.pdf.page_bounds
+    options:
+      heading_level: 3
+
 ::: docaudit.pdf.TextLine
     options:
       heading_level: 3

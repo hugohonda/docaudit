@@ -21,7 +21,9 @@ monta as linhas por conta própria. `stamps_of` e `folhas_of` acham a tarja e o
 carimbo de folha de cada página. As duas constantes são a cascata padrão e a
 folga em volta do recorte de um raster. `resolve`, `refuse_external`,
 `read_region` e `run_pipeline` são os passos de `process()` que `Document`
-também usa, sobre um documento já aberto.
+também usa, sobre um documento já aberto. `form_of` e `within` são duas regras
+pequenas da cascata, expostas para quem mede o que ela faz: a forma que iguala
+duas linhas de elemento fixo, e o que conta como lido dentro de uma região.
 
 ::: docaudit.process.mark_furniture
     options:
@@ -32,6 +34,14 @@ também usa, sobre um documento já aberto.
       heading_level: 3
 
 ::: docaudit.process.folhas_of
+    options:
+      heading_level: 3
+
+::: docaudit.process.form_of
+    options:
+      heading_level: 3
+
+::: docaudit.process.within
     options:
       heading_level: 3
 
