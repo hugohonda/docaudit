@@ -315,7 +315,9 @@ O teto limita o leitor caro numa chamada, em páginas e em segundos.
 
 Com as duas formas em páginas, vale a mais restritiva. O teto de páginas vale
 para qualquer política, na ordem de prioridade dela. A página que passa dele
-fica com a leitura barata. A política `evidence` não encaminha página sem
+fica com a leitura barata. O teto é aplicado depois da releitura por outra
+família (`confirm=`): ela roda em toda página encaminhada por uma verificação,
+e a página que ela explica não gasta o teto. A política `evidence` não encaminha página sem
 evidência, e um teto folgado sobra.
 
 A página encaminhada que o leitor caro começaria depois de `max_seconds` fica

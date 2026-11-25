@@ -1945,11 +1945,13 @@ def run_pipeline(
             return not chunks or any(c.failing(page, chunks) for c in checks)
 
         by_page = _cheap_stage(run, selected, readers, workers, trust_layer, may_escalate)
-        decisions = list(policy.decide(selected, budget, by_page))
     else:
         by_page = {}
-        decisions = list(policy.decide(selected, budget))
-    _cap(decisions, budget.page_allowance(len(selected)))
+    # A política decide sem teto de páginas: o teto vem depois da releitura
+    # por outra família, que é barata e roda em toda página encaminhada.
+    uncapped = budget.model_copy(update={"max_strong_pages": None, "max_strong_fraction": None})
+    reads_for_policy = by_page if policy.needs_reads else None
+    decisions = list(policy.decide(selected, uncapped, reads_for_policy))
     for d in decisions:
         run.steps[d.page].append(f"política: {d.reason}")
     by_index = {p.index: p for p in selected}
@@ -1966,6 +1968,28 @@ def run_pipeline(
     if (confirm is not None or layer is not None) and checks:
         with run.timed("seconds_confirm"):
             _confirm_stage(run, decisions, by_index, by_page, failures, checks, layer, confirm)
+
+    # A página que a releitura explicou não gasta o teto. A política escolhe,
+    # entre as que sobraram, quais ficam com o leitor caro, na prioridade dela.
+    allowance = budget.page_allowance(len(selected))
+    if allowance is not None:
+        strong_pages = {d.page for d in decisions if d.tier is Tier.STRONG}
+        left = [p for p in selected if p.index in strong_pages]
+        within = Budget(max_strong_pages=allowance)
+        again = list(policy.decide(left, within, reads_for_policy))
+        _cap(again, allowance)
+        kept = {d.page for d in again if d.tier is Tier.STRONG}
+        for k, decision in enumerate(decisions):
+            if decision.tier is Tier.STRONG and decision.page not in kept:
+                decisions[k] = decision.model_copy(
+                    update={
+                        "tier": Tier.CHEAP,
+                        "reason": f"{decision.reason}; fora do teto de {allowance} página(s)",
+                    }
+                )
+                run.steps[decision.page].append(
+                    "fora do teto de páginas do leitor caro: fica a leitura barata"
+                )
 
     tiers = {d.page: d.tier for d in decisions}
     escalated = [p for p in selected if tiers[p.index] is Tier.STRONG]
@@ -2211,12 +2235,7 @@ def _cap(decisions: list[RoutingDecision], allowance: int | None) -> None:
         if kept < allowance:
             kept += 1
             continue
-        decisions[k] = decision.model_copy(
-            update={
-                "tier": Tier.CHEAP,
-                "reason": f"{decision.reason}; fora do teto de {allowance} página(s)",
-            }
-        )
+        decisions[k] = decision.model_copy(update={"tier": Tier.CHEAP})
 
 
 def _library_version() -> str:

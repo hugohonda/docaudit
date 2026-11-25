@@ -40,7 +40,7 @@
   },
   "Budget": {
    "additionalProperties": false,
-   "description": "Teto opcional do leitor caro, em páginas e em segundos.\n\nCom as duas formas em páginas, vale a mais restritiva. `max_seconds` é o\ntempo de parede da execução a partir do qual o tier caro não começa\npágina nova. A releitura por outra família termina sempre. A página\nescalada que o teto alcançou fica com a leitura barata, feita então se a\npolítica a tinha dispensado; o motivo vai em `RoutingDecision.steps`. Tokens e dólares não\ntêm teto: são relatados em `Result.spent`.",
+   "description": "Teto opcional do leitor caro, em páginas e em segundos.\n\nCom as duas formas em páginas, vale a mais restritiva. `max_seconds` é o\ntempo de parede da execução a partir do qual o tier caro não começa\npágina nova. A releitura por outra família roda em toda página encaminhada,\nantes do teto: a página que ela explica não o gasta. A página\nescalada que o teto alcançou fica com a leitura barata, feita então se a\npolítica a tinha dispensado; o motivo vai em `RoutingDecision.steps`. Tokens e dólares não\ntêm teto: são relatados em `Result.spent`.",
    "properties": {
     "max_seconds": {
      "anyOf": [

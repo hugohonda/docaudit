@@ -851,7 +851,8 @@ class Budget(_Frozen):
 
     Com as duas formas em páginas, vale a mais restritiva. `max_seconds` é o
     tempo de parede da execução a partir do qual o tier caro não começa
-    página nova. A releitura por outra família termina sempre. A página
+    página nova. A releitura por outra família roda em toda página encaminhada,
+    antes do teto: a página que ela explica não o gasta. A página
     escalada que o teto alcançou fica com a leitura barata, feita então se a
     política a tinha dispensado; o motivo vai em `RoutingDecision.steps`. Tokens e dólares não
     têm teto: são relatados em `Result.spent`.
@@ -862,7 +863,7 @@ class Budget(_Frozen):
     max_seconds: float | None = PField(default=None, gt=0.0)
 
     def page_allowance(self, total_pages: int) -> int | None:
-        """Quantas páginas o orçamento permite encaminhar, dado o total do documento.
+        """Quantas páginas o orçamento permite encaminhar, dado o total de páginas lidas.
 
         Devolve `None` quando nenhum limite de página foi declarado.
         """
