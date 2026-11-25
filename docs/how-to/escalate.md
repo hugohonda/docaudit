@@ -137,14 +137,20 @@ O recorte é a menor caixa que contém as linhas do valor, que são duas quando
 ele quebra na linha. O recorte não tem folga em volta. O leitor caro
 substitui só o que leu ali, e o resto da página fica com a leitura barata.
 
+O recorte serve ao leitor que cobra pela área da imagem, como um modelo de
+visão e linguagem. Um OCR de pixels lê o recorte justo pior que a página: o
+detector e o reconhecedor dele usam o que está em volta da linha, e sem
+folga perdem valores que a leitura da página inteira traz. Com um OCR em
+`strong=`, fique com `reread="page"`.
+
 ```python
 from docaudit import process
-from docaudit.backends.ppocr import PPOCR
+from docaudit.backends.vlm import VLM
 
 result = process(
     "documento.pdf",
     policy="evidence",
-    strong=PPOCR("v6-medium"),
+    strong=VLM("http://127.0.0.1:8000", "generic"),
     reread="region",
 )
 print(result.spent.regions_strong)  # páginas em que o leitor caro leu só o recorte
@@ -189,7 +195,7 @@ Cada decisão da política conta o que houve com a página:
 from docaudit import process
 from docaudit.backends.ppocr import PPOCR
 
-result = process("documento.pdf", policy="evidence", strong=PPOCR("v6-medium"), reread="region")
+result = process("documento.pdf", policy="evidence", strong=PPOCR("v6-medium"))
 for decision in result.decisions:
     print(decision.page, decision.tier, decision.reason)
     for step in decision.steps:

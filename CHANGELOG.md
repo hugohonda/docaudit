@@ -8,6 +8,12 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 <!-- --8<-- [start:versoes] -->
 ## [Não lançado]
 
+### Mudado
+
+- A documentação de `reread="region"` diz a quem o recorte serve: ao leitor que cobra pela área
+  da imagem. Com um OCR de pixels em `strong=`, a releitura da página inteira traz mais valores,
+  e o exemplo do guia passa a usar um modelo de visão e linguagem.
+
 ## [0.1.0.dev3] - 2026-11-13
 
 ### Corrigido

@@ -1495,9 +1495,13 @@ DEFAULT_SIGNALS: tuple[Signal, ...] = (
     FailsCheck(AMOUNT_BRL),
     FailsCheck(AMOUNT_PRE_REAL),
 )
-"""Os sinais categóricos que já pegaram leitura errada, na ordem de prioridade.
+"""Os sinais categóricos padrão, na ordem de prioridade.
 
-Essa ordem não foi medida."""
+Cada um aponta uma leitura que não pode estar certa: vazia, com caractere
+que só uma decodificação quebrada produz, ou com um valor que a regra do
+campo recusa. `FailsCheck(AMOUNT_PRE_REAL)` usa a mesma grafia de
+`FailsCheck(AMOUNT_BRL)` nas moedas anteriores ao real, que são raras nos
+autos: o que se sabe dele vem da regra do real. Essa ordem não foi medida."""
 
 DEFAULT_CHECKS: tuple[FailsCheck, ...] = tuple(
     s for s in DEFAULT_SIGNALS if isinstance(s, FailsCheck)
