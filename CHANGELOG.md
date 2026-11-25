@@ -10,6 +10,10 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `Result.review()` diz, por página, os motivos para uma pessoa olhar: um leitor que falhou, um
+  valor que falha a regra, o erro que outra família repete e a linha lida de dois modos. São fatos
+  do resultado, sem limiar. `Result.readings(entity)` dá as outras leituras das linhas de um valor.
+  Quem usava a biblioteca refazia essas duas junções por fora.
 - `Result.schema_version` diz a versão do formato do JSON, e o esquema da versão corrente está em
   `docs/response/result.schema.json`. A versão sobe quando um campo sai, muda de tipo ou muda de
   sentido; um campo novo com padrão não a muda. Um JSON gravado antes de o campo existir é lido

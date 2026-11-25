@@ -1249,7 +1249,7 @@
   }
  },
  "additionalProperties": false,
- "description": "Saída de `process`: o que foi lido, como foi roteado e o que custou.\n\nÉ um modelo Pydantic: `model_dump_json()` serializa tudo e\n`Result.model_json_schema()` descreve o formato. Os nove métodos abaixo\ndão as outras formas de uso: as linhas por página, os leitores por\npágina, a contagem por verificação, as referências curtas, a citação\nconferida, as figuras, os blocos, as peças e o texto em Markdown.",
+ "description": "Saída de `process`: o que foi lido, como foi roteado e o que custou.\n\nÉ um modelo Pydantic: `model_dump_json()` serializa tudo e\n`Result.model_json_schema()` descreve o formato. Os onze métodos abaixo\ndão as outras formas de uso: as linhas por página, os leitores por\npágina, a contagem por verificação, os motivos de revisão por página, as\noutras leituras de um valor, as referências curtas, a citação conferida,\nas figuras, os blocos, as peças e o texto em Markdown.",
  "properties": {
   "chunks": {
    "items": {

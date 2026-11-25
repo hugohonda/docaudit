@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 __all__ = [
     "DOC_ID_HEX_CHARS",
     "ID_HEX_CHARS",
+    "REVIEW_REASONS",
     "SCHEMA_HEX_CHARS",
     "SCHEMA_VERSION",
     "BBox",
@@ -988,6 +989,9 @@ def _letters_and_digits(text: str) -> str:
     return "".join(ch for ch in fold_lookalikes(text) if ch.isalnum())
 
 
+REVIEW_REASONS = ("incomplete", "reader_failed", "failed_value", "printed_invalid", "two_readings")
+"""Os motivos de `Result.review`, na ordem em que saem."""
+
 SCHEMA_VERSION = "1"
 """A versão do formato de `Result` em JSON.
 
@@ -1002,10 +1006,11 @@ class Result(_Frozen):
     """Saída de `process`: o que foi lido, como foi roteado e o que custou.
 
     É um modelo Pydantic: `model_dump_json()` serializa tudo e
-    `Result.model_json_schema()` descreve o formato. Os nove métodos abaixo
+    `Result.model_json_schema()` descreve o formato. Os onze métodos abaixo
     dão as outras formas de uso: as linhas por página, os leitores por
-    página, a contagem por verificação, as referências curtas, a citação
-    conferida, as figuras, os blocos, as peças e o texto em Markdown.
+    página, a contagem por verificação, os motivos de revisão por página, as
+    outras leituras de um valor, as referências curtas, a citação conferida,
+    as figuras, os blocos, as peças e o texto em Markdown.
     """
 
     doc_id: str
@@ -1090,6 +1095,47 @@ class Result(_Frozen):
             if entity.state is EntityState.FAILED and entity.printed is not None:
                 counts["printed"] = counts.get("printed", 0) + 1
         return out
+
+    def review(self) -> dict[int, tuple[str, ...]]:
+        """Por página, os motivos para uma pessoa olhar; a página sem motivo não entra.
+
+        Cada motivo é um fato categórico deste resultado, sem limiar, na ordem de
+        `REVIEW_REASONS`: `incomplete`, um leitor falhou e ninguém leu no lugar
+        dele; `reader_failed`, um leitor falhou e outro cobriu; `failed_value`,
+        um valor falha a regra e nenhuma outra família o leu igual;
+        `printed_invalid`, o valor falha e outra família leu igual, o erro é do
+        documento; `two_readings`, outro leitor leu a linha de outro modo e a
+        dúvida ficou. Diz onde olhar, e não que o resto está certo: a leitura
+        errada que passa na regra não aparece aqui.
+        """
+        found: dict[int, set[str]] = {}
+        for decision in self.decisions:
+            if decision.incomplete:
+                found.setdefault(decision.page, set()).add("incomplete")
+            elif decision.failures:
+                found.setdefault(decision.page, set()).add("reader_failed")
+        for entity in self.entities:
+            if entity.state is EntityState.FAILED:
+                reason = "failed_value" if entity.printed is None else "printed_invalid"
+                found.setdefault(entity.page, set()).add(reason)
+        for other in self.others:
+            if not other.replaced and not other.same:
+                found.setdefault(other.reading.page, set()).add("two_readings")
+        return {
+            page: tuple(r for r in REVIEW_REASONS if r in reasons)
+            for page, reasons in sorted(found.items())
+        }
+
+    def readings(self, entity: Entity) -> tuple[OtherReading, ...]:
+        """As outras leituras das linhas de um valor, na ordem em que foram feitas.
+
+        O valor que ficou no resultado está em `entity`; aqui vêm a linha que
+        saiu quando outra a substituiu (`replaced`), a de outra família que leu
+        igual (`same`) e a que leu diferente. Vazio quando ninguém releu a
+        linha.
+        """
+        lines = set(entity.chunk_ids)
+        return tuple(other for other in self.others if other.line in lines)
 
     def refs(self) -> dict[str, Chunk]:
         """Uma referência curta por linha, `p<página>:<posição>`, na ordem de leitura.
