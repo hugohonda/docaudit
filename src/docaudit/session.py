@@ -25,6 +25,7 @@ from docaudit.pdf import PageView
 from docaudit.policies import (
     DEFAULT_SIGNALS,
     Check,
+    GazetteFormat,
     LineSignal,
     StampFormat,
     get_policy,
@@ -177,13 +178,14 @@ class Document:
         entities: Sequence[Check] | None = None,
         stamps: Sequence[StampFormat | str] | None = None,
         folhas: Sequence[Check | str] | None = None,
+        gazettes: Sequence[GazetteFormat | str] | None = None,
         spans: bool = False,
     ) -> Result:
         """Lê o documento como `process`, sem abri-lo nem classificá-lo de novo.
 
         O padrão é a política `evidence`: um agente quer saber o que falhou.
         Os sinais da política que apontam linha passam a ser os de `doubts`.
-        `entities`, `stamps`, `folhas` e `spans` são os de `process`.
+        `entities`, `stamps`, `folhas`, `gazettes` e `spans` são os de `process`.
         """
         # `furniture` é visto sobre as páginas lidas nesta chamada: com `pages`,
         # uma linha repetida só noutras páginas sai sem marca.
@@ -208,6 +210,7 @@ class Document:
             entities=entities,
             stamps=stamps,
             folhas=folhas,
+            gazettes=gazettes,
             spans=spans,
             facts=self.facts,
         )

@@ -523,6 +523,97 @@
    ],
    "type": "string"
   },
+  "Gazette": {
+   "additionalProperties": false,
+   "description": "O cabeçalho que um diário oficial imprime em cada página de uma edição.\n\nOs campos saem do que o formato (`GazetteFormat`) nomeia; o que o\ncabeçalho não imprime fica None. Páginas da mesma edição trazem o mesmo\n`format` e a mesma `edition`.",
+   "properties": {
+    "bbox": {
+     "$ref": "#/$defs/BBox",
+     "description": "A menor caixa que contém as linhas do cabeçalho."
+    },
+    "chunk_ids": {
+     "description": "As linhas do cabeçalho.",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1,
+     "title": "Chunk Ids",
+     "type": "array"
+    },
+    "edition": {
+     "description": "O número da edição, como impresso.",
+     "title": "Edition",
+     "type": "string"
+    },
+    "format": {
+     "description": "O nome do `GazetteFormat` que casou o cabeçalho.",
+     "title": "Format",
+     "type": "string"
+    },
+    "page": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "A página da edição, quando o cabeçalho a imprime.",
+     "title": "Page"
+    },
+    "published": {
+     "anyOf": [
+      {
+       "format": "date",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "A data da edição, quando o cabeçalho a imprime.",
+     "title": "Published"
+    },
+    "section": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "O caderno, quando o diário se divide em cadernos.",
+     "title": "Section"
+    },
+    "volume": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "O ano de circulação do diário, como impresso: `X`, `4`.",
+     "title": "Volume"
+    }
+   },
+   "required": [
+    "format",
+    "edition",
+    "bbox",
+    "chunk_ids"
+   ],
+   "title": "Gazette",
+   "type": "object"
+  },
   "OtherReading": {
    "additionalProperties": false,
    "description": "Outra leitura do mesmo lugar da folha, ao lado de uma linha do resultado.\n\nA releitura por outra família e o leitor caro leem de novo a linha que\nfalhou. A leitura que confere no mesmo lugar substitui a linha; a que não\nconfere fica aqui, ao lado da linha que continuou no resultado. Numa\ndigitalização com camada de OCR, a linha da camada que lê outro valor em\nreais também fica aqui, com `check` e `value`, como a linha do leitor caro\nrecusada por não trazer um valor que a linha barata trazia. São as linhas\nlidas de dois modos: uma pessoa, ou um terceiro leitor, decide qual é a\ncerta.\n\nQuando a substituição troca o texto, a linha que saiu também fica aqui,\ncom `replaced`: a leitura que saiu ao lado da que entrou no mesmo recorte.",
@@ -604,6 +695,18 @@
      ],
      "default": null,
      "description": "A folha dos autos carimbada na página, pelo valor de `FOLHA` numa linha de elemento fixo; no corpo, a mesma forma é citação. None sem carimbo, no verso e numa execução de uma página só. A forma vem de `folhas=`, e a regra está em `folhas_of`."
+    },
+    "gazette": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/Gazette"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "O cabeçalho de diário oficial da camada de texto, num dos formatos de `gazettes`. None numa página que não é de diário."
     },
     "hidden_fonts": {
      "default": [],
@@ -829,6 +932,15 @@
       "type": "string"
      },
      "title": "Folhas",
+     "type": "array"
+    },
+    "gazettes": {
+     "default": [],
+     "description": "Os nomes dos formatos de cabeçalho de diário procurados.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Gazettes",
      "type": "array"
     },
     "min_raster_fraction": {

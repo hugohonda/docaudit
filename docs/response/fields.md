@@ -18,8 +18,27 @@ cada objeto. Toda caixa segue [a convenção de `BBox`](#bbox).
 | `substrate_evidence` | os números que decidiram o substrato: `chars`, `visible_text`, `invisible_text`, `covered_text`, `unmapped_text`, `unread_regions` e, quando há imagem, `native_dpi` |
 | `stamp` | a tarja achada na camada de texto, num dos formatos de `stamps=`, ou `null`; ver [`Stamp`](#stamp) |
 | `folha` | a folha dos autos carimbada na página, ou `null`; ver [`Folha`](#folha) |
+| `gazette` | o cabeçalho de diário oficial da página, ou `null`; ver [`Gazette`](#gazette) |
 | `unread` | as caixas das imagens e dos desenhos que nenhuma camada de texto leu, de cima para baixo e da esquerda para a direita. Rasters que se tocam formam uma caixa só. O índice nesta lista é o que `Chunk.region` aponta |
 | `hidden_fonts` | os nomes das fontes do texto escondido, sem repetição. Dizem quem escreveu a camada de OCR: o Tesseract deixa `GlyphLessFont`. Vazio numa página nato-digital |
+
+## `Gazette`
+
+O cabeçalho que um diário oficial imprime no topo de cada página de uma edição.
+
+| campo | o que traz |
+|---|---|
+| `format` | o nome do `GazetteFormat` que casou |
+| `edition` | o número da edição, como impresso. Páginas da mesma edição trazem o mesmo |
+| `published` | a data da edição, quando o cabeçalho a imprime |
+| `volume` | o ano de circulação do diário, como impresso |
+| `section` | o caderno, nos diários que se dividem em cadernos |
+| `page` | a página da edição, quando o cabeçalho a imprime |
+| `bbox`, `chunk_ids` | a caixa e as linhas do cabeçalho |
+
+A citação de um diário no meio do texto não é cabeçalho, e o cabeçalho com
+data que não existe não conta. Um edital copiado nos autos traz o cabeçalho
+do diário e a tarja do tribunal: os dois saem.
 
 ## `Stamp`
 

@@ -42,13 +42,17 @@ from docaudit.cache import call_key
 from docaudit.pdf import PageView, merge_touching
 from docaudit.policies import (
     DEFAULT_ENTITIES,
+    DEFAULT_GAZETTES,
     DEFAULT_STAMPS,
     FOLHA,
     FOLHA_FORMATS,
+    GAZETTE_FORMATS,
     STAMP_FORMATS,
     GarbledText,
+    GazetteFormat,
     StampFormat,
     _machine_chunks,  # pyright: ignore[reportPrivateUsage] - a mesma regra de texto composto dos sinais
+    date_in_words,
     entities_of,
     fold_lookalikes,
     garbled_runs,
@@ -65,6 +69,7 @@ from docaudit.types import (
     EntityState,
     ExternalBackendError,
     Folha,
+    Gazette,
     Layout,
     Metered,
     OtherReading,
@@ -100,6 +105,7 @@ __all__ = [
     "TrustLayer",
     "folhas_of",
     "form_of",
+    "gazettes_of",
     "mark_furniture",
     "process",
     "read_region",
@@ -692,6 +698,59 @@ def _stamp_of(form: StampFormat, match: re.Match[str], lines: Sequence[Chunk]) -
         signer=" ".join(signer.split()) if signer else None,
         at=at,
         protocol=groups.get("protocol"),
+        bbox=BBox.envelope([c.bbox for c in touched]),
+        chunk_ids=tuple(c.id for c in touched),
+    )
+
+
+def gazettes_of(
+    by_page: Mapping[int, Sequence[Chunk]],
+    formats: Sequence[GazetteFormat] = DEFAULT_GAZETTES,
+) -> dict[int, Gazette]:
+    """O cabeçalho de diário oficial de cada página, num dos `formats`, pela camada de texto.
+
+    Vale o primeiro cabeçalho que casa na ordem de leitura: o diário o imprime
+    no topo da página. O cabeçalho com data que não existe não é cabeçalho.
+    """
+    out: dict[int, Gazette] = {}
+    for index, chunks in by_page.items():
+        layer = sorted(
+            (c for c in chunks if c.source == TextLayerReader.name),
+            key=lambda c: c.reading_order or 0,
+        )
+        text = "\n".join(c.text for c in layer)
+        found = sorted(
+            ((m.start(), form, m) for form in formats for m in form.pattern.finditer(text)),
+            key=lambda item: item[0],
+        )
+        for _, form, match in found:
+            gazette = _gazette_of(form, match, layer)
+            if gazette is not None:
+                out[index] = gazette
+                break
+    return out
+
+
+def _gazette_of(
+    form: GazetteFormat, match: re.Match[str], lines: Sequence[Chunk]
+) -> Gazette | None:
+    """O cabeçalho casado, com as linhas que ele toca, ou None se a data impressa não existe."""
+    groups = match.groupdict()
+    published = None
+    if groups.get("date"):
+        published = date_in_words(" ".join(groups["date"].split()))
+        if published is None:
+            return None
+    section = groups.get("section")
+    page = groups.get("page")
+    touched = touched_lines(lines, match.start(), match.end())
+    return Gazette(
+        format=form.name,
+        edition=match["edition"],
+        published=published,
+        volume=groups.get("volume"),
+        section=" ".join(section.split()) if section else None,
+        page=int(page) if page else None,
         bbox=BBox.envelope([c.bbox for c in touched]),
         chunk_ids=tuple(c.id for c in touched),
     )
@@ -1703,6 +1762,7 @@ def process(
     entities: Sequence[Check] | None = None,
     stamps: Sequence[StampFormat | str] | None = None,
     folhas: Sequence[Check | str] | None = None,
+    gazettes: Sequence[GazetteFormat | str] | None = None,
     spans: bool = False,
     allow_external: bool = False,
     cache: ModelCallCache | None = None,
@@ -1793,6 +1853,10 @@ def process(
         folhas: as formas de folha (`Check` com o grupo `number`) procuradas
             nas linhas de elemento fixo, para `Page.folha`. `None` é `FOLHA`,
             `fls. N`; `[]` não procura nenhuma. Um nome vem de `FOLHA_FORMATS`.
+        gazettes: os formatos de cabeçalho de diário oficial (`GazetteFormat`)
+            procurados na camada de texto, para `Page.gazette`. `None` é
+            `DEFAULT_GAZETTES`; `[]` não procura nenhum. Um nome vem de
+            `GAZETTE_FORMATS`.
         spans: `True` põe em cada `Entity.span` onde o valor está no texto
             das linhas dele. Desligado por omissão: o resultado fica do
             tamanho que tinha.
@@ -1876,6 +1940,7 @@ def process(
             entities=entities,
             stamps=stamps,
             folhas=folhas,
+            gazettes=gazettes,
             spans=spans,
             cache=cache,
             dpi=dpi,
@@ -1905,6 +1970,7 @@ def run_pipeline(
     entities: Sequence[Check] | None = None,
     stamps: Sequence[StampFormat | str] | None = None,
     folhas: Sequence[Check | str] | None = None,
+    gazettes: Sequence[GazetteFormat | str] | None = None,
     spans: bool = False,
     facts: DocumentFacts | None = None,
     min_raster_fraction: float = 0.0,
@@ -1927,6 +1993,7 @@ def run_pipeline(
     bare = _bare_field([*(c.check for c in checks), *entity_checks])
     stamp_formats = _named(stamps, DEFAULT_STAMPS, STAMP_FORMATS)
     folha_checks = _named(folhas, (FOLHA,), FOLHA_FORMATS)
+    gazette_formats = _named(gazettes, DEFAULT_GAZETTES, GAZETTE_FORMATS)
     for check in folha_checks:
         if "number" not in check.pattern.groupindex:
             raise ValueError(f"a folha {check.name!r} precisa do grupo `number`")
@@ -2072,8 +2139,15 @@ def run_pipeline(
     drawn = _draw_order_of(run, by_index)
     found_stamps = stamps_of(by_page, stamp_formats, drawn)
     page_folhas = _in_sequence(folhas_of(by_page, folha_checks, drawn))
+    found_gazettes = gazettes_of(by_page, gazette_formats)
     selected = [
-        p.model_copy(update={"stamp": found_stamps.get(p.index), "folha": page_folhas.get(p.index)})
+        p.model_copy(
+            update={
+                "stamp": found_stamps.get(p.index),
+                "folha": page_folhas.get(p.index),
+                "gazette": found_gazettes.get(p.index),
+            }
+        )
         for p in selected
     ]
     if layout is not None:
@@ -2148,6 +2222,7 @@ def run_pipeline(
             entities=tuple(c.name for c in entity_checks),
             stamps=tuple(f.name for f in stamp_formats),
             folhas=tuple(c.name for c in folha_checks),
+            gazettes=tuple(f.name for f in gazette_formats),
             spans=spans,
             min_raster_fraction=min_raster_fraction,
             versions=_versions(

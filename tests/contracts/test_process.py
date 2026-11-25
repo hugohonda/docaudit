@@ -9,7 +9,7 @@ anonimização barra um backend externo.
 import re
 import time
 from collections.abc import Mapping, Sequence
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 import pytest
@@ -1193,6 +1193,60 @@ def _strip(process_number: str, code: str, *, signer: str = "FULANO DE TAL") -> 
 
 
 _OWN = "9000705-10.2024.8.26.0354"
+
+
+def test_a_gazette_page_carries_its_edition_and_a_cited_gazette_does_not():
+    """O cabeçalho de diário dá a edição, a data e a página; a citação no corpo não é cabeçalho."""
+    doc = make_pdf(
+        _stamped(
+            "Disponibilizacao: quinta-feira, 17 de agosto de 2017 Diario da Justica Eletronico - "
+            "Caderno Editais e Leiloes Sao Paulo, Ano X - Edicao 2412 138",
+            "EDITAL DE CONVOCACAO DE CREDORES",
+        ),
+        _stamped(
+            "Segunda-feira",
+            "Ano:4 Edicao:",
+            "16 de junho de 2014 Diario Oficial",
+            "957 Prefeitura Municipal de Exemplo",
+        ),
+        _stamped("2 - Ano I - No 137 PREFEITURA MUNICIPAL DE EXEMPLO", "DECRETO"),
+        _stamped(
+            "publicado no Diario da Justica Eletronico de 19/07/2017, conforme o Ano 4 - No 722"
+        ),
+        _stamped(
+            "Disponibilizacao: segunda-feira, 31 de fevereiro de 2017 Diario da Justica "
+            "Eletronico - Caderno Editais Sao Paulo, Ano X - Edicao 1 2"
+        ),
+    )
+    pages = process(doc, policy="all_cheap", cheap=["text_layer"]).pages
+    dje, inner, numbered, cited, impossible = (p.gazette for p in pages)
+    assert dje is not None
+    assert (dje.format, dje.edition, dje.published, dje.volume, dje.section, dje.page) == (
+        "dje-sp",
+        "2412",
+        date(2017, 8, 17),
+        "X",
+        "Editais e Leiloes",
+        138,
+    )
+    assert inner is not None
+    assert (inner.format, inner.edition, inner.published) == (
+        "municipal-ano-edicao",
+        "957",
+        date(2014, 6, 16),
+    )
+    assert numbered is not None
+    assert (numbered.format, numbered.edition, numbered.volume, numbered.page) == (
+        "municipal-ano-numero",
+        "137",
+        "I",
+        2,
+    )
+    assert cited is None, "a citação do diário no meio da linha não é cabeçalho"
+    assert impossible is None, "a data que não existe não é cabeçalho"
+    assert (
+        process(doc, policy="all_cheap", cheap=["text_layer"], gazettes=[]).pages[0].gazette is None
+    )
 
 
 def test_the_page_carries_its_own_stamp():
