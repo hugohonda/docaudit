@@ -10,6 +10,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `Check.valid_only`: uma forma fora da pontuação padrão que conta só quando a regra confere. O
+  `CPF` a usa para o ponto ou a barra lidos no lugar do hífen, `529.982.247.25`: se os dígitos
+  fecham, é o CPF; se não fecham, é outro número e não sai. Como a forma com rótulo, entra em
+  `Result.entities` e não encaminha a página.
+
 - `Result.review()` diz, por página, os motivos para uma pessoa olhar: um leitor que falhou, um
   valor que falha a regra, o erro que outra família repete e a linha lida de dois modos. São fatos
   do resultado, sem limiar. `Result.readings(entity)` dá as outras leituras das linhas de um valor.

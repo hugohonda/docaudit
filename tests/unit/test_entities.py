@@ -297,6 +297,22 @@ def test_a_label_admitted_id_that_fails_does_not_route_the_page():
     assert FailsCheck(CPF).failing(page, [misread]) == [], "o rótulo só extrai"
 
 
+def test_a_cpf_read_with_a_dot_before_its_check_digits_counts_only_when_they_close():
+    """O ponto ou a barra no lugar do hífen: CPF se os dígitos fecham; se não, outro número."""
+    page = make_page(0)
+    dot = _line(page, 0.1, "Credor 529.982.247.25, R$ 1.000,00")
+    slash = _line(page, 0.2, "Credor 529.982.247/25")
+    other = _line(page, 0.3, "registro 529.982.247.26 e valor 123.456.789,01")
+    found = entities_of([CPF], page, [dot, slash, other])
+    assert [(e.value, e.state) for e in found] == [
+        ("529.982.247.25", EntityState.CONFIRMED),
+        ("529.982.247/25", EntityState.CONFIRMED),
+    ]
+    assert FailsCheck(CPF).failing(page, [other]) == [], (
+        "o número que não fecha não aponta a página"
+    )
+
+
 def test_the_folha_stamp_and_a_cited_folha_are_entities_and_a_range_is_not():
     page = make_page(0)
     stamp = _line(page, 0.03, "fls. 730")
