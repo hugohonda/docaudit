@@ -46,6 +46,10 @@ instância. O nome vem do grupo de entry points `docaudit.backends`, e
 
 ::: docaudit.backends.ppocr.PPOCR
 
+::: docaudit.backends.ppocr.turned
+    options:
+      heading_level: 3
+
 ::: docaudit.backends.vlm.VLM
 
 ::: docaudit.backends.vlm.DEFAULT_URL
