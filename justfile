@@ -25,6 +25,10 @@ fmt:
 test *args:
     uv run pytest -m "not slow" --cov {{args}}
 
+# Regrava o esquema publicado de `Result`; rode depois de mudar um campo da saída.
+schema:
+    uv run python -c "import json, pathlib; from docaudit.types import Result; pathlib.Path('docs/response/result.schema.json').write_text(json.dumps(Result.model_json_schema(), indent=1, ensure_ascii=False, sort_keys=True) + '\\n')"
+
 # Tudo, inclusive `real`, que baixa um PDF público.
 test-all:
     uv run pytest

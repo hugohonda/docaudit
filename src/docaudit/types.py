@@ -30,6 +30,7 @@ __all__ = [
     "DOC_ID_HEX_CHARS",
     "ID_HEX_CHARS",
     "SCHEMA_HEX_CHARS",
+    "SCHEMA_VERSION",
     "BBox",
     "Budget",
     "Chunk",
@@ -987,6 +988,16 @@ def _letters_and_digits(text: str) -> str:
     return "".join(ch for ch in fold_lookalikes(text) if ch.isalnum())
 
 
+SCHEMA_VERSION = "1"
+"""A versão do formato de `Result` em JSON.
+
+Sobe quando um campo sai, muda de tipo ou muda de sentido: quem guardou um JSON
+antigo decide por ela se ainda o lê. Um campo novo com padrão não a muda. O
+esquema da versão corrente está em `docs/response/result.schema.json`, e um
+teste falha quando o código e esse arquivo divergem.
+"""
+
+
 class Result(_Frozen):
     """Saída de `process`: o que foi lido, como foi roteado e o que custou.
 
@@ -1033,6 +1044,13 @@ class Result(_Frozen):
         ),
     )
     library_version: str
+    schema_version: str = PField(
+        default=SCHEMA_VERSION,
+        description=(
+            "A versão do formato deste JSON. Um JSON gravado antes de o campo existir "
+            "é lido como da versão 1."
+        ),
+    )
 
     def by_page(self) -> dict[int, list[Chunk]]:
         """Os chunks de cada página, na ordem de leitura.

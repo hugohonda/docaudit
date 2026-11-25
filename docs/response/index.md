@@ -5,6 +5,12 @@ congelado: `result.model_dump_json()` serializa tudo, e
 `Result.model_json_schema()` descreve o formato em JSON Schema. Cada campo
 está descrito em [Campos do resultado](fields.md).
 
+O esquema da versão corrente está publicado em
+[`result.schema.json`](result.schema.json), e `Result.schema_version` diz a
+versão do formato de cada JSON. Ela sobe quando um campo sai, muda de tipo ou
+muda de sentido; um campo novo com padrão não a muda. Um JSON gravado antes de
+o campo existir é lido como da versão 1.
+
 ## Exemplo
 
 O documento é um PDF nato-digital de uma página, com cinco linhas de texto,
