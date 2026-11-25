@@ -24,6 +24,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   repetir sem copiar: a forma que iguala duas linhas de elemento fixo, o que conta como lido numa
   região, a caixa de um objeto do PDF em coordenadas da página e o recorte que o reconhecedor girou.
 
+- `Page.gazette` traz o cabeçalho de diário oficial da página: a edição, a data, o ano, o caderno
+  e a página da edição. Três formatos (`GazetteFormat`) vêm por omissão: o Diário da Justiça
+  Eletrônico de São Paulo e duas formas de diário municipal; `process(gazettes=)` troca ou desliga.
+  Páginas da mesma edição trazem a mesma `edition`, o que dá a unidade de publicação de um diário.
+
 ### Mudado
 
 - O teto de páginas de `Budget` é aplicado depois da releitura por outra família. A releitura roda

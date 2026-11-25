@@ -1,3 +1,4 @@
+import datetime
 import random
 import re
 from collections.abc import Iterator, Sequence
@@ -20,6 +21,8 @@ from docaudit.policies import (
     Check,
     FailsCheck,
     GarbledText,
+    GazetteFormat,
+    date_in_words,
     entities_of,
     failures,
     fold_lookalikes,
@@ -628,3 +631,11 @@ def test_an_amount_digit_read_as_a_letter_fails():
 def test_an_identifier_of_one_repeated_digit_fails_though_the_arithmetic_closes(check, printed):
     """A conta do módulo 11 fecha para o dígito repetido; a regra o recusa mesmo assim."""
     assert not check.is_valid(printed)
+
+
+def test_a_gazette_format_needs_the_edition_and_a_date_in_words_must_exist():
+    with pytest.raises(ValueError, match="edition"):
+        GazetteFormat("sem-edicao", re.compile(r"Ano (?P<volume>\d+)"))
+    assert date_in_words("17 de agosto de 2017") == datetime.date(2017, 8, 17)
+    assert date_in_words("1º de março de 2020") == datetime.date(2020, 3, 1)
+    assert date_in_words("31 de fevereiro de 2017") is None

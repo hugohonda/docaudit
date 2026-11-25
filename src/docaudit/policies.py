@@ -42,13 +42,18 @@ __all__ = [
     "DATE_WEEKDAY",
     "DEFAULT_CHECKS",
     "DEFAULT_ENTITIES",
+    "DEFAULT_GAZETTES",
     "DEFAULT_SIGNALS",
     "DEFAULT_STAMPS",
+    "DJE_SP_GAZETTE",
     "EPROC_STAMP",
     "ESAJ_STAMP",
     "FOLHA",
     "FOLHA_FORMATS",
+    "GAZETTE_FORMATS",
     "IDENTIFIERS",
+    "MUNICIPAL_EDITION_GAZETTE",
+    "MUNICIPAL_NUMBER_GAZETTE",
     "NFE_KEY",
     "PIS",
     "PJE_STAMP",
@@ -64,10 +69,12 @@ __all__ = [
     "EvidenceRouter",
     "FailsCheck",
     "GarbledText",
+    "GazetteFormat",
     "LineSignal",
     "MojibakeText",
     "Signal",
     "StampFormat",
+    "date_in_words",
     "entities_of",
     "failures",
     "fold_lookalikes",
@@ -1598,6 +1605,88 @@ STAMP_FORMATS: dict[str, StampFormat] = {
 
 DEFAULT_STAMPS: tuple[StampFormat, ...] = (ESAJ_STAMP,)
 """Os formatos de tarja procurados por omissão: o e-SAJ, de São Paulo e de outros tribunais."""
+
+
+@dataclass(frozen=True)
+class GazetteFormat:
+    r"""O cabeçalho que um diário oficial imprime em cada página de uma edição.
+
+    `pattern` casa o cabeçalho nas linhas da camada de texto, unidas por
+    quebra de linha na ordem do arquivo, e nomeia o que ele traz: `edition`,
+    o número da edição, sempre; e, quando o cabeçalho os imprime, `date`, a
+    data por extenso (`17 de agosto de 2017`), `volume`, o ano de circulação,
+    `section`, o caderno, e `page`, a página da edição. O cabeçalho com data
+    que não existe não é cabeçalho. `process(gazettes=)` recebe o formato ou
+    o nome dele em `GAZETTE_FORMATS`.
+    """
+
+    name: str
+    pattern: re.Pattern[str]
+
+    def __post_init__(self) -> None:
+        """Recusa o formato sem o grupo `edition`."""
+        if "edition" not in self.pattern.groupindex:
+            raise ValueError(f"o diário {self.name!r} precisa do grupo `edition`")
+
+
+def date_in_words(printed: str) -> datetime.date | None:
+    """A data por extenso, `17 de agosto de 2017`, ou None se ela não existe."""
+    match = _VERBOSE_DATE.fullmatch(printed.strip())
+    if match is None:
+        return None
+    day, name, year = match.groups()
+    return _calendar(int(year), _MONTHS.get(_plain(name)), int(day))
+
+
+_DATE_IN_WORDS = r"\d{1,2}\s+de\s+[^\W\d_]+\s+de\s+\d{4}"
+
+DJE_SP_GAZETTE = GazetteFormat(
+    "dje-sp",
+    re.compile(
+        r"(?i)Disponibiliza[çc][ãa]o:\s*[^,\n]+,\s*"
+        rf"(?P<date>{_DATE_IN_WORDS})\s+Di[áa]rio\s+da\s+Justi[çc]a\s+Eletr[ôo]nico\s*-\s*"
+        r"Caderno\s+(?P<section>[^\n]+?)\s+S[ãa]o\s+Paulo,\s*Ano\s+(?P<volume>[IVXLC]+)\s*-\s*"
+        r"Edi[çc][ãa]o\s+(?P<edition>\d+)(?:\s+(?P<page>\d{1,5}))?\b"
+    ),
+)
+"""O cabeçalho do Diário da Justiça Eletrônico de São Paulo: data, caderno, ano, edição e página."""
+
+MUNICIPAL_EDITION_GAZETTE = GazetteFormat(
+    "municipal-ano-edicao",
+    re.compile(
+        r"(?i)\bAno:\s*(?P<volume>\d{1,3})\s+Edi[çc][ãa]o:\s*"
+        rf"(?:(?P<date>{_DATE_IN_WORDS})[^\n]*\n\s*)?(?P<edition>\d{{1,6}})\b(?!\s+de\b)"
+    ),
+)
+"""O cabeçalho de diário municipal na forma `Ano: 4 Edição: 957`.
+
+Na página interna, o número da edição vem uma linha abaixo, depois da data
+(`Ano:4 Edição:`, `16 de junho de 2014 Diário Oficial`, `957 Prefeitura…`),
+e a data entra. Na capa, a data vem depois do total de páginas e fica de
+fora. Ponto de partida: confira nos seus documentos.
+"""
+
+MUNICIPAL_NUMBER_GAZETTE = GazetteFormat(
+    "municipal-ano-numero",
+    re.compile(
+        rf"(?im)^(?:(?P<page>\d{{1,4}})\s*-\s*|[^\n,]{{0,60}},\s*(?P<date>{_DATE_IN_WORDS})\s*-\s*)?"
+        r"Ano\s+(?P<volume>[IVXLC]+|\d{1,3})\s*-\s*N[º°o]\.?\s*(?P<edition>\d{1,6})\b"
+    ),
+)
+"""O cabeçalho de diário municipal na forma `Ano I - Nº 137`, no começo da linha.
+
+A página vem antes (`2 - Ano I - Nº 137`), ou a cidade e a data
+(`Cidade, 11 de agosto de 2017 - Ano 4 - Nº 722`). Ponto de partida: confira
+nos seus documentos.
+"""
+
+GAZETTE_FORMATS: dict[str, GazetteFormat] = {
+    f.name: f for f in (DJE_SP_GAZETTE, MUNICIPAL_EDITION_GAZETTE, MUNICIPAL_NUMBER_GAZETTE)
+}
+"""Os formatos que `process(gazettes=)` aceita pelo nome."""
+
+DEFAULT_GAZETTES: tuple[GazetteFormat, ...] = tuple(GAZETTE_FORMATS.values())
+"""Os formatos de cabeçalho de diário procurados por omissão: todos os conhecidos."""
 
 PROJUDI_PAGE = Check(
     "pagina-projudi",

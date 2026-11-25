@@ -245,6 +245,45 @@ folha é um `Check` com o número no grupo `number`. `process(stamps=)` e
       heading_level: 3
       show_attribute_values: false
 
+## Formatos de cabeçalho de diário
+
+Um formato de cabeçalho (`GazetteFormat`) diz como achar, na camada de texto,
+o cabeçalho que um diário oficial imprime em cada página. `process(gazettes=)`
+aceita o objeto ou o nome dele.
+
+::: docaudit.policies.GazetteFormat
+    options:
+      heading_level: 3
+
+::: docaudit.policies.DJE_SP_GAZETTE
+    options:
+      heading_level: 3
+      show_attribute_values: false
+
+::: docaudit.policies.MUNICIPAL_EDITION_GAZETTE
+    options:
+      heading_level: 3
+      show_attribute_values: false
+
+::: docaudit.policies.MUNICIPAL_NUMBER_GAZETTE
+    options:
+      heading_level: 3
+      show_attribute_values: false
+
+::: docaudit.policies.GAZETTE_FORMATS
+    options:
+      heading_level: 3
+      show_attribute_values: false
+
+::: docaudit.policies.DEFAULT_GAZETTES
+    options:
+      heading_level: 3
+      show_attribute_values: false
+
+::: docaudit.policies.date_in_words
+    options:
+      heading_level: 3
+
 ::: docaudit.policies.PROJUDI_PAGE
     options:
       heading_level: 3
