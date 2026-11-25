@@ -49,7 +49,7 @@ if TYPE_CHECKING:
     from docaudit.pdf import PageView
     from docaudit.types import Page, Turn
 
-__all__ = ["PPOCR"]
+__all__ = ["PPOCR", "turned"]
 
 _ENGINE = threading.Lock()
 """Serializa a carga e a inferência do RapidOCR.
@@ -168,7 +168,7 @@ def _broken_install(exc: BaseException) -> ImportError | None:
     return None
 
 
-def _turned(poly: Sequence[Sequence[float]], crop: Any) -> bool:
+def turned(poly: Sequence[Sequence[float]], crop: Any) -> bool:
     """Se o RapidOCR girou este recorte um quarto de volta antes de reconhecê-lo.
 
     Ele gira o recorte alto para deitá-lo, em `get_rotate_crop_image`. Um
@@ -479,8 +479,8 @@ class PPOCR:
                 return [], 0, 0
             crops = [crops[i] for i in keep]
             detected.boxes = detected.boxes[keep]
-            turned = [i for i, crop in enumerate(crops) if _turned(detected.boxes[i], crop)]
-            flipped = [np.ascontiguousarray(np.rot90(crops[i], 2)) for i in turned]
+            sideways = [i for i, crop in enumerate(crops) if turned(detected.boxes[i], crop)]
+            flipped = [np.ascontiguousarray(np.rot90(crops[i], 2)) for i in sideways]
             recognized = engine.recognize_txt([*crops, *flipped])
         except Exception as exc:
             if (broken := _broken_install(exc)) is not None:
@@ -492,7 +492,7 @@ class PPOCR:
         texts = [str(t) for t in recognized.txts]
         scores = [float(v) for v in recognized.scores]
         won = 0
-        for k, i in enumerate(turned):
+        for k, i in enumerate(sideways):
             if scores[len(crops) + k] > scores[i]:
                 texts[i], scores[i] = texts[len(crops) + k], scores[len(crops) + k]
                 won += 1
@@ -504,4 +504,4 @@ class PPOCR:
                 min(xs), min(ys), max(xs), max(ys), width_px=width, height_px=height
             )
             lines.append((bbox, text, score))
-        return lines, len(turned), won
+        return lines, len(sideways), won

@@ -19,6 +19,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   sentido; um campo novo com padrão não a muda. Um JSON gravado antes de o campo existir é lido
   como da versão 1.
 
+- `form_of` e `within`, de `docaudit.process`, `page_bounds`, de `docaudit.pdf`, e `turned`, de
+  `docaudit.backends.ppocr`, são nomes públicos. São regras da cascata que uma medição precisa
+  repetir sem copiar: a forma que iguala duas linhas de elemento fixo, o que conta como lido numa
+  região, a caixa de um objeto do PDF em coordenadas da página e o recorte que o reconhecedor girou.
+
 ### Mudado
 
 - O teto de páginas de `Budget` é aplicado depois da releitura por outra família. A releitura roda
