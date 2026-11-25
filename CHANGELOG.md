@@ -8,6 +8,13 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 <!-- --8<-- [start:versoes] -->
 ## [Não lançado]
 
+### Adicionado
+
+- `Result.schema_version` diz a versão do formato do JSON, e o esquema da versão corrente está em
+  `docs/response/result.schema.json`. A versão sobe quando um campo sai, muda de tipo ou muda de
+  sentido; um campo novo com padrão não a muda. Um JSON gravado antes de o campo existir é lido
+  como da versão 1.
+
 ### Mudado
 
 - A documentação de `reread="region"` diz a quem o recorte serve: ao leitor que cobra pela área

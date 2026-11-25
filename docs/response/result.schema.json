@@ -1,0 +1,1346 @@
+{
+ "$defs": {
+  "BBox": {
+   "additionalProperties": false,
+   "description": "Caixa normalizada: coordenadas em [0, 1], origem no canto superior esquerdo.",
+   "properties": {
+    "x0": {
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "X0",
+     "type": "number"
+    },
+    "x1": {
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "X1",
+     "type": "number"
+    },
+    "y0": {
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Y0",
+     "type": "number"
+    },
+    "y1": {
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Y1",
+     "type": "number"
+    }
+   },
+   "required": [
+    "x0",
+    "y0",
+    "x1",
+    "y1"
+   ],
+   "title": "BBox",
+   "type": "object"
+  },
+  "Budget": {
+   "additionalProperties": false,
+   "description": "Teto opcional do leitor caro, em páginas e em segundos.\n\nCom as duas formas em páginas, vale a mais restritiva. `max_seconds` é o\ntempo de parede da execução a partir do qual o tier caro não começa\npágina nova. A releitura por outra família termina sempre. A página\nescalada que o teto alcançou fica com a leitura barata, feita então se a\npolítica a tinha dispensado; o motivo vai em `RoutingDecision.steps`. Tokens e dólares não\ntêm teto: são relatados em `Result.spent`.",
+   "properties": {
+    "max_seconds": {
+     "anyOf": [
+      {
+       "exclusiveMinimum": 0.0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Max Seconds"
+    },
+    "max_strong_fraction": {
+     "anyOf": [
+      {
+       "maximum": 1.0,
+       "minimum": 0.0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Max Strong Fraction"
+    },
+    "max_strong_pages": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Max Strong Pages"
+    }
+   },
+   "title": "Budget",
+   "type": "object"
+  },
+  "Chunk": {
+   "additionalProperties": false,
+   "description": "Unidade de texto com proveniência. O `id` é determinístico.",
+   "properties": {
+    "bbox": {
+     "$ref": "#/$defs/BBox"
+    },
+    "confidence": {
+     "anyOf": [
+      {
+       "maximum": 1.0,
+       "minimum": 0.0,
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Confiança média do motor. Sinal cru: quem chama aplica o próprio limiar.",
+     "title": "Confidence"
+    },
+    "furniture": {
+     "default": false,
+     "description": "Elemento fixo da página: a linha repete-se, no mesmo lugar, em outra página lida que não é cópia desta, numa sequência a partir da borda da folha ou na vertical da margem. O cabeçalho, o rodapé e a tarja. A linha fica; quem lê decide se a mostra. É evidência da própria linha; `kind` é o bloco do detector em que ela caiu, e para ficar só com o corpo vale `furniture`.",
+     "title": "Furniture",
+     "type": "boolean"
+    },
+    "id": {
+     "title": "Id",
+     "type": "string"
+    },
+    "kind": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Tipo da região de onde o texto veio (text, table, paragraph_title...), no vocabulário do detector de layout do leitor. None quando o leitor não classifica, que é o caso de um OCR por linha e da camada de texto.",
+     "title": "Kind"
+    },
+    "line_break_hyphens": {
+     "default": [],
+     "description": "Índices em `text` dos hífens que estavam numa quebra de linha do PDF, na camada de texto. O hífen fica no texto; juntar as metades é de quem lê.",
+     "items": {
+      "type": "integer"
+     },
+     "title": "Line Break Hyphens",
+     "type": "array"
+    },
+    "page": {
+     "description": "zero-based, como em Page.index",
+     "minimum": 0,
+     "title": "Page",
+     "type": "integer"
+    },
+    "reading_order": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Ordem de leitura dentro da página, atribuída pelo leitor.",
+     "title": "Reading Order"
+    },
+    "region": {
+     "anyOf": [
+      {
+       "minimum": 0,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Índice em `Page.unread` do raster de onde a linha veio, quando um leitor de pixels a leu num raster que a camada de texto não leu. None nos outros casos.",
+     "title": "Region"
+    },
+    "source": {
+     "description": "nome do leitor registrado que produziu este texto",
+     "title": "Source",
+     "type": "string"
+    },
+    "text": {
+     "description": "Texto canônico, com as quebras de linha preservadas.",
+     "title": "Text",
+     "type": "string"
+    },
+    "turn": {
+     "$ref": "#/$defs/Turn",
+     "default": 0,
+     "description": "Graus, no sentido anti-horário, que o leitor girou a página para ler a linha em pé. A caixa fica no sistema da imagem; sem `layout=`, `reading_order` segue a leitura. Meça antes de reagrupar as linhas girando as caixas."
+    }
+   },
+   "required": [
+    "id",
+    "page",
+    "bbox",
+    "text",
+    "source"
+   ],
+   "title": "Chunk",
+   "type": "object"
+  },
+  "DocumentFacts": {
+   "additionalProperties": false,
+   "description": "O que o arquivo diz de si, lido uma vez, sem renderizar nada.\n\n`producer` e `creator` são de quem gravou o arquivo por último: uma\nferramenta que divide um PDF em páginas põe o próprio nome e perde a\nassinatura e a data do original. `saves` e `identifier_changed` dizem se\no arquivo foi regravado depois de criado.",
+   "properties": {
+    "author": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Author"
+    },
+    "created_at": {
+     "anyOf": [
+      {
+       "format": "date-time",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "`/CreationDate`, com o fuso declarado.",
+     "title": "Created At"
+    },
+    "creator": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Creator"
+    },
+    "form": {
+     "$ref": "#/$defs/FormKind",
+     "description": "O tipo de formulário que o arquivo traz."
+    },
+    "identifier_changed": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Se o `/ID` mutável difere do permanente: o arquivo foi regravado. `None` sem `/ID`.",
+     "title": "Identifier Changed"
+    },
+    "keywords": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Keywords"
+    },
+    "modified_at": {
+     "anyOf": [
+      {
+       "format": "date-time",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "`/ModDate`, com o fuso declarado.",
+     "title": "Modified At"
+    },
+    "page_labels": {
+     "description": "Se o arquivo declara rótulos de página próprios.",
+     "title": "Page Labels",
+     "type": "boolean"
+    },
+    "pdf_version": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "A versão do PDF, `1.4`, `1.7`; `None` quando o arquivo não a declara.",
+     "title": "Pdf Version"
+    },
+    "producer": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Producer"
+    },
+    "restricted": {
+     "description": "Se o arquivo nega alguma permissão, como copiar texto.",
+     "title": "Restricted",
+     "type": "boolean"
+    },
+    "saves": {
+     "anyOf": [
+      {
+       "minimum": 1,
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Quantas vezes o arquivo foi gravado, pelos `startxref`: um da criação, mais um por atualização incremental. O trailer extra de um arquivo linearizado não conta. `None` sem o arquivo, como numa imagem.",
+     "title": "Saves"
+    },
+    "signatures": {
+     "default": [],
+     "description": "As assinaturas digitais declaradas.",
+     "items": {
+      "$ref": "#/$defs/Signature"
+     },
+     "title": "Signatures",
+     "type": "array"
+    },
+    "subject": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Subject"
+    },
+    "tagged": {
+     "description": "Se o PDF tem árvore de estrutura: a ordem de leitura é declarada.",
+     "title": "Tagged",
+     "type": "boolean"
+    },
+    "title": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Title"
+    }
+   },
+   "required": [
+    "tagged",
+    "form",
+    "restricted",
+    "page_labels"
+   ],
+   "title": "DocumentFacts",
+   "type": "object"
+  },
+  "Entity": {
+   "additionalProperties": false,
+   "description": "Um valor que uma verificação (`Check`) casou no texto lido, com estado e linha de origem.",
+   "properties": {
+    "bbox": {
+     "$ref": "#/$defs/BBox",
+     "description": "A menor caixa que contém as linhas do valor."
+    },
+    "chunk_ids": {
+     "description": "As linhas que o valor toca: duas quando ele quebra entre linhas.",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1,
+     "title": "Chunk Ids",
+     "type": "array"
+    },
+    "kind": {
+     "description": "O nome do campo, o `name` do `Check` que o casou.",
+     "title": "Kind",
+     "type": "string"
+    },
+    "page": {
+     "description": "zero-based, como em Page.index",
+     "minimum": 0,
+     "title": "Page",
+     "type": "integer"
+    },
+    "printed": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor veio da camada composta, que não tem leitor a errar. O nome de um leitor: outra família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura.",
+     "title": "Printed"
+    },
+    "span": {
+     "anyOf": [
+      {
+       "maxItems": 2,
+       "minItems": 2,
+       "prefixItems": [
+        {
+         "type": "integer"
+        },
+        {
+         "type": "integer"
+        }
+       ],
+       "type": "array"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Onde o valor está no texto das linhas de `chunk_ids` unidas por quebra de linha: o começo e o fim, como em `texto[começo:fim]`, antes de colapsar os espaços. Só com `process(spans=True)`; None por omissão.",
+     "title": "Span"
+    },
+    "state": {
+     "$ref": "#/$defs/EntityState"
+    },
+    "value": {
+     "description": "O valor lido, com hífens, espaços e formas de largura total tipográficos trocados pelo ASCII (`fold_lookalikes`) e com os espaços colapsados.",
+     "title": "Value",
+     "type": "string"
+    }
+   },
+   "required": [
+    "kind",
+    "value",
+    "state",
+    "page",
+    "bbox",
+    "chunk_ids"
+   ],
+   "title": "Entity",
+   "type": "object"
+  },
+  "EntityState": {
+   "description": "O que a verificação de um campo diz do valor lido.",
+   "enum": [
+    "confirmed",
+    "well_formed",
+    "failed"
+   ],
+   "title": "EntityState",
+   "type": "string"
+  },
+  "Folha": {
+   "additionalProperties": false,
+   "description": "A folha dos autos carimbada na página, e a linha de onde veio.",
+   "properties": {
+    "bbox": {
+     "$ref": "#/$defs/BBox",
+     "description": "A caixa da linha do carimbo."
+    },
+    "chunk_ids": {
+     "description": "A linha do carimbo, uma só na camada de texto.",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1,
+     "title": "Chunk Ids",
+     "type": "array"
+    },
+    "in_sequence": {
+     "default": false,
+     "description": "A folha segue a das outras páginas da execução: a diferença entre a folha e o índice da página é a mais comum entre as páginas com folha, e mais de uma página a tem. Com duas diferenças empatadas, nenhuma folha segue. Um PDF que junta peças de vários processos, ou trechos separados de um auto, fica com a sequência do maior trecho na execução, mesmo que seja um anexo. Com `pages=`, só as páginas lidas contam: a cópia juntada com numeração própria, lida sozinha, sai na sequência. A regra supõe uma página por folha: no auto digitalizado com o verso de cada folha, a folha sobe uma a cada duas páginas, e nenhuma segue.",
+     "title": "In Sequence",
+     "type": "boolean"
+    },
+    "value": {
+     "description": "O número da folha, sem o ponto de milhar.",
+     "minimum": 0,
+     "title": "Value",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "value",
+    "bbox",
+    "chunk_ids"
+   ],
+   "title": "Folha",
+   "type": "object"
+  },
+  "FormKind": {
+   "enum": [
+    "none",
+    "acroform",
+    "xfa_full",
+    "xfa_foreground"
+   ],
+   "type": "string"
+  },
+  "OtherReading": {
+   "additionalProperties": false,
+   "description": "Outra leitura do mesmo lugar da folha, ao lado de uma linha do resultado.\n\nA releitura por outra família e o leitor caro leem de novo a linha que\nfalhou. A leitura que confere no mesmo lugar substitui a linha; a que não\nconfere fica aqui, ao lado da linha que continuou no resultado. Numa\ndigitalização com camada de OCR, a linha da camada que lê outro valor em\nreais também fica aqui, com `check` e `value`, como a linha do leitor caro\nrecusada por não trazer um valor que a linha barata trazia. São as linhas\nlidas de dois modos: uma pessoa, ou um terceiro leitor, decide qual é a\ncerta.\n\nQuando a substituição troca o texto, a linha que saiu também fica aqui,\ncom `replaced`: a leitura que saiu ao lado da que entrou no mesmo recorte.",
+   "properties": {
+    "check": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Numa linha que não falha: o `Check.name` do valor que o outro leitor lê diferente, a camada de OCR ou a linha recusada do leitor caro.",
+     "title": "Check"
+    },
+    "line": {
+     "description": "O `Chunk.id` da linha do resultado.",
+     "title": "Line",
+     "type": "string"
+    },
+    "reading": {
+     "$ref": "#/$defs/Chunk",
+     "description": "A linha do outro leitor no mesmo lugar da folha."
+    },
+    "replaced": {
+     "default": false,
+     "description": "`reading` estava no resultado e saiu: `line` é a linha que entrou no lugar dela, da releitura que conferiu ou do leitor caro. `false` numa leitura que não substituiu a linha.",
+     "title": "Replaced",
+     "type": "boolean"
+    },
+    "same": {
+     "description": "O outro leitor leu o mesmo valor inválido. Só prova o erro impresso quando vem de outra família: `confirm=` ou a camada de OCR que outro motor escreveu. A linha recusada do leitor caro repete o valor e não prova nada; a leitura que leu outra coisa não explicou a falha. Sempre `false` numa leitura substituída.",
+     "title": "Same",
+     "type": "boolean"
+    },
+    "value": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "O valor da linha que o outro leitor lê diferente.",
+     "title": "Value"
+    }
+   },
+   "required": [
+    "line",
+    "reading",
+    "same"
+   ],
+   "title": "OtherReading",
+   "type": "object"
+  },
+  "Page": {
+   "additionalProperties": false,
+   "description": "Uma página classificada, antes de qualquer leitura cara.",
+   "properties": {
+    "dimensions": {
+     "$ref": "#/$defs/PageDimensions"
+    },
+    "doc_id": {
+     "title": "Doc Id",
+     "type": "string"
+    },
+    "folha": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/Folha"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "A folha dos autos carimbada na página, pelo valor de `FOLHA` numa linha de elemento fixo; no corpo, a mesma forma é citação. None sem carimbo, no verso e numa execução de uma página só. A forma vem de `folhas=`, e a regra está em `folhas_of`."
+    },
+    "hidden_fonts": {
+     "default": [],
+     "description": "Os nomes base das fontes do texto desenhado em modo invisível, sem repetição, na ordem da página. É a assinatura de quem escreveu a camada de uma digitalização: o Tesseract deixa `GlyphLessFont`, e um montador de tribunal as fontes base do PDF. Vazio numa página composta.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Hidden Fonts",
+     "type": "array"
+    },
+    "index": {
+     "description": "zero-based",
+     "minimum": 0,
+     "title": "Index",
+     "type": "integer"
+    },
+    "stamp": {
+     "anyOf": [
+      {
+       "$ref": "#/$defs/Stamp"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "A tarja da camada de texto, num dos formatos de `stamps`; na página copiada de outro processo, a última desenhada. None sem tarja."
+    },
+    "substrate": {
+     "$ref": "#/$defs/Substrate"
+    },
+    "substrate_evidence": {
+     "additionalProperties": {
+      "type": "number"
+     },
+     "description": "Números crus do veredito: chars, visible_text, invisible_text, covered_text, unmapped_text, unread_regions e, quando há raster, native_dpi.",
+     "title": "Substrate Evidence",
+     "type": "object"
+    },
+    "unread": {
+     "default": [],
+     "description": "Caixas dos rasters, e do desenho vetorial, que nenhuma camada de texto leu, de cima para baixo e da esquerda para a direita. Rasters que se tocam, os ladrilhos de uma digitalização fatiada, são uma caixa só. Depois da camada de texto, o leitor seguinte da cascata lê estas regiões, e `Chunk.region` aponta o índice.",
+     "items": {
+      "$ref": "#/$defs/BBox"
+     },
+     "title": "Unread",
+     "type": "array"
+    }
+   },
+   "required": [
+    "doc_id",
+    "index",
+    "dimensions",
+    "substrate"
+   ],
+   "title": "Page",
+   "type": "object"
+  },
+  "PageDimensions": {
+   "additionalProperties": false,
+   "description": "Dimensões em pontos e em pixels, com o DPI que ligou as duas.\n\nAs três coisas juntas, porque desnormalizar uma caixa exige os pixels e\nreproduzir a renderização exige o DPI.",
+   "properties": {
+    "dpi": {
+     "exclusiveMinimum": 0,
+     "maximum": 1200,
+     "title": "Dpi",
+     "type": "integer"
+    },
+    "height_pt": {
+     "exclusiveMinimum": 0.0,
+     "title": "Height Pt",
+     "type": "number"
+    },
+    "height_px": {
+     "exclusiveMinimum": 0,
+     "title": "Height Px",
+     "type": "integer"
+    },
+    "width_pt": {
+     "exclusiveMinimum": 0.0,
+     "title": "Width Pt",
+     "type": "number"
+    },
+    "width_px": {
+     "exclusiveMinimum": 0,
+     "title": "Width Px",
+     "type": "integer"
+    }
+   },
+   "required": [
+    "width_pt",
+    "height_pt",
+    "width_px",
+    "height_px",
+    "dpi"
+   ],
+   "title": "PageDimensions",
+   "type": "object"
+  },
+  "Reread": {
+   "enum": [
+    "page",
+    "region"
+   ],
+   "type": "string"
+  },
+  "RoutingDecision": {
+   "additionalProperties": false,
+   "description": "O que a política decidiu para uma página, e com base em quê.",
+   "properties": {
+    "failures": {
+     "default": [],
+     "description": "Cada leitor que falhou nesta página, como `<leitor>: <mensagem>`, na ordem: o da cascata barata que deu a vez ao seguinte, o da releitura e o caro. Vazio quando nenhum falhou.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Failures",
+     "type": "array"
+    },
+    "incomplete": {
+     "default": false,
+     "description": "Um leitor falhou e nenhum outro leu no lugar dele: as linhas da página, se houver, são só parte dela. Falso quando o seguinte da cascata leu, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes da leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura barata, e sem linha nenhuma sai verdadeiro.",
+     "title": "Incomplete",
+     "type": "boolean"
+    },
+    "page": {
+     "minimum": 0,
+     "title": "Page",
+     "type": "integer"
+    },
+    "reason": {
+     "title": "Reason",
+     "type": "string"
+    },
+    "seconds": {
+     "additionalProperties": {
+      "type": "number"
+     },
+     "description": "Os segundos de parede de cada etapa nesta página: `cheap` (a cascata barata e a detecção de layout), `confirm` (a releitura por outra família) e `strong` (o leitor caro). Só as etapas que tocaram a página; uma leitura do cache conta o tempo que levou.",
+     "title": "Seconds",
+     "type": "object"
+    },
+    "signals": {
+     "additionalProperties": {
+      "type": "integer"
+     },
+     "description": "Contagem por sinal que disparou nesta página, pelo nome do sinal. É o canal estruturado de uma política para quem lê o resultado; `reason` é a frase.",
+     "title": "Signals",
+     "type": "object"
+    },
+    "steps": {
+     "default": [],
+     "description": "O que `process` fez com a página, na ordem: quem leu no tier barato e quantas linhas, o que a releitura por outra família concluiu, o que o leitor caro leu e o que substituiu. Uma frase por passo, para quem lê o resultado.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Steps",
+     "type": "array"
+    },
+    "tier": {
+     "$ref": "#/$defs/Tier"
+    }
+   },
+   "required": [
+    "page",
+    "tier",
+    "reason"
+   ],
+   "title": "RoutingDecision",
+   "type": "object"
+  },
+  "Run": {
+   "additionalProperties": false,
+   "description": "Com que leitores, em que versão e com que argumentos um `Result` foi produzido.\n\nÉ o que basta para refazer a leitura, e para saber, meses depois, que\npesos, motor e dispositivo leram cada linha: `Chunk.source` é chave de\n`versions`. Os nomes são os dos leitores; a configuração de cada um\nestá na versão dele.",
+   "properties": {
+    "budget": {
+     "$ref": "#/$defs/Budget"
+    },
+    "cheap": {
+     "description": "Os leitores da cascata barata, na ordem.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Cheap",
+     "type": "array"
+    },
+    "confirm": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "description": "O leitor da releitura por outra família.",
+     "title": "Confirm"
+    },
+    "dpi": {
+     "anyOf": [
+      {
+       "type": "integer"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "description": "O DPI pedido; `None` deixa cada página escolher. O de cada página está em `Page.dimensions`.",
+     "title": "Dpi"
+    },
+    "entities": {
+     "description": "Os nomes das verificações de `Result.entities`, na ordem.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Entities",
+     "type": "array"
+    },
+    "folhas": {
+     "default": [],
+     "description": "Os nomes das formas de folha procuradas, na ordem.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Folhas",
+     "type": "array"
+    },
+    "min_raster_fraction": {
+     "default": 0.0,
+     "description": "A fração da página abaixo da qual um raster não lido de uma página nato-digital não foi ao leitor de pixels; `0.0` leu todos.",
+     "maximum": 1.0,
+     "minimum": 0.0,
+     "title": "Min Raster Fraction",
+     "type": "number"
+    },
+    "policy": {
+     "description": "O `name` da política de triagem.",
+     "title": "Policy",
+     "type": "string"
+    },
+    "reread": {
+     "$ref": "#/$defs/Reread"
+    },
+    "spans": {
+     "default": false,
+     "description": "Se `Entity.span` foi pedido.",
+     "title": "Spans",
+     "type": "boolean"
+    },
+    "stamps": {
+     "default": [],
+     "description": "Os nomes dos formatos de tarja procurados, na ordem.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Stamps",
+     "type": "array"
+    },
+    "started_at": {
+     "description": "O início da execução, em UTC.",
+     "format": "date-time",
+     "title": "Started At",
+     "type": "string"
+    },
+    "strong": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "description": "O leitor caro.",
+     "title": "Strong"
+    },
+    "trust_layer": {
+     "$ref": "#/$defs/TrustLayer"
+    },
+    "versions": {
+     "additionalProperties": {
+      "type": "string"
+     },
+     "description": "O `output_version` de cada leitor que leu alguma linha do resultado, pelo nome dele, e do detector de layout em `layout`. É a versão que entra na chave do cache: pesos, motor, dispositivo, idioma, prompt.",
+     "title": "Versions",
+     "type": "object"
+    }
+   },
+   "required": [
+    "started_at",
+    "policy",
+    "budget",
+    "cheap",
+    "confirm",
+    "strong",
+    "reread",
+    "trust_layer",
+    "dpi",
+    "entities",
+    "versions"
+   ],
+   "title": "Run",
+   "type": "object"
+  },
+  "Signature": {
+   "additionalProperties": false,
+   "description": "Uma assinatura digital do arquivo, como o PDF a declara.\n\nO pdfium lê a declaração sem conferir a criptografia: estes campos dizem\no que o arquivo afirma, não que a assinatura é válida. O signatário fica\ndentro do pacote PKCS#7, que a biblioteca não abre.",
+   "properties": {
+    "covers_file": {
+     "description": "Se o `/ByteRange` chega ao fim do arquivo: nada foi gravado depois desta assinatura. `False` numa atualização incremental posterior.",
+     "title": "Covers File",
+     "type": "boolean"
+    },
+    "mdp_permission": {
+     "default": 0,
+     "description": "A permissão DocMDP: 0 sem certificação, 1 nenhuma mudança, 2 formulários e assinaturas, 3 também anotações.",
+     "title": "Mdp Permission",
+     "type": "integer"
+    },
+    "reason": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "O motivo declarado, quando há.",
+     "title": "Reason"
+    },
+    "signed_at": {
+     "anyOf": [
+      {
+       "format": "date-time",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Quando o arquivo diz ter sido assinado, com o fuso declarado.",
+     "title": "Signed At"
+    },
+    "sub_filter": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "O padrão da assinatura: `adbe.pkcs7.detached`, `ETSI.CAdES.detached`.",
+     "title": "Sub Filter"
+    }
+   },
+   "required": [
+    "covers_file"
+   ],
+   "title": "Signature",
+   "type": "object"
+  },
+  "Spent": {
+   "additionalProperties": false,
+   "description": "O que uma execução gastou: páginas por etapa, cache, segundos e o que um `Metered` contou.\n\n`pages_cheap` conta as páginas lidas no tier barato, o que inclui as\nescaladas quando a política precisa da leitura barata; `regions_cheap`\nconta as páginas em que o leitor seguinte da cascata leu, como região, os\nrasters que a camada de texto não leu; `regions_strong` conta as páginas\nem que o leitor caro leu só as regiões das linhas que falharam;\n`lines_strong_rejected` conta as linhas do leitor caro que não entraram\nno lugar das baratas, por perderem um valor que conferia ou por não\nexplicarem o que falhou. Os `*_cached` contam o que veio do cache em\ncada etapa; os `seconds_*` são o tempo de parede de cada etapa, com a\ndetecção de layout das páginas que ela renderizou. `calls`, `tokens_in`,\n`tokens_out` e `usd` são o que um leitor `Metered` contou nesta\nexecução, e ficam `None` sem um. Tudo relatado, nada limitado.",
+   "properties": {
+    "calls": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Calls"
+    },
+    "lines_strong_rejected": {
+     "default": 0,
+     "title": "Lines Strong Rejected",
+     "type": "integer"
+    },
+    "pages_cheap": {
+     "title": "Pages Cheap",
+     "type": "integer"
+    },
+    "pages_cheap_cached": {
+     "default": 0,
+     "title": "Pages Cheap Cached",
+     "type": "integer"
+    },
+    "pages_cheap_failed": {
+     "default": 0,
+     "title": "Pages Cheap Failed",
+     "type": "integer"
+    },
+    "pages_confirm_cached": {
+     "default": 0,
+     "title": "Pages Confirm Cached",
+     "type": "integer"
+    },
+    "pages_confirmed": {
+     "default": 0,
+     "title": "Pages Confirmed",
+     "type": "integer"
+    },
+    "pages_confirmed_fixed": {
+     "default": 0,
+     "title": "Pages Confirmed Fixed",
+     "type": "integer"
+    },
+    "pages_confirmed_same": {
+     "default": 0,
+     "title": "Pages Confirmed Same",
+     "type": "integer"
+    },
+    "pages_layout_cached": {
+     "default": 0,
+     "title": "Pages Layout Cached",
+     "type": "integer"
+    },
+    "pages_strong": {
+     "default": 0,
+     "title": "Pages Strong",
+     "type": "integer"
+    },
+    "pages_strong_cached": {
+     "default": 0,
+     "title": "Pages Strong Cached",
+     "type": "integer"
+    },
+    "pages_strong_failed": {
+     "default": 0,
+     "title": "Pages Strong Failed",
+     "type": "integer"
+    },
+    "pages_total": {
+     "title": "Pages Total",
+     "type": "integer"
+    },
+    "regions_cheap": {
+     "default": 0,
+     "title": "Regions Cheap",
+     "type": "integer"
+    },
+    "regions_strong": {
+     "default": 0,
+     "title": "Regions Strong",
+     "type": "integer"
+    },
+    "seconds": {
+     "title": "Seconds",
+     "type": "number"
+    },
+    "seconds_cheap": {
+     "default": 0.0,
+     "title": "Seconds Cheap",
+     "type": "number"
+    },
+    "seconds_confirm": {
+     "default": 0.0,
+     "title": "Seconds Confirm",
+     "type": "number"
+    },
+    "seconds_strong": {
+     "default": 0.0,
+     "title": "Seconds Strong",
+     "type": "number"
+    },
+    "tokens_in": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Tokens In"
+    },
+    "tokens_out": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Tokens Out"
+    },
+    "usd": {
+     "anyOf": [
+      {
+       "type": "number"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "title": "Usd"
+    }
+   },
+   "required": [
+    "pages_total",
+    "pages_cheap",
+    "seconds"
+   ],
+   "title": "Spent",
+   "type": "object"
+  },
+  "Stamp": {
+   "additionalProperties": false,
+   "description": "A tarja que um sistema de processo eletrônico imprime em cada página de uma peça.\n\nOs campos saem do que o formato (`StampFormat`) nomeia; o que a tarja não\nimprime fica None. A do e-SAJ traz todos, e `protocol` só na peça\nprotocolada: o ato liberado nos autos pelo juízo não tem protocolo.",
+   "properties": {
+    "at": {
+     "anyOf": [
+      {
+       "format": "date-time",
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Quando a peça foi protocolada ou liberada nos autos: a hora local impressa, sem fuso, salvo quando o `StampFormat` declara `tz`.",
+     "title": "At"
+    },
+    "bbox": {
+     "$ref": "#/$defs/BBox",
+     "description": "A menor caixa que contém as linhas da tarja."
+    },
+    "chunk_ids": {
+     "description": "As linhas da tarja: a da assinatura e a da conferência.",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1,
+     "title": "Chunk Ids",
+     "type": "array"
+    },
+    "code": {
+     "description": "O código de conferência: o id da peça juntada.",
+     "title": "Code",
+     "type": "string"
+    },
+    "format": {
+     "description": "O nome do `StampFormat` que casou a tarja.",
+     "title": "Format",
+     "type": "string"
+    },
+    "process": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "O número do processo que a tarja cita, como impresso.",
+     "title": "Process"
+    },
+    "protocol": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "O número do protocolo, quando a tarja o imprime.",
+     "title": "Protocol"
+    },
+    "signer": {
+     "anyOf": [
+      {
+       "type": "string"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Quem assinou, como impresso, com os espaços colapsados.",
+     "title": "Signer"
+    }
+   },
+   "required": [
+    "format",
+    "code",
+    "bbox",
+    "chunk_ids"
+   ],
+   "title": "Stamp",
+   "type": "object"
+  },
+  "Substrate": {
+   "description": "De onde veio a camada de texto da página, e se ela pode ser confiada.\n\nA classificação lê o modo de desenho do texto e a ordem dos objetos no\nPDF, e não depende de limiar. Se a página tem pixels que nenhuma camada\nleu é outro fato, `Page.unread`. Ver o guia de conceitos.",
+   "enum": [
+    "born_digital",
+    "searchable_scan",
+    "image_only"
+   ],
+   "title": "Substrate",
+   "type": "string"
+  },
+  "Tier": {
+   "description": "Destino de roteamento de uma página.",
+   "enum": [
+    "cheap",
+    "strong"
+   ],
+   "title": "Tier",
+   "type": "string"
+  },
+  "TrustLayer": {
+   "enum": [
+    "visible",
+    "always"
+   ],
+   "type": "string"
+  },
+  "Turn": {
+   "enum": [
+    0,
+    90,
+    270
+   ],
+   "type": "integer"
+  }
+ },
+ "additionalProperties": false,
+ "description": "Saída de `process`: o que foi lido, como foi roteado e o que custou.\n\nÉ um modelo Pydantic: `model_dump_json()` serializa tudo e\n`Result.model_json_schema()` descreve o formato. Os nove métodos abaixo\ndão as outras formas de uso: as linhas por página, os leitores por\npágina, a contagem por verificação, as referências curtas, a citação\nconferida, as figuras, os blocos, as peças e o texto em Markdown.",
+ "properties": {
+  "chunks": {
+   "items": {
+    "$ref": "#/$defs/Chunk"
+   },
+   "title": "Chunks",
+   "type": "array"
+  },
+  "decisions": {
+   "items": {
+    "$ref": "#/$defs/RoutingDecision"
+   },
+   "title": "Decisions",
+   "type": "array"
+  },
+  "doc_id": {
+   "title": "Doc Id",
+   "type": "string"
+  },
+  "document": {
+   "anyOf": [
+    {
+     "$ref": "#/$defs/DocumentFacts"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "O que o arquivo diz de si: produtor, datas, versão, assinaturas, gravações. `process` sempre o preenche; `None` num JSON sem o campo."
+  },
+  "entities": {
+   "default": [],
+   "description": "Os valores com forma e regra achados nas linhas, com estado e linha de origem, na ordem das páginas.",
+   "items": {
+    "$ref": "#/$defs/Entity"
+   },
+   "title": "Entities",
+   "type": "array"
+  },
+  "library_version": {
+   "title": "Library Version",
+   "type": "string"
+  },
+  "others": {
+   "default": [],
+   "description": "As leituras de outro leitor no lugar das linhas que ainda falham, na ordem em que foram feitas.",
+   "items": {
+    "$ref": "#/$defs/OtherReading"
+   },
+   "title": "Others",
+   "type": "array"
+  },
+  "pages": {
+   "description": "As páginas processadas, com substrato e evidência, na ordem do documento.",
+   "items": {
+    "$ref": "#/$defs/Page"
+   },
+   "title": "Pages",
+   "type": "array"
+  },
+  "run": {
+   "anyOf": [
+    {
+     "$ref": "#/$defs/Run"
+    },
+    {
+     "type": "null"
+    }
+   ],
+   "default": null,
+   "description": "Os leitores, as versões e os argumentos da execução. `process` sempre o preenche; `None` num JSON sem o campo."
+  },
+  "schema_version": {
+   "default": "1",
+   "description": "A versão do formato deste JSON. Um JSON gravado antes de o campo existir é lido como da versão 1.",
+   "title": "Schema Version",
+   "type": "string"
+  },
+  "spent": {
+   "$ref": "#/$defs/Spent"
+  }
+ },
+ "required": [
+  "doc_id",
+  "pages",
+  "chunks",
+  "decisions",
+  "spent",
+  "library_version"
+ ],
+ "title": "Result",
+ "type": "object"
+}
