@@ -208,6 +208,38 @@ def test_verification_counts_each_check_by_state_and_the_printed_errors():
     assert result.verification() == {0: {"CPF": {"failed": 1, "printed": 1, "confirmed": 1}}}
 
 
+def test_review_names_the_printed_error_and_leaves_a_clean_page_out():
+    """O erro que outra família repete é do documento; a página sem motivo não entra."""
+    doc = make_scanned_pdf(["CPF 529.982.247-27", "CPF 529.982.247-25"])
+    result = process(
+        doc,
+        policy="evidence",
+        cheap=["text_layer"],
+        confirm=FakeVLM(text="CPF 529.982.247-27 CPF 529.982.247-25"),
+        trust_layer="always",
+    )
+    assert result.review() == {0: ("printed_invalid",)}
+    failed = next(e for e in result.entities if e.state.value == "failed")
+    assert [o.same for o in result.readings(failed)] == [True]
+    valid = next(e for e in result.entities if e.state.value == "confirmed")
+    assert result.readings(valid) == ()
+
+
+def test_review_separates_the_page_nobody_read_from_the_one_another_reader_covered(scanned_doc):
+    with pytest.warns(RuntimeWarning):
+        lost = process(scanned_doc, policy="all_cheap", cheap=[_FailsOnPage(2)])
+    assert lost.review() == {2: ("incomplete",)}
+    with pytest.warns(RuntimeWarning):
+        covered = process(scanned_doc, policy="all_cheap", cheap=[_FailsOnPage(2), FakeOCR()])
+    assert covered.review() == {2: ("reader_failed",)}
+
+
+def test_review_marks_the_value_that_fails_with_no_other_reading(scanned_doc):
+    cheap = _Says("cheap", {0: "CPF 529.982.247-26", 1: "texto limpo"})
+    result = process(scanned_doc, policy="all_cheap", cheap=[cheap])
+    assert result.review() == {0: ("failed_value",)}
+
+
 def test_verification_leaves_out_a_page_without_values(scanned_doc):
     assert process(scanned_doc, policy="all_cheap", cheap=[FakeOCR()]).verification() == {}
 
