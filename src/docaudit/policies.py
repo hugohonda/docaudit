@@ -1199,6 +1199,7 @@ def entities_of(
             entity = Entity(
                 id=Entity.make_id(check.name, chunk_ids, offset, value),
                 kind=check.name,
+                key=entity_key(value),
                 value=value,
                 state=state,
                 page=page.index,
