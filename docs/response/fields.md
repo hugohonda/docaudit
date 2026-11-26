@@ -159,7 +159,6 @@ A [entidade](../glossary.md#entidade) é um valor achado por uma verificação.
 | campo | o que traz |
 |---|---|
 | `id` | a identidade da ocorrência: a mesma em toda leitura que dê as mesmas linhas. É a chave para rotular, citar e comparar duas execuções |
-| `key` | o valor só com letras e dígitos, em maiúsculas. Duas ocorrências do mesmo valor têm a mesma chave; `Result.occurrences(entity)` devolve as outras |
 | `kind` | o nome do campo, que é o `name` do `Check`: `CPF`, `CNPJ`, `CNJ`, `valor em reais`, `data`, ou o nome de um `Check` seu |
 | `value` | o valor lido, com hífens, espaços e formas de largura total tipográficos trocados pelo ASCII (`fold_lookalikes`) e com os espaços colapsados |
 | `state` | `confirmed`, `well_formed` ou `failed`; ver [Os três estados](../entities.md#os-tres-estados) |
@@ -168,6 +167,10 @@ A [entidade](../glossary.md#entidade) é um valor achado por uma verificação.
 | `chunk_ids` | os `id` das linhas que o valor toca: duas quando ele quebra entre linhas |
 | `span` | com `process(spans=True)`, o começo e o fim do valor no texto das linhas de `chunk_ids` unidas por quebra de linha; `null` por padrão |
 | `printed` | num valor `failed`, quem mostra que o erro é do documento; `null` quando o erro pode ser de leitura |
+
+`Entity.key` é uma propriedade, calculada de `value` e fora do JSON: o valor só
+com letras e dígitos, em maiúsculas. Duas ocorrências do mesmo valor têm a mesma
+chave, e `Result.occurrences(entity)` devolve as outras.
 
 `printed` vale `text_layer` quando o valor veio da camada à vista de uma página
 nato-digital, onde não há leitor que erre. Vale o nome de um leitor quando

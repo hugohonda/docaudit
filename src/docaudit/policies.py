@@ -19,16 +19,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from docaudit.backends.textlayer import TextLayerReader
 from docaudit.types import (
     BBox,
     Entity,
     EntityState,
     RoutingDecision,
-    Substrate,
     Tier,
-    entity_id,
-    entity_key,
 )
 
 if TYPE_CHECKING:
@@ -1196,16 +1192,16 @@ def entities_of(
             else:
                 state = EntityState.FAILED
             chunk_ids = tuple(c.id for c in lines)
+            offset = start - begins[lines[0].id]
             entity = Entity(
-                id=entity_id(check.name, chunk_ids, start - begins[lines[0].id], value),
+                id=Entity.make_id(check.name, chunk_ids, offset, value),
                 kind=check.name,
-                key=entity_key(value),
                 value=value,
                 state=state,
                 page=page.index,
                 bbox=BBox.envelope([c.bbox for c in lines]),
                 chunk_ids=chunk_ids,
-                span=(start - begins[lines[0].id], end - begins[lines[0].id]) if spans else None,
+                span=(offset, offset + end - start) if spans else None,
             )
             found.append((start, entity))
     # Estável: na mesma posição, fica a ordem das verificações.
@@ -1315,9 +1311,7 @@ def _machine_chunks(page: Page, chunks: Sequence[Chunk]) -> list[Chunk]:
     outras, a camada foi composta, e conta só o que outro leitor leu: o erro
     da camada composta é do documento, e reler devolveria o mesmo erro.
     """
-    if page.substrate is Substrate.SEARCHABLE_SCAN:
-        return list(chunks)
-    return [c for c in chunks if c.source != TextLayerReader.name]
+    return [c for c in chunks if not page.composes(c)]
 
 
 def _machine_text(page: Page, chunks: Sequence[Chunk]) -> str:

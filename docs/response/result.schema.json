@@ -401,14 +401,8 @@
     },
     "id": {
      "default": "",
-     "description": "A identidade desta ocorrência: sai do campo, das linhas, da posição nelas e do valor, e é a mesma em toda leitura que dê as mesmas linhas. Vazio num resultado gravado antes de o campo existir.",
+     "description": "A identidade desta ocorrência: sai do campo, das linhas, da posição nelas e do valor, e é a mesma em toda leitura que dê as mesmas linhas. Vazio só num `Entity` montado à mão.",
      "title": "Id",
-     "type": "string"
-    },
-    "key": {
-     "default": "",
-     "description": "O valor só com letras e dígitos, em maiúsculas: `529.982.247-25` e `52998224725` têm a mesma chave. É o que liga duas ocorrências do mesmo valor; ver `Result.occurrences`.",
-     "title": "Key",
      "type": "string"
     },
     "kind": {
@@ -745,7 +739,7 @@
       }
      ],
      "default": null,
-     "description": "A tarja da camada de texto, num dos formatos de `stamps`; na página copiada de outro processo, a última desenhada. None sem tarja."
+     "description": "A tarja da camada de texto, num dos formatos de `stamps`; na página copiada de outro processo, a última desenhada. None sem tarja. Só `process` a preenche: `load_pages` devolve None em toda página."
     },
     "substrate": {
      "$ref": "#/$defs/Substrate"

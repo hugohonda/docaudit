@@ -155,11 +155,14 @@ contradizem a ocorrência, sem modelo:
 | `kind` | o fato |
 |---|---|
 | `check` | a regra do campo, com redundância, confere ou falha |
-| `composed_text` | o valor veio do texto composto de uma página nato-digital |
+| `composed_text` | o valor veio do texto composto: a camada de texto de uma página que não é digitalização com camada de OCR |
 | `other_reading` | outra leitura do mesmo lugar: outra família, o leitor caro, a camada de OCR |
 | `same_page` | o mesmo valor na mesma página, por outra fonte: a tarja, pelo texto, e o corpo, por um leitor |
 | `same_document` | o mesmo valor em outra página |
 | `near_miss` | outro valor do mesmo campo, na mesma página e por outra fonte, a até `NEAR_MISS_DISTANCE` caracteres: indício de leitura errada de um dos dois |
+
+Numa digitalização com camada de OCR, a camada inteira conta como leitura de
+um motor, a tarja inclusive: ali a tarja dá `same_page`, e não `composed_text`.
 
 É uma lista, e não um veredito. A tarja repete o mesmo número em toda página
 de um processo, e duas páginas dela não são duas fontes: quem chama decide o
