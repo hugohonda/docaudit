@@ -31,7 +31,7 @@ PATTERNS = {
     f"{name}.{field}": pattern
     for name, check in vars(policies).items()
     if isinstance(check, Check)
-    for field in ("pattern", "labeled")
+    for field in ("pattern", "labeled", "valid_only")
     if isinstance(pattern := getattr(check, field), re.Pattern)
 }
 

@@ -223,6 +223,14 @@ class Check:
     O valor conta só onde `pattern` não casou, sai em `Result.entities`, e
     não encaminha a página: `FailsCheck` olha só `pattern`.
     """
+    valid_only: re.Pattern[str] | None = None
+    """Uma forma fora da pontuação padrão que conta só quando a regra confere.
+
+    O leitor às vezes troca o hífen do CPF por ponto ou barra: `529.982.247.25`.
+    Se os dígitos fecham, é o CPF; se não fecham, é outro número, e não sai.
+    O valor conta só onde `pattern` e `labeled` não casaram, sai em
+    `Result.entities`, e não encaminha a página, como `labeled`.
+    """
     alike: Callable[[str], bool] | None = None
     """Se o valor que falha é uma troca que leitores de famílias diferentes fazem igual.
 
@@ -364,6 +372,9 @@ CPF = Check(
     _cpf_is_valid,
     redundant=True,
     labeled=_CPF_LABELED,
+    valid_only=re.compile(
+        r"(?<![\d.\-/])[0-9]{3}\.[0-9]{3}\.[0-9]{3}[./][0-9]{2}(?![\d\-/]|[.,][0-9])"
+    ),
 )
 """CPF na pontuação canônica, pelos dois dígitos verificadores em módulo 11.
 
@@ -1138,6 +1149,15 @@ def _matches(
             value = match.group("value")
             valid = check.is_valid("".join(value.split()))
             found.append((begin, end, " ".join(value.split()), valid, touched(begin, end)))
+    if labeled and check.valid_only is not None:
+        taken = [(m[0], m[1]) for m in found]
+        for match in check.valid_only.finditer(text):
+            begin, end = match.span()
+            value = " ".join(match.group(0).split())
+            if any(b <= begin < e for b, e in taken) or not check.is_valid(value):
+                continue
+            found.append((begin, end, value, True, touched(begin, end)))
+    if labeled and (check.labeled is not None or check.valid_only is not None):
         found.sort(key=lambda m: m[0])
     return found
 

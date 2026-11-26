@@ -63,6 +63,11 @@ na forma de sempre. Sem o rótulo, onze dígitos soltos não contam como CPF,
 porque todo telefone e todo protocolo passariam. O valor achado só pelo rótulo
 sai em `Result.entities`, mas não encaminha a página.
 
+Sem rótulo, o CPF com ponto ou barra no lugar do hífen, `529.982.247.25`,
+conta só quando os dígitos fecham: é a troca que o leitor faz no último
+separador. O que não fecha é outro número e não sai. Também não encaminha a
+página.
+
 A [folha](glossary.md#folha) é o número que quem lê os autos cita, e não
 coincide com o índice da página. O carimbo no alto da página é a folha daquela
 página, e `fls. 16` no corpo de uma decisão aponta para outra. O carimbo, numa
