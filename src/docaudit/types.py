@@ -65,6 +65,8 @@ __all__ = [
     "TriagePolicy",
     "TrustLayer",
     "chunk_schema_digest",
+    "entity_id",
+    "entity_key",
     "reading_order_key",
 ]
 
@@ -616,7 +618,23 @@ class EntityState(StrEnum):
 class Entity(_Frozen):
     """Um valor que uma verificação (`Check`) casou no texto lido, com estado e linha de origem."""
 
+    id: str = PField(
+        default="",
+        description=(
+            "A identidade desta ocorrência: sai do campo, das linhas, da posição nelas e do "
+            "valor, e é a mesma em toda leitura que dê as mesmas linhas. Vazio num resultado "
+            "gravado antes de o campo existir."
+        ),
+    )
     kind: str = PField(description="O nome do campo, o `name` do `Check` que o casou.")
+    key: str = PField(
+        default="",
+        description=(
+            "O valor só com letras e dígitos, em maiúsculas: `529.982.247-25` e `52998224725` "
+            "têm a mesma chave. É o que liga duas ocorrências do mesmo valor; ver "
+            "`Result.occurrences`."
+        ),
+    )
     value: str = PField(
         description=(
             "O valor lido, com hífens, espaços e formas de largura total tipográficos trocados "
@@ -645,6 +663,21 @@ class Entity(_Frozen):
             "família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura."
         ),
     )
+
+
+def entity_key(value: str) -> str:
+    """A chave de um valor: só as letras e os dígitos, em maiúsculas."""
+    return "".join(c for c in value if c.isalnum()).upper()
+
+
+def entity_id(kind: str, chunk_ids: Sequence[str], offset: int, value: str) -> str:
+    """O id de uma ocorrência: o campo, as linhas, a posição do valor nelas e o valor.
+
+    As linhas já trazem o documento, a página, a caixa e o leitor no próprio
+    id. A posição separa duas ocorrências do mesmo valor na mesma linha.
+    """
+    raw = f"{kind}|{'|'.join(chunk_ids)}|{offset}|{value}"
+    return hashlib.sha256(raw.encode()).hexdigest()[:ID_HEX_CHARS]
 
 
 class OtherReading(_Frozen):
@@ -1174,6 +1207,25 @@ class Result(_Frozen):
         """
         lines = set(entity.chunk_ids)
         return tuple(other for other in self.others if other.line in lines)
+
+    def occurrences(self, entity: Entity) -> tuple[Entity, ...]:
+        """As outras ocorrências do mesmo valor: o mesmo campo e a mesma `key`.
+
+        Vêm na ordem do resultado.
+
+        A tarja repete o número do processo em toda página, e o corpo o cita:
+        são ocorrências do mesmo valor, lidas por fontes diferentes. A própria
+        `entity` não entra. Num resultado sem `key`, a chave sai do valor.
+        """
+        key = entity.key or entity_key(entity.value)
+        return tuple(
+            other
+            for other in self.entities
+            if other is not entity
+            and other.kind == entity.kind
+            and (other.key or entity_key(other.value)) == key
+            and (not entity.id or other.id != entity.id)
+        )
 
     def refs(self) -> dict[str, Chunk]:
         """Uma referência curta por linha, `p<página>:<posição>`, na ordem de leitura.

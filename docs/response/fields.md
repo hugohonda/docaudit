@@ -158,6 +158,8 @@ A [entidade](../glossary.md#entidade) é um valor achado por uma verificação.
 
 | campo | o que traz |
 |---|---|
+| `id` | a identidade da ocorrência: a mesma em toda leitura que dê as mesmas linhas. É a chave para rotular, citar e comparar duas execuções |
+| `key` | o valor só com letras e dígitos, em maiúsculas. Duas ocorrências do mesmo valor têm a mesma chave; `Result.occurrences(entity)` devolve as outras |
 | `kind` | o nome do campo, que é o `name` do `Check`: `CPF`, `CNPJ`, `CNJ`, `valor em reais`, `data`, ou o nome de um `Check` seu |
 | `value` | o valor lido, com hífens, espaços e formas de largura total tipográficos trocados pelo ASCII (`fold_lookalikes`) e com os espaços colapsados |
 | `state` | `confirmed`, `well_formed` ou `failed`; ver [Os três estados](../entities.md#os-tres-estados) |

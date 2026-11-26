@@ -1249,6 +1249,23 @@ def test_a_gazette_page_carries_its_edition_and_a_cited_gazette_does_not():
     )
 
 
+def test_the_occurrences_of_a_value_link_the_stamp_and_the_body():
+    """O número do processo da tarja e o do corpo são o mesmo valor; outro processo não é."""
+    doc = make_pdf(
+        _stamped(f"Processo {_OWN} e apenso 9166825-29.2024.8.26.0100", *_strip(_OWN, "AbCd1234")),
+        _stamped("Segunda pagina", *_strip(_OWN, "AbCd1234")),
+    )
+    result = process(doc, policy="all_cheap", cheap=["text_layer"])
+    own = [e for e in result.entities if e.kind == "CNJ" and e.value == _OWN]
+    assert len(own) == 3, "o corpo e a tarja da primeira página, e a tarja da segunda"
+    others = result.occurrences(own[0])
+    assert [e.id for e in others] == [e.id for e in own[1:]]
+    assert {e.page for e in others} == {0, 1}
+    assert len({e.id for e in result.entities}) == len(result.entities)
+    reloaded = type(result).model_validate_json(result.model_dump_json())
+    assert [e.id for e in reloaded.entities] == [e.id for e in result.entities]
+
+
 def test_the_page_carries_its_own_stamp():
     """A tarja dá a peça, quem a assinou e quando; a tarja copiada de outro processo não conta."""
     released = (
