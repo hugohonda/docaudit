@@ -1483,7 +1483,9 @@ def _with_visible_stamps(
     if not drawn:
         return list(lines), []
     visible = [
-        Chunk.make(page, d.line.bbox, TextLayerReader.name, d.line.text, reading_order=i)
+        Chunk.make(
+            page, d.line.bbox, TextLayerReader.name, d.line.text, reading_order=i, inked=True
+        )
         for i, d in enumerate(drawn)
     ]
     picked = {i for s in _stamps_in(visible, formats) for i in s.chunk_ids}

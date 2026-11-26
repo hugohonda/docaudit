@@ -102,6 +102,7 @@ O [trecho](../glossary.md#trecho) é a unidade de texto lido.
 | `kind` | o tipo da região de layout de onde o texto veio, como `text`, `table` ou `paragraph_title`, quando há detector de layout |
 | `line_break_hyphens` | os índices em `text` dos hífens que estavam numa quebra de linha do PDF, na camada de texto. O hífen fica no texto, e quem lê decide se junta as metades. A palavra que continua noutra coluna, ou depois de outra linha, sai em dois trechos, o primeiro terminando no hífen |
 | `region` | o índice em `Page.unread` do raster de onde a linha veio, quando um leitor de pixels a leu num raster que a camada de texto não leu; `null` nos outros casos |
+| `inked` | na camada de texto, `true` na linha desenhada com tinta e sem imagem por cima, `false` na invisível ou coberta; `null` na linha de leitor de pixels. Na digitalização com camada de OCR, a linha `true` é texto composto: a tarja e a folha que o tribunal desenha à vista |
 | `furniture` | `true` no [elemento fixo](../glossary.md#elemento-fixo): a linha que se repete, no mesmo lugar, em outra página lida que não é cópia desta, numa sequência a partir do alto ou do pé da folha, ou na vertical da margem. São o cabeçalho, o rodapé e a tarja. A linha fica no resultado |
 
 A unidade depende do leitor. A camada de texto, o Tesseract e o PP-OCR
@@ -172,9 +173,10 @@ A [entidade](../glossary.md#entidade) é um valor achado por uma verificação.
 com letras e dígitos, em maiúsculas. Duas ocorrências do mesmo valor têm a mesma
 chave, e `Result.occurrences(entity)` devolve as outras.
 
-`printed` vale `text_layer` quando o valor veio da camada à vista de uma página
-nato-digital, onde não há leitor que erre. Vale o nome de um leitor quando
-outra família leu o mesmo valor inválido no mesmo lugar.
+`printed` vale `text_layer` quando o valor veio de texto composto
+(`Page.composes`): a camada de uma página nato-digital, ou a linha desenhada à
+vista sobre uma digitalização (`Chunk.inked`). Ali não há leitor que erre. Vale o nome de um
+leitor quando outra família leu o mesmo valor inválido no mesmo lugar.
 
 ## `Figure`
 

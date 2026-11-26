@@ -118,6 +118,19 @@
      "title": "Id",
      "type": "string"
     },
+    "inked": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Linha da camada de texto desenhada com tinta, sem imagem desenhada por cima (`DrawnLine.visible`). Numa digitalização com camada de OCR, é a tarja e o carimbo de folha que o tribunal desenha à vista sobre a imagem: texto exato, e não a leitura de um motor, como a camada oculta. False na linha invisível ou coberta; None nas linhas de leitor de pixels. Não entra no `id`.",
+     "title": "Inked"
+    },
     "kind": {
      "anyOf": [
       {
@@ -426,7 +439,7 @@
       }
      ],
      "default": null,
-     "description": "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor veio da camada composta, que não tem leitor a errar. O nome de um leitor: outra família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura.",
+     "description": "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor veio de texto composto (`Page.composes`), que não tem leitor a errar. O nome de um leitor: outra família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura.",
      "title": "Printed"
     },
     "span": {

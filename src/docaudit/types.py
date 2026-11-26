@@ -481,9 +481,12 @@ class Page(_Frozen):
 
         A camada de texto de uma página `SEARCHABLE_SCAN` foi escrita por um
         motor de OCR. Nas outras, quem a escreveu foi quem compôs o documento:
-        não há leitor a errar, e o erro que ela traz é do documento.
+        não há leitor a errar, e o erro que ela traz é do documento. Na
+        digitalização, a linha desenhada com tinta (`Chunk.inked`) também é.
         """
-        return chunk.source == "text_layer" and self.substrate is not Substrate.SEARCHABLE_SCAN
+        return chunk.source == "text_layer" and (
+            self.substrate is not Substrate.SEARCHABLE_SCAN or chunk.inked is True
+        )
 
 
 class Chunk(_Frozen):
@@ -535,6 +538,16 @@ class Chunk(_Frozen):
         description=(
             "Índice em `Page.unread` do raster de onde a linha veio, quando um leitor de "
             "pixels a leu num raster que a camada de texto não leu. None nos outros casos."
+        ),
+    )
+    inked: bool | None = PField(
+        default=None,
+        description=(
+            "Linha da camada de texto desenhada com tinta, sem imagem desenhada por cima "
+            "(`DrawnLine.visible`). Numa digitalização com camada de OCR, é a tarja e o carimbo "
+            "de folha que o tribunal desenha à vista sobre a imagem: texto exato, e não a "
+            "leitura de um motor, como a camada oculta. False na linha invisível ou coberta; "
+            "None nas linhas de leitor de pixels. Não entra no `id`."
         ),
     )
     furniture: bool = PField(
@@ -590,6 +603,7 @@ class Chunk(_Frozen):
         kind: str | None = None,
         line_break_hyphens: tuple[int, ...] = (),
         turn: Turn = 0,
+        inked: bool | None = None,
     ) -> Chunk:
         """Um chunk desta página, com o id cunhado sobre o documento, o DPI, a caixa e o texto."""
         return cls(
@@ -603,6 +617,7 @@ class Chunk(_Frozen):
             kind=kind,
             line_break_hyphens=line_break_hyphens,
             turn=turn,
+            inked=inked,
         )
 
 
@@ -662,8 +677,9 @@ class Entity(_Frozen):
         default=None,
         description=(
             "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor "
-            "veio da camada composta, que não tem leitor a errar. O nome de um leitor: outra "
-            "família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura."
+            "veio de texto composto (`Page.composes`), que não tem leitor a errar. O nome de um "
+            "leitor: outra família leu o mesmo valor inválido no mesmo lugar. `None`: o erro "
+            "pode ser de leitura."
         ),
     )
 

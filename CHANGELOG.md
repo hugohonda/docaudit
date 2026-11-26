@@ -10,6 +10,8 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `Chunk.inked`: se a linha da camada de texto está desenhada com tinta, sem imagem por cima.
+
 - `Result.evidence(entity)` lista os fatos do resultado que sustentam ou contradizem uma
   ocorrência: a regra do campo, o texto composto, as outras leituras do mesmo lugar, o mesmo valor
   por outra fonte na mesma página e em outras páginas, e um valor vizinho a poucos caracteres. Cada
@@ -45,6 +47,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   Páginas da mesma edição trazem a mesma `edition`, o que dá a unidade de publicação de um diário.
 
 ### Mudado
+
+- Numa digitalização com camada de OCR, a linha desenhada à vista por cima da imagem é texto
+  composto (`Page.composes`): a tarja e a folha do tribunal dão `composed_text`, e o valor delas
+  que falha sai com `printed="text_layer"`. A camada oculta segue como leitura de um motor. O
+  `output_version` de `text_layer` sobe, e o cache dele é relido.
 
 - O teto de páginas de `Budget` é aplicado depois da releitura por outra família. A releitura roda
   em toda página que uma verificação encaminhou, e a página que ela explica não gasta o teto. Com
