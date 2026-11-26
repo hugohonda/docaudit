@@ -641,6 +641,17 @@ def test_a_gazette_format_needs_the_edition_and_a_date_in_words_must_exist():
     assert date_in_words("31 de fevereiro de 2017") is None
 
 
+def test_an_amount_followed_by_a_comma_in_prose_is_an_amount():
+    """Na prosa, o valor vem seguido de vírgula e espaço; a vírgula seguida de dígito segue fora."""
+    assert [m.group() for m in AMOUNT_BRL.pattern.finditer("R$ 1.552.710,35, atualizado até")] == [
+        "R$ 1.552.710,35"
+    ]
+    assert [m.group() for m in AMOUNT_BRL.pattern.finditer("de R$\n2.032.986,68, mantido")] == [
+        "R$\n2.032.986,68"
+    ]
+    assert not list(AMOUNT_BRL.pattern.finditer("R$ 25.000,00,00"))
+
+
 @pytest.mark.parametrize(
     "text",
     [
