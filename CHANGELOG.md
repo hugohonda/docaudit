@@ -50,13 +50,6 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Mudado
 
-- O mesmo valor inválido lido por outra família não prova erro impresso quando uma linha do valor
-  cruza outra linha da página, com área em comum entre as caixas: o carimbo desenhado por cima do
-  texto. As duas famílias leem a mesma mistura de tinta. `Entity.printed` fica `None`,
-  `Result.review()` dá `failed_value`, e a página segue ao leitor caro em vez de sair com o motivo
-  `erro do documento`. Caixas que só se tocam não contam. A caixa vizinha que invade a do valor
-  também cruza, e ali o veredito se perde.
-
 - A tarja à vista sobre uma digitalização com camada de OCR é texto composto: `Page.composes` é
   verdadeiro para as linhas dela, e `Result.evidence` dá `composed_text` ao número da tarja. Um
   valor dela que falha sai com `printed="text_layer"`. A tarja que só a camada oculta traz segue

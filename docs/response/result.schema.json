@@ -426,7 +426,7 @@
       }
      ],
      "default": null,
-     "description": "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor veio de texto composto (`Page.composes`), que não tem leitor a errar. O nome de um leitor: outra família leu o mesmo valor inválido no mesmo lugar, numa linha que não cruza outra da página. `None`: o erro pode ser de leitura.",
+     "description": "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor veio de texto composto (`Page.composes`), que não tem leitor a errar. O nome de um leitor: outra família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura.",
      "title": "Printed"
     },
     "span": {

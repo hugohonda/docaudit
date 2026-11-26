@@ -178,13 +178,6 @@ chave, e `Result.occurrences(entity)` devolve as outras.
 vista sobre uma digitalização. Ali não há leitor que erre. Vale o nome de um
 leitor quando outra família leu o mesmo valor inválido no mesmo lugar.
 
-A segunda prova não vale quando uma linha do valor cruza outra linha da
-página: as caixas se cortam com área, como o carimbo desenhado por cima do
-texto. As duas famílias leem a mesma mistura de tinta, e o valor que repetem
-não mostra o que o papel traz. Ali `printed` fica `null`, e
-`Result.review()` dá `failed_value`. Caixas que só se tocam na borda não
-cruzam.
-
 ## `Figure`
 
 Uma imagem numa página nato-digital: a planta, a foto, a captura de tela, a

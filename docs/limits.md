@@ -87,21 +87,14 @@ precisa conhecer antes de confiar num resultado.
   [camada de OCR](glossary.md#camada-de-ocr) embutida. Ela conta como outra
   família, salvo a que o Tesseract escreveu, quando a linha que falhou veio
   dele.
-- **O valor sob outra linha não prova erro impresso.** Um carimbo desenhado
-  por cima do texto mistura as duas tintas, e as duas famílias podem ler a
-  mesma mistura. Quando uma linha do valor cruza outra linha da página, com
-  área em comum entre as caixas, o mesmo valor inválido não decide. A página
-  segue ao leitor caro, e a entidade sai sem `printed`, salvo quando o valor
-  está em texto composto. A regra é categórica e não tem limiar. A caixa de
-  OCR de uma linha vizinha que invade um pouco a do valor também cruza, e ali
-  o veredito de erro impresso se perde sem carimbo nenhum. É o lado
-  conservador: o valor fica como erro que pode ser de leitura. A regra só vê
-  o que chega como duas linhas. O leitor que devolve o carimbo e o texto
-  numa linha só não deixa segunda caixa, e ali o veredito vale. A releitura
-  decide sobre a leitura barata, antes de a tarja à vista da camada entrar
-  no lugar dos pixels. Se o leitor de pixels não trouxe a tarja como linha,
-  a página pode sair com o motivo `erro do documento` e o valor sem
-  `printed`.
+- **O carimbo sobre um valor impresso pode virar erro do documento.** Um
+  carimbo desenhado por cima do texto mistura as duas tintas, e as duas
+  famílias podem ler a mesma mistura como o mesmo valor inválido. A
+  releitura toma isso como erro impresso no documento: o valor sai com
+  `printed`, e a página não vai ao leitor caro. Hoje não há sinal categórico
+  que separe esse caso. A sobreposição das caixas não serve: linhas vizinhas
+  do mesmo leitor se tocam, e o rótulo de um campo de formulário fica na
+  mesma caixa do valor, sem carimbo nenhum.
 - **Um valor errado pode passar no dígito verificador.** O dígito prova que
   o valor é possível, não que é o impresso. No CPF e no CNPJ, que escrevem o
   resto 10 como 0, a troca de um só dígito passa em alguns casos. No número
