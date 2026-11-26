@@ -42,11 +42,42 @@ terceiro citado tem a fonte no fim da página.
 | rasters não lidos vão ao leitor seguinte | a imagem e o desenho sem texto dentro viram caixas que o leitor seguinte da cascata lê. Os recortes que se tocam viram um só, sem modelo de layout | Docling `PDF_AWARE_LAYOUT_REGIONS` [2] | decidir não roda modelo; o Docling roda um detector de layout por página. O glifo desenhado em contorno entra pela forma do caminho, preenchido e com curva, sem renderizar a página. O glifo feito só de retas é ponto cego declarado |
 | evidência categórica de leitura errada | `Check`: forma impressa mais regra de validade (módulo 11, módulo 97, grafia do valor). `FailsCheck` conta as falhas, sem número ajustado | Marker `detect_bad_ocr`, com razões de espaço, quebra de linha e alfanuméricos de 0,7, 0,6 e 0,3 [1]; ADE `low_confidence_spans`, com corte em 0,95 [3]; AdaParse escolhe o leitor de cada documento com um modelo treinado por preferência humana [4] | o campo se confere sozinho, e os falsos positivos têm nome, como o erro do próprio documento. Você acrescenta os seus campos, inclusive com as funções `is_valid` do python-stdnum |
 | reler a página com o leitor caro quando um gatilho dispara | a página vai ao leitor caro só quando a leitura barata provou ter falhado. Os sinais são a leitura vazia, o texto mal decodificado e o valor que falha uma verificação. A releitura por outra família tira o valor que ela explicou | o modo automático do LlamaParse relê a página num modo mais caro quando ela tem tabela, imagem, um texto ou uma expressão regular, sem teto [9] | o gatilho do LlamaParse diz o que a página contém; o daqui mostra que a leitura está errada. O teto em páginas e em tempo é opcional |
-| releitura por outra família (`confirm=`) | o mesmo valor inválido em dois leitores de famílias diferentes é tomado como erro do documento. Um valor que confere no mesmo lugar é tomado como erro de leitura e troca a linha. Só o resto vai ao leitor caro | os sistemas citados nesta página não têm passo equivalente | o caso tomado como erro do documento não gasta o leitor caro e fica nomeado no resultado. O rótulo é uma regra, com os [limites](limits.md#comportamentos-conhecidos) dela declarados |
+| releitura por outra família (`confirm=`) | o mesmo valor inválido em dois leitores de famílias diferentes é tomado como erro do documento. Um valor que confere no mesmo lugar é tomado como erro de leitura e troca a linha. Só o resto vai ao leitor caro | as ferramentas citadas nesta página não têm passo equivalente; os trabalhos mais próximos estão em [Na literatura](#na-literatura) | o caso tomado como erro do documento não gasta o leitor caro e fica nomeado no resultado. O rótulo é uma regra, com os [limites](limits.md#comportamentos-conhecidos) dela declarados |
 | troca só do que o leitor caro leu | a leitura cara substitui a barata só dentro das caixas que ela devolveu | o olmOCR cai para o `pdftotext` depois de esgotar as tentativas do modelo numa página [5] | a linha barata que o leitor caro descartou, como a tarja da margem, fica no resultado |
 | DPI por página, do raster nativo | cada página é renderizada na resolução do maior raster dela, presa a um intervalo, e o DPI entra na chave do cache | o olmOCR renderiza com 1288 pixels no lado maior [5] | o DPI na chave do cache evita servir uma leitura de outra resolução |
 | um `Protocol` `Reader` para as duas etapas | o leitor barato e o leitor caro implementam o mesmo `Protocol`; `output_version` entra na chave do cache | o LiteParse publica um contrato HTTP para um servidor de OCR externo [8] | o que muda entre as etapas é quem decide chamar, e não a interface |
 | gasto sem o que o cache serviu | em `Result.spent`, chamadas, tokens e dólares descontam o que o cache serviu, do lado de quem chama. As páginas que o cache serviu contam à parte, nos `*_cached` | o ADE devolve `credit_usage` do lado do servidor [3] | uma execução servida pelo cache não relata o gasto de uma que chamou o leitor |
+
+## Na literatura
+
+As três escolhas centrais têm vizinhos publicados. Cada peça já existe; a
+combinação é o que o `docaudit` faz.
+
+**A regra que confere a leitura.** O dígito verificador do ISBN já valida um
+identificador lido por OCR e aceita uma correção feita no texto, sem reler a
+imagem [10]. A descrição de uma patente de 2013 prevê aplicar o OCR de novo
+quando o número de um cartão falha o dígito [11]. Há também quem ponha o
+dígito dentro da decodificação, impedindo o leitor de produzir um valor que
+não o feche. Aqui a regra confere a leitura pronta e não a altera. O motivo:
+a leitura obrigada a fechar o dígito esconde o erro que o fecha.
+
+**A segunda leitura.** Ler a mesma célula com três modelos e aceitar o valor
+em que dois concordam é prática publicada, com o erro aceito medido [12]. O
+erro que sobra ali é o que todos os leitores cometem igual, e a concordância
+não o vê. Reler com outra família quando uma regra dispara também existe, com
+regras sobre a forma da saída [13] ou sobre a consistência entre valores
+[14]; nos dois casos a segunda leitura substitui a primeira, ou um modelo
+decide entre elas. Aqui as duas leituras são comparadas no mesmo lugar, por
+regra.
+
+**De quem é o erro.** Os trabalhos acima tratam toda falha como erro do
+leitor, ou contam os erros do documento à mão, depois. Aqui o mesmo valor
+inválido em duas famílias é tomado como erro do documento, e o valor que
+confere no mesmo lugar, como erro de leitura. É uma regra, com os
+[limites](limits.md#comportamentos-conhecidos) dela declarados. Quem aceita
+valores sem revisão humana deve medir, no próprio acervo, o erro que passa
+pela regra: a validação de faturas com um teto para esse erro é um exemplo
+publicado de como fazê-lo [15].
 
 ## O formato da resposta ao lado de outras ferramentas
 
@@ -90,8 +121,8 @@ que sustenta as escolhas está em [Desempenho](performance.md).
 
 ## Fontes
 
-Conferidas em outubro de 2026. O comportamento de um projeto de terceiros
-muda entre versões.
+Conferidas em outubro de 2026; as de 10 a 15, em novembro de 2026. O
+comportamento de um projeto de terceiros muda entre versões.
 
 1. Marker, `marker/providers/pdf.py`: `detect_bad_ocr`, `strip_existing_ocr`.
    <https://github.com/datalab-to/marker/blob/master/marker/providers/pdf.py>
@@ -117,3 +148,20 @@ muda entre versões.
    <https://developers.llamaindex.ai/liteparse/guides/ocr>
 9. LlamaParse, modo automático.
    <https://docs.cloud.llamaindex.ai/llamaparse/parsing/auto_mode>
+10. Aftar, Vigliermo e Bergamaschi, *The Codes Talk: Automated Extraction and
+    Normalization of ISBNs for Metadata Integration*, IRCDL 2026.
+    <https://ceur-ws.org/Vol-4240/short11.pdf>
+11. Mitchell e Wang, patente US 10387742 B2, *Extracting card data for
+    simultaneous display with an image*.
+    <https://patents.google.com/patent/US10387742B2/en>
+12. Uihlein et al., *Confidence-Based End-to-End Extraction of Large
+    Historical Economic Tables with LLMs*, Applied Sciences, 2026.
+    <https://doi.org/10.3390/app16147327>
+13. Yu et al., *ParseFixer: An Agentic Framework for Document Parsing via
+    Selective Multimodal Correction*. <https://arxiv.org/abs/2606.11977>
+14. Xu et al., *BlueprintAgent: Constraint-Triggered Targeted Revisits for
+    Simulation-Ready Generation from Scanned Structural Blueprints*.
+    <https://arxiv.org/abs/2609.07362>
+15. Curcio, Galfré e Le Van, *Safe Invoice Data Extraction: FPR-Constrained
+    Validation with VLM Denoising*, ACM DocEng 2026.
+    <https://doi.org/10.1145/3820755.3821480>
