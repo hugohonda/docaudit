@@ -1344,7 +1344,6 @@ def test_the_page_carries_its_own_stamp():
         "signer": "FULANO DE TAL",
         "at": datetime(2020, 5, 23, 15, 19),
         "protocol": "WJMJ20406814970",
-        "visible": None,
     }
     assert (released.signer, released.protocol) == ("JUIZ DE DIREITO", None)
     lines = {c.id: c.text for c in result.chunks}
@@ -2622,46 +2621,48 @@ def test_spans_say_where_each_value_is_in_its_lines_only_when_asked():
 
 
 def test_the_stamp_drawn_in_sight_over_a_scan_is_read_from_the_layer():
-    """A camada da digitalização não é a leitura, mas a tarja à vista por cima dela é texto
-    exato: entra no lugar do que os pixels leram ali."""
-    strip = _strip(_OWN, "AbCd1234")
-    body = ["corpo da peticao", "segunda linha", "terceira linha", "quarta linha", "quinta linha"]
-    doc = make_scanned_pdf(body, stamped=strip)
-    reader = _OverLayer({strip[0]: "Este documento e copla do orlginal", strip[1]: "Para confenr"})
-    result = process(doc, policy="all_cheap", cheap=[reader])
-    assert result.pages[0].substrate.value == "searchable_scan"
-    assert result.pages[0].stamp is not None
-    assert result.pages[0].stamp.code == "AbCd1234"
-    layer = [c.text for c in result.chunks if c.source == "text_layer"]
-    assert layer == list(strip), "só a tarja vem da camada; o corpo segue dos pixels"
-    assert "corpo da peticao" in [c.text for c in result.chunks if c.source == "pixels"]
-
-
-def test_the_stamp_drawn_in_sight_over_a_scan_is_composed_text_and_the_body_is_not():
-    """A tarja à vista é texto exato: o número dela é texto composto. O do corpo veio dos
-    pixels, e a tarja que só a camada oculta traz é leitura de um motor."""
+    """A camada da digitalização não é a leitura, mas a tarja e a folha à vista por cima dela
+    são texto exato: entram no lugar do que os pixels leram ali, como texto composto."""
     strip = _strip(_OWN, "AbCd1234")
     body = [f"Processo {_OWN}", "segunda linha", "terceira linha", "quarta linha", "quinta linha"]
-    doc = make_scanned_pdf(body, stamped=strip)
-    result = process(doc, policy="all_cheap", cheap=[_OverLayer({})])
-    assert result.pages[0].substrate.value == "searchable_scan"
-    stamp = result.pages[0].stamp
-    assert stamp is not None
-    assert stamp.visible
+    doc = make_scanned_pdf(body, stamped=(*strip, "fls. 12"))
+    reader = _OverLayer({strip[0]: "Este documento e copla do orlginal", strip[1]: "Para confenr"})
+    result = process(doc, policy="all_cheap", cheap=[reader])
+    page = result.pages[0]
+    assert page.substrate.value == "searchable_scan"
+    assert page.stamp is not None
+    assert page.stamp.code == "AbCd1234"
+    layer = [c for c in result.chunks if c.source == "text_layer"]
+    assert [c.text for c in layer] == [*strip, "fls. 12"], "o corpo segue dos pixels"
+    assert all(c.inked and page.composes(c) for c in layer)
+    pixels = [c for c in result.chunks if c.source == "pixels"]
+    assert pixels[0].text == body[0]
+    assert not any(c.inked is not None or page.composes(c) for c in pixels)
     sources = {c.id: c.source for c in result.chunks}
     own = {sources[e.chunk_ids[0]]: e for e in result.entities if e.value == _OWN}
     assert set(own) == {"text_layer", "pixels"}
-    kinds = [(v.kind, v.source) for v in result.evidence(own["text_layer"])]
-    assert ("composed_text", "text_layer") in kinds
+    assert "composed_text" in [v.kind for v in result.evidence(own["text_layer"])]
     assert "composed_text" not in [v.kind for v in result.evidence(own["pixels"])]
+    folha = next(e for e in result.entities if e.kind == "folha")
+    assert "composed_text" in [v.kind for v in result.evidence(folha)]
 
-    hidden = make_scanned_pdf(["corpo da peticao", *strip])
-    result = process(hidden, policy="all_cheap", cheap=["text_layer"], trust_layer="always")
-    stamp = result.pages[0].stamp
-    assert stamp is not None
-    assert not stamp.visible, "a tarja só da camada oculta foi lida dos pixels por um motor"
-    lines = {c.id: c for c in result.chunks}
-    assert not any(result.pages[0].composes(lines[i]) for i in stamp.chunk_ids)
+
+def test_under_always_only_the_inked_lines_of_a_scan_are_composed_text():
+    """Lida como está, a camada oculta é de um motor, a tarja que ela traz inclusive: foi lida
+    dos pixels de uma cópia. A linha desenhada à vista por cima da imagem é composta."""
+    strip = _strip(_OWN, "AbCd1234")
+    body = ["corpo da peticao", "segunda linha", "terceira linha", "quarta linha", *strip]
+    doc = make_scanned_pdf(body, stamped=["RECEBIDO EM 12/03/2024"])
+    result = process(doc, policy="all_cheap", cheap=["text_layer"], trust_layer="always")
+    page = result.pages[0]
+    assert page.substrate.value == "searchable_scan"
+    assert page.stamp is not None
+    lines = {c.text: c for c in result.chunks}
+    assert not any(page.composes(lines[t]) for t in body)
+    assert lines[strip[0]].inked is False
+    overlay = lines["RECEBIDO EM 12/03/2024"]
+    assert overlay.inked
+    assert page.composes(overlay)
 
 
 class _SidewaysOCR(FakeOCR):

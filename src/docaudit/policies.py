@@ -1310,10 +1310,8 @@ def touched_lines(chunks: Sequence[Chunk], begin: int, end: int) -> list[Chunk]:
 def _machine_chunks(page: Page, chunks: Sequence[Chunk]) -> list[Chunk]:
     """Os chunks que um motor reconheceu, e não um tipógrafo compôs.
 
-    Numa página `SEARCHABLE_SCAN` a camada de texto também é de um motor, salvo
-    a tarja à vista (`Page.composes`). Nas outras, a camada foi composta, e
-    conta só o que outro leitor leu: o erro da camada composta é do
-    documento, e reler devolveria o mesmo erro.
+    A regra é `Page.composes`. Conta só o que um leitor leu: o erro do texto
+    composto é do documento, e reler devolveria o mesmo erro.
     """
     return [c for c in chunks if not page.composes(c)]
 

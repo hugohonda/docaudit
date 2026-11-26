@@ -118,6 +118,19 @@
      "title": "Id",
      "type": "string"
     },
+    "inked": {
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Linha da camada de texto desenhada com tinta, sem imagem desenhada por cima (`DrawnLine.visible`). Numa digitalização com camada de OCR, é a tarja e o carimbo de folha que o tribunal desenha à vista sobre a imagem: texto exato, e não a leitura de um motor, como a camada oculta. False na linha invisível ou coberta; None nas linhas de leitor de pixels. Não entra no `id`.",
+     "title": "Inked"
+    },
     "kind": {
      "anyOf": [
       {
@@ -1320,19 +1333,6 @@
      "default": null,
      "description": "Quem assinou, como impresso, com os espaços colapsados.",
      "title": "Signer"
-    },
-    "visible": {
-     "anyOf": [
-      {
-       "type": "boolean"
-      },
-      {
-       "type": "null"
-      }
-     ],
-     "default": null,
-     "description": "Numa `SEARCHABLE_SCAN`, se toda linha da tarja está à vista na folha: desenhada com tinta, sem imagem por cima. A tarja que o tribunal desenha sobre a digitalização está; a que só a camada oculta de OCR traz, lida dos pixels de uma cópia, não está. None onde não se verificou: nas outras páginas, cuja camada já é composta (`Page.composes`), e em `stamps_of`, que não lê o PDF.",
-     "title": "Visible"
     }
    },
    "required": [

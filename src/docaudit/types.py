@@ -283,16 +283,6 @@ class Stamp(_Frozen):
     chunk_ids: tuple[str, ...] = PField(
         min_length=1, description="As linhas da tarja: a da assinatura e a da conferência."
     )
-    visible: bool | None = PField(
-        default=None,
-        description=(
-            "Numa `SEARCHABLE_SCAN`, se toda linha da tarja está à vista na folha: desenhada "
-            "com tinta, sem imagem por cima. A tarja que o tribunal desenha sobre a "
-            "digitalização está; a que só a camada oculta de OCR traz, lida dos pixels de uma "
-            "cópia, não está. None onde não se verificou: nas outras páginas, cuja camada já é "
-            "composta (`Page.composes`), e em `stamps_of`, que não lê o PDF."
-        ),
-    )
 
 
 class Gazette(_Frozen):
@@ -492,16 +482,11 @@ class Page(_Frozen):
         A camada de texto de uma página `SEARCHABLE_SCAN` foi escrita por um
         motor de OCR. Nas outras, quem a escreveu foi quem compôs o documento:
         não há leitor a errar, e o erro que ela traz é do documento. Na
-        digitalização, a tarja à vista (`Stamp.visible`) também é composta:
-        o tribunal a desenha com tinta por cima da imagem, e o texto dela é
-        exato. O resto da camada da digitalização segue sendo de um motor.
+        digitalização, a linha desenhada com tinta (`Chunk.inked`) também é.
         """
-        if chunk.source != "text_layer":
-            return False
-        if self.substrate is not Substrate.SEARCHABLE_SCAN:
-            return True
-        stamp = self.stamp
-        return stamp is not None and stamp.visible is True and chunk.id in stamp.chunk_ids
+        return chunk.source == "text_layer" and (
+            self.substrate is not Substrate.SEARCHABLE_SCAN or chunk.inked is True
+        )
 
 
 class Chunk(_Frozen):
@@ -553,6 +538,16 @@ class Chunk(_Frozen):
         description=(
             "Índice em `Page.unread` do raster de onde a linha veio, quando um leitor de "
             "pixels a leu num raster que a camada de texto não leu. None nos outros casos."
+        ),
+    )
+    inked: bool | None = PField(
+        default=None,
+        description=(
+            "Linha da camada de texto desenhada com tinta, sem imagem desenhada por cima "
+            "(`DrawnLine.visible`). Numa digitalização com camada de OCR, é a tarja e o carimbo "
+            "de folha que o tribunal desenha à vista sobre a imagem: texto exato, e não a "
+            "leitura de um motor, como a camada oculta. False na linha invisível ou coberta; "
+            "None nas linhas de leitor de pixels. Não entra no `id`."
         ),
     )
     furniture: bool = PField(
@@ -608,6 +603,7 @@ class Chunk(_Frozen):
         kind: str | None = None,
         line_break_hyphens: tuple[int, ...] = (),
         turn: Turn = 0,
+        inked: bool | None = None,
     ) -> Chunk:
         """Um chunk desta página, com o id cunhado sobre o documento, o DPI, a caixa e o texto."""
         return cls(
@@ -621,6 +617,7 @@ class Chunk(_Frozen):
             kind=kind,
             line_break_hyphens=line_break_hyphens,
             turn=turn,
+            inked=inked,
         )
 
 
