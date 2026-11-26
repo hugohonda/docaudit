@@ -56,6 +56,12 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   outros números em documentos reais, e o dígito verificador único não bastava para separar o
   falso positivo. Quem o usava declara a própria `Check`, como em `docs/how-to/checks.md`.
 
+### Corrigido
+
+- O valor em reais sem `R$` e com ponto decimal, `4.329.30`, não casa mais o número logo depois de
+  `nº` nem o seguido de hífen ou barra e dígito: `Proc. nº 533.505.49-00` é um número de processo,
+  e saía como valor que falha a regra.
+
 ## [0.1.0.dev3] - 2026-11-13
 
 ### Corrigido

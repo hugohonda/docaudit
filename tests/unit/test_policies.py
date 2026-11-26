@@ -639,3 +639,23 @@ def test_a_gazette_format_needs_the_edition_and_a_date_in_words_must_exist():
     assert date_in_words("17 de agosto de 2017") == datetime.date(2017, 8, 17)
     assert date_in_words("1º de março de 2020") == datetime.date(2020, 3, 1)
     assert date_in_words("31 de fevereiro de 2017") is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Proc. n°533.505.49-00",
+        "Proc. nº 533.505.49-00",
+        "protocolo 533.505.49/2020",
+        "Nº. 533.505.49",
+    ],
+)
+def test_a_dotted_number_with_an_id_tail_or_after_a_number_label_is_not_an_amount(text):
+    """O número de processo antigo tem a forma do valor com ponto decimal; a vizinhança o separa."""
+    assert failures(AMOUNT_BRL, text) == 0
+    assert failures(AMOUNT_BRL, "total 4.329.30 - saldo") == 1, (
+        "o valor com ponto decimal segue apontado"
+    )
+    assert failures(AMOUNT_BRL, "retorno 4.329.30 e abono 1.250.75") == 2, (
+        "a palavra que termina em `no` não é o rótulo de número"
+    )

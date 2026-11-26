@@ -441,7 +441,8 @@ AMOUNT_BRL = Check(
         r"|\b[0-9]{1,3}(?:,[0-9]{3})+,[0-9]{2}\b"
         r"|\b[0-9]{1,3}(?::[0-9]{3})+[,.][0-9]{2}\b"
         r"|(?<![A-Za-z])R\$[^\S\n]*[0-9]{1,3}(?:[ :][0-9]{3})+[,.][0-9]{2}\b"
-        r"|(?<![\d.,])[0-9]{1,3}(?:\.[0-9]{3})+\.[0-9]{2}(?![\d.,])"
+        r"|(?<![\d.,])(?<!\b[nN][º°o])(?<!\b[nN][º°o][ .])(?<!\b[nN][º°o]\.[ ])"
+        r"[0-9]{1,3}(?:\.[0-9]{3})+\.[0-9]{2}(?![\d.,]|[\-/][0-9])"
         r"|(?<![A-Za-z])R\$[^\S\n]*[0-9]{1,3}(?:\.[0-9]{3})*\.[0-9]{2}(?![\d.,])"
         r"|(?m:^[^\S\n]*[0-9]{1,3}(?:\.[0-9]{3})*\.[0-9]{2}[^\S\n]*$)"
         r"|(?<![\w.,])(?=[0-9A-Za-z.]{0,4}[0-9])[0-9A-Za-z]{1,3}(?:\.[0-9A-Za-z]{3})*,[0-9A-Za-z]{2}"
@@ -467,7 +468,9 @@ Falham a letra no lugar de dígito (`R$ 1.O00,00`), o grupo de milhar sem três
 dígitos (`R$ 1.00,00`), as duas vírgulas (`5,837,52`), o espaço entre grupos
 e o ponto decimal. O ponto decimal casa depois do milhar (`4.329.30`), logo
 depois do `R$` (`R$ 18.77`) e no valor sozinho na linha (`0.00`), a célula de
-uma tabela. É a troca que os leitores de pixels fazem na vírgula de uma
+uma tabela. Depois do milhar e sem `R$`, o número logo depois de `nº` ou
+seguido de hífen ou barra e dígito não casa: `Proc. nº 533.505.49-00` é um
+número de processo, e não um valor. É a troca que os leitores de pixels fazem na vírgula de uma
 tabela digitalizada, e fazem juntos: por isso ela é `alike`, e outra família
 que lê o mesmo ponto não prova que ele está impresso. O documento que imprime
 o valor assim vai ao leitor caro. Na página nascida digital, o número com
