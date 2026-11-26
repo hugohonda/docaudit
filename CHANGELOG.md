@@ -10,6 +10,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `Result.evidence(entity)` lista os fatos do resultado que sustentam ou contradizem uma
+  ocorrência: a regra do campo, o texto composto, as outras leituras do mesmo lugar, o mesmo valor
+  por outra fonte na mesma página e em outras páginas, e um valor vizinho a poucos caracteres. Cada
+  fato é um `Evidence`, com a fonte e as linhas. É uma lista, e não um veredito.
+
 - `Entity.id` é a identidade de cada ocorrência de um valor, estável entre leituras que dão as
   mesmas linhas, e `Entity.key` é o valor só com letras e dígitos. `Result.occurrences(entity)`
   devolve as outras ocorrências do mesmo valor: o número do processo na tarja de cada página e no

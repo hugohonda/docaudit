@@ -33,6 +33,10 @@ Os contratos de extensão do mesmo módulo ficam nas páginas de quem os usa:
     options:
       heading_level: 3
 
+::: docaudit.types.Evidence
+    options:
+      heading_level: 3
+
 ::: docaudit.types.Folha
     options:
       heading_level: 3

@@ -29,6 +29,7 @@ if TYPE_CHECKING:
 __all__ = [
     "DOC_ID_HEX_CHARS",
     "ID_HEX_CHARS",
+    "NEAR_MISS_DISTANCE",
     "REVIEW_REASONS",
     "SCHEMA_HEX_CHARS",
     "SCHEMA_VERSION",
@@ -39,6 +40,8 @@ __all__ = [
     "DocumentFacts",
     "Entity",
     "EntityState",
+    "Evidence",
+    "EvidenceKind",
     "ExternalBackendError",
     "Figure",
     "Folha",
@@ -680,6 +683,48 @@ def entity_id(kind: str, chunk_ids: Sequence[str], offset: int, value: str) -> s
     return hashlib.sha256(raw.encode()).hexdigest()[:ID_HEX_CHARS]
 
 
+type EvidenceKind = Literal[
+    "check", "composed_text", "other_reading", "same_page", "same_document", "near_miss"
+]
+"""De onde vem uma evidência sobre uma ocorrência; ver `Result.evidence`."""
+
+NEAR_MISS_DISTANCE = 3
+"""Quantos caracteres podem diferir entre duas chaves do mesmo tamanho num `near_miss`.
+
+Parâmetro nomeado, não calibrado: um identificador a até três caracteres de
+outro, do mesmo campo e na mesma página, lido por outra fonte.
+"""
+
+
+class Evidence(_Frozen):
+    """Um fato deste resultado que sustenta ou contradiz uma ocorrência de um valor.
+
+    Sai de `Result.evidence(entity)`. A biblioteca lista os fatos e não os
+    soma: a tarja repete o mesmo número em toda página de um processo, e duas
+    páginas dela não são duas fontes. Quem chama decide o que basta.
+    """
+
+    kind: EvidenceKind = PField(
+        description=(
+            "`check`: a regra do campo, com redundância, confere ou falha. `composed_text`: o "
+            "valor veio do texto composto de uma página nato-digital, sem leitor a errar. "
+            "`other_reading`: outra leitura do mesmo lugar. `same_page`: o mesmo valor na mesma "
+            "página, por outra fonte. `same_document`: o mesmo valor em outra página. "
+            "`near_miss`: outro valor do mesmo campo na mesma página, por outra fonte, a poucos "
+            "caracteres deste."
+        )
+    )
+    agrees: bool = PField(description="Se o fato dá o mesmo valor da ocorrência.")
+    source: str | None = PField(
+        default=None, description="O leitor ou a fonte do fato: o `Chunk.source` das linhas dele."
+    )
+    page: int = PField(ge=0, description="A página onde o fato está.")
+    chunk_ids: tuple[str, ...] = PField(default=(), description="As linhas do fato, para abri-lo.")
+    value: str | None = PField(
+        default=None, description="O valor que a fonte traz, quando difere do da ocorrência."
+    )
+
+
 class OtherReading(_Frozen):
     """Outra leitura do mesmo lugar da folha, ao lado de uma linha do resultado.
 
@@ -1226,6 +1271,110 @@ class Result(_Frozen):
             and (other.key or entity_key(other.value)) == key
             and (not entity.id or other.id != entity.id)
         )
+
+    def evidence(self, entity: Entity) -> tuple[Evidence, ...]:
+        """Os fatos deste resultado que sustentam ou contradizem uma ocorrência, sem modelo.
+
+        Na ordem: a regra do próprio campo, quando tem redundância; o texto
+        composto; as outras leituras do mesmo lugar; o mesmo valor por outra
+        fonte na mesma página, e em outras páginas; e, por último, um valor
+        do mesmo campo, de outra fonte e na mesma página, a até
+        `NEAR_MISS_DISTANCE` caracteres deste, que é indício de leitura errada
+        de um dos dois. É uma lista, e não um veredito.
+        """
+        sources = self._sources
+        composed = self._composed
+        own = {sources.get(i) for i in entity.chunk_ids}
+        found: list[Evidence] = []
+        if entity.state is not EntityState.WELL_FORMED:
+            found.append(
+                Evidence(
+                    kind="check",
+                    agrees=entity.state is EntityState.CONFIRMED,
+                    source=entity.kind,
+                    page=entity.page,
+                    chunk_ids=entity.chunk_ids,
+                )
+            )
+        if all(i in composed for i in entity.chunk_ids):
+            found.append(
+                Evidence(
+                    kind="composed_text",
+                    agrees=True,
+                    source="text_layer",
+                    page=entity.page,
+                    chunk_ids=entity.chunk_ids,
+                )
+            )
+        found.extend(
+            Evidence(
+                kind="other_reading",
+                agrees=other.same,
+                source=other.reading.source,
+                page=other.reading.page,
+                chunk_ids=(other.line,),
+                value=None if other.same else (other.value or other.reading.text),
+            )
+            for other in self.readings(entity)
+        )
+        key = entity.key or entity_key(entity.value)
+        near: list[Evidence] = []
+        elsewhere: list[Evidence] = []
+        for other in self.entities:
+            if other is entity or other.kind != entity.kind:
+                continue
+            theirs = {sources.get(i) for i in other.chunk_ids}
+            other_key = other.key or entity_key(other.value)
+            first = next(iter(sorted(s for s in theirs if s)), None)
+            if other_key == key:
+                if other.page != entity.page:
+                    elsewhere.append(
+                        Evidence(
+                            kind="same_document",
+                            agrees=True,
+                            source=first,
+                            page=other.page,
+                            chunk_ids=other.chunk_ids,
+                        )
+                    )
+                elif theirs.isdisjoint(own):
+                    found.append(
+                        Evidence(
+                            kind="same_page",
+                            agrees=True,
+                            source=first,
+                            page=other.page,
+                            chunk_ids=other.chunk_ids,
+                        )
+                    )
+            elif (
+                other.page == entity.page
+                and theirs.isdisjoint(own)
+                and len(other_key) == len(key)
+                and sum(a != b for a, b in zip(other_key, key, strict=True)) <= NEAR_MISS_DISTANCE
+            ):
+                near.append(
+                    Evidence(
+                        kind="near_miss",
+                        agrees=False,
+                        source=first,
+                        page=other.page,
+                        chunk_ids=other.chunk_ids,
+                        value=other.value,
+                    )
+                )
+        return (*found, *elsewhere, *near)
+
+    @functools.cached_property
+    def _sources(self) -> dict[str, str]:
+        """O leitor de cada linha, pelo id dela."""
+        return {chunk.id: chunk.source for chunk in self.chunks}
+
+    @functools.cached_property
+    def _composed(self) -> frozenset[str]:
+        """As linhas de texto composto: a camada de texto de uma página nato-digital."""
+        born = {p.index for p in self.pages if p.substrate is Substrate.BORN_DIGITAL}
+        return frozenset(c.id for c in self.chunks if c.source == "text_layer" and c.page in born)
 
     def refs(self) -> dict[str, Chunk]:
         """Uma referência curta por linha, `p<página>:<posição>`, na ordem de leitura.
