@@ -1344,7 +1344,7 @@ def test_the_page_carries_its_own_stamp():
         "signer": "FULANO DE TAL",
         "at": datetime(2020, 5, 23, 15, 19),
         "protocol": "WJMJ20406814970",
-        "visible": True,
+        "visible": None,
     }
     assert (released.signer, released.protocol) == ("JUIZ DE DIREITO", None)
     lines = {c.id: c.text for c in result.chunks}
@@ -2067,6 +2067,29 @@ def test_the_same_invalid_value_under_another_line_does_not_prove_it_printed(sta
         assert result.review() == {0: ("printed_invalid",)}
         assert decision.tier is Tier.CHEAP
         assert decision.reason.startswith("erro do documento: other")
+
+
+@pytest.mark.parametrize(
+    ("below", "printed"), [(4, None), (30, "fake-vlm")], ids=["cruza", "longe"]
+)
+def test_a_line_drawn_over_the_value_in_the_layer_keeps_the_printed_verdict_out(below, printed):
+    """Duas linhas da camada desenhadas uma sobre a outra, pontos abaixo: a mesma mistura
+    lida pela camada e pela releitura não prova o erro impresso."""
+    body = ["CPF 529.982.247-26", "corpo um", "corpo dois", "corpo tres", "corpo quatro"]
+    doc = make_scanned_pdf(
+        body, text_lines_below=["RECEBIDO EM CARTORIO"], text_y_below=700 - below
+    )
+    result = process(
+        doc,
+        policy="evidence",
+        cheap=["text_layer"],
+        confirm=FakeVLM(text="CPF 529.982.247-26"),
+        trust_layer="always",
+    )
+    assert result.pages[0].substrate.value == "searchable_scan"
+    [cpf] = [e for e in result.entities if e.kind == "CPF"]
+    assert cpf.printed == printed
+    assert result.decisions[0].tier is (Tier.STRONG if printed is None else Tier.CHEAP)
 
 
 def test_each_decision_tells_what_happened_to_the_page_in_order(scanned_doc):

@@ -1322,10 +1322,17 @@
      "title": "Signer"
     },
     "visible": {
-     "default": false,
-     "description": "Se toda linha da tarja está à vista na folha: desenhada com tinta, sem imagem por cima. A tarja que o tribunal desenha sobre a digitalização está; a que só a camada oculta de OCR traz, lida dos pixels de uma cópia, não está. Só `process` o preenche: `stamps_of` não lê o PDF e devolve False.",
-     "title": "Visible",
-     "type": "boolean"
+     "anyOf": [
+      {
+       "type": "boolean"
+      },
+      {
+       "type": "null"
+      }
+     ],
+     "default": null,
+     "description": "Numa `SEARCHABLE_SCAN`, se toda linha da tarja está à vista na folha: desenhada com tinta, sem imagem por cima. A tarja que o tribunal desenha sobre a digitalização está; a que só a camada oculta de OCR traz, lida dos pixels de uma cópia, não está. None onde não se verificou: nas outras páginas, cuja camada já é composta (`Page.composes`), e em `stamps_of`, que não lê o PDF.",
+     "title": "Visible"
     }
    },
    "required": [

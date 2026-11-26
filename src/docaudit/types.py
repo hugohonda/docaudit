@@ -283,13 +283,14 @@ class Stamp(_Frozen):
     chunk_ids: tuple[str, ...] = PField(
         min_length=1, description="As linhas da tarja: a da assinatura e a da conferência."
     )
-    visible: bool = PField(
-        default=False,
+    visible: bool | None = PField(
+        default=None,
         description=(
-            "Se toda linha da tarja está à vista na folha: desenhada com tinta, sem imagem "
-            "por cima. A tarja que o tribunal desenha sobre a digitalização está; a que só a "
-            "camada oculta de OCR traz, lida dos pixels de uma cópia, não está. Só `process` "
-            "o preenche: `stamps_of` não lê o PDF e devolve False."
+            "Numa `SEARCHABLE_SCAN`, se toda linha da tarja está à vista na folha: desenhada "
+            "com tinta, sem imagem por cima. A tarja que o tribunal desenha sobre a "
+            "digitalização está; a que só a camada oculta de OCR traz, lida dos pixels de uma "
+            "cópia, não está. None onde não se verificou: nas outras páginas, cuja camada já é "
+            "composta (`Page.composes`), e em `stamps_of`, que não lê o PDF."
         ),
     )
 
@@ -500,7 +501,7 @@ class Page(_Frozen):
         if self.substrate is not Substrate.SEARCHABLE_SCAN:
             return True
         stamp = self.stamp
-        return stamp is not None and stamp.visible and chunk.id in stamp.chunk_ids
+        return stamp is not None and stamp.visible is True and chunk.id in stamp.chunk_ids
 
 
 class Chunk(_Frozen):

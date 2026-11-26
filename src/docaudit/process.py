@@ -779,7 +779,8 @@ def stamps_of(
     desenho, que o pipeline tira do PDF; sem ela, vale a ordem de leitura. A
     tarja casa sempre na ordem de leitura. A regra é da página, e
     vale num PDF que junta peças de vários processos.
-    Chama-se antes de reordenar pelo layout.
+    Chama-se antes de reordenar pelo layout. `Stamp.visible` sai None: a
+    função não lê o PDF, e quem o preenche é `process`.
     """
     out: dict[int, Stamp] = {}
     for index, chunks in by_page.items():
@@ -1378,7 +1379,13 @@ def _draw_order_of(run: _Run, pages: Mapping[int, Page]) -> DrawOrder:
 
 
 def _seen(run: _Run, page: Page, stamp: Stamp) -> Stamp:
-    """A tarja com `visible`: se toda linha dela está à vista na folha, pelo PDF."""
+    """A tarja com `visible` numa `SEARCHABLE_SCAN`: se toda linha dela está à vista, pelo PDF.
+
+    Nas outras páginas a camada inteira já é composta, e reler o texto do PDF
+    de cada página com tarja não decidiria nada.
+    """
+    if page.substrate is not Substrate.SEARCHABLE_SCAN:
+        return stamp
     visible = {
         Chunk.make(page, d.line.bbox, TextLayerReader.name, d.line.text).id
         for d in _pdf.drawn_lines_of(run.handle, page.index)

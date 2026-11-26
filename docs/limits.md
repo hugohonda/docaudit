@@ -95,7 +95,13 @@ precisa conhecer antes de confiar num resultado.
   está em texto composto. A regra é categórica e não tem limiar. A caixa de
   OCR de uma linha vizinha que invade um pouco a do valor também cruza, e ali
   o veredito de erro impresso se perde sem carimbo nenhum. É o lado
-  conservador: o valor fica como erro que pode ser de leitura.
+  conservador: o valor fica como erro que pode ser de leitura. A regra só vê
+  o que chega como duas linhas. O leitor que devolve o carimbo e o texto
+  numa linha só não deixa segunda caixa, e ali o veredito vale. A releitura
+  decide sobre a leitura barata, antes de a tarja à vista da camada entrar
+  no lugar dos pixels. Se o leitor de pixels não trouxe a tarja como linha,
+  a página pode sair com o motivo `erro do documento` e o valor sem
+  `printed`.
 - **Um valor errado pode passar no dígito verificador.** O dígito prova que
   o valor é possível, não que é o impresso. No CPF e no CNPJ, que escrevem o
   resto 10 como 0, a troca de um só dígito passa em alguns casos. No número

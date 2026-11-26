@@ -10,6 +10,10 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `Stamp.visible`: numa digitalização com camada de OCR, se toda linha da tarja está à vista,
+  desenhada com tinta sobre a imagem. É o que separa a tarja do tribunal, texto exato, da que só a
+  camada oculta traz. `None` nas outras páginas e em `stamps_of`, que não lê o PDF.
+
 - `Result.evidence(entity)` lista os fatos do resultado que sustentam ou contradizem uma
   ocorrência: a regra do campo, o texto composto, as outras leituras do mesmo lugar, o mesmo valor
   por outra fonte na mesma página e em outras páginas, e um valor vizinho a poucos caracteres. Cada
@@ -55,8 +59,8 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 - A tarja à vista sobre uma digitalização com camada de OCR é texto composto: `Page.composes` é
   verdadeiro para as linhas dela, e `Result.evidence` dá `composed_text` ao número da tarja. Um
-  valor dela que falha sai com `printed="text_layer"`. O novo campo `Stamp.visible` diz se toda
-  linha da tarja está à vista; a tarja que só a camada oculta traz segue como leitura de um motor.
+  valor dela que falha sai com `printed="text_layer"`. A tarja que só a camada oculta traz segue
+  como leitura de um motor.
 
 - O teto de páginas de `Budget` é aplicado depois da releitura por outra família. A releitura roda
   em toda página que uma verificação encaminhou, e a página que ela explica não gasta o teto. Com

@@ -54,7 +54,7 @@ margem de cada página de uma peça.
 | `at` | quando a peça foi protocolada ou liberada nos autos. É a hora local impressa, sem fuso, salvo quando o formato declara `tz` |
 | `protocol` | o número do protocolo. No e-SAJ, `null` no ato que o juízo liberou nos autos |
 | `bbox`, `chunk_ids` | a caixa e as linhas da tarja |
-| `visible` | se toda linha da tarja está à vista na folha, desenhada com tinta e sem imagem por cima. A tarja que só a camada oculta de OCR traz não está |
+| `visible` | numa digitalização com camada de OCR, se toda linha da tarja está à vista, desenhada com tinta e sem imagem por cima. A tarja que só a camada oculta traz não está. `null` nas outras páginas, cuja camada já é composta, e em `stamps_of`, que não lê o PDF |
 
 Fora `code`, o campo que o formato não imprime sai `null`. Na página copiada
 de outro processo, vale a última tarja desenhada. A tarja cujo número de
