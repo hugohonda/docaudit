@@ -1266,6 +1266,44 @@ def test_the_occurrences_of_a_value_link_the_stamp_and_the_body():
     assert [e.id for e in reloaded.entities] == [e.id for e in result.entities]
 
 
+def test_the_evidence_of_a_value_lists_the_stamp_the_body_and_a_near_miss():
+    """A tarja vem do texto composto e o corpo, de um leitor: o mesmo valor concorda."""
+    doc = make_scanned_pdf(list(_strip(_OWN, "AbCd1234")), render_mode=0, text_y=100)
+    near = _OWN[:-1] + ("1" if _OWN[-1] != "1" else "2")
+    body = _Says("body", {0: f"Processo {_OWN} e apenso {near}"})
+    result = process(doc, policy="all_cheap", cheap=["text_layer", body])
+    assert result.pages[0].stamp is not None
+    sources = {c.id: c.source for c in result.chunks}
+    read = {e.value: e for e in result.entities if sources[e.chunk_ids[0]] == "body"}
+    kinds = [(v.kind, v.agrees, v.source) for v in result.evidence(read[_OWN])]
+    assert ("check", True, "CNJ") in kinds
+    assert ("same_page", True, "text_layer") in kinds
+    assert ("composed_text", True, "text_layer") not in kinds, "o corpo veio de um leitor"
+    wrong = result.evidence(read[near])
+    assert [(v.kind, v.agrees, v.value) for v in wrong if v.kind == "near_miss"] == [
+        ("near_miss", False, _OWN)
+    ]
+    stamp = next(e for e in result.entities if sources[e.chunk_ids[0]] == "text_layer")
+    assert ("composed_text", True, "text_layer") in [
+        (v.kind, v.agrees, v.source) for v in result.evidence(stamp)
+    ]
+
+
+def test_an_occurrence_keeps_its_id_when_the_document_is_read_in_windows():
+    """O id não depende da janela: lidas uma a uma ou juntas, as ocorrências são as mesmas."""
+    doc = make_pdf(
+        _stamped(f"Processo {_OWN}", *_strip(_OWN, "AbCd1234")),
+        _stamped("Segunda pagina", *_strip(_OWN, "AbCd1234")),
+        _stamped("Terceira pagina", *_strip(_OWN, "EfGh5678")),
+    )
+    whole = process(doc, policy="all_cheap", cheap=["text_layer"])
+    windows = [process(doc, policy="all_cheap", cheap=["text_layer"], pages={i}) for i in range(3)]
+    assert [e.id for e in whole.entities] == [e.id for w in windows for e in w.entities]
+    first = windows[0].entities[0]
+    assert windows[0].evidence(first)[-1].kind != "same_document", "a janela só vê as páginas dela"
+    assert any(v.kind == "same_document" for v in whole.evidence(whole.entities[0]))
+
+
 def test_the_page_carries_its_own_stamp():
     """A tarja dá a peça, quem a assinou e quando; a tarja copiada de outro processo não conta."""
     released = (

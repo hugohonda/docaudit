@@ -141,3 +141,36 @@ atualizá-lo.
 
 O cache guarda o texto dos documentos em claro. O cuidado com o arquivo
 está em [Segurança dos dados](../security.md#o-que-fica-no-disco).
+
+## A ocorrência de um valor e o que a sustenta
+
+Cada valor achado é uma ocorrência (`Entity`) com identidade própria,
+`Entity.id`, estável entre leituras que dão as mesmas linhas. `Entity.key` é o
+valor só com letras e dígitos: duas ocorrências do mesmo valor têm a mesma
+chave, e `Result.occurrences(entity)` devolve as outras.
+
+`Result.evidence(entity)` lista os fatos do resultado que sustentam ou
+contradizem a ocorrência, sem modelo:
+
+| `kind` | o fato |
+|---|---|
+| `check` | a regra do campo, com redundância, confere ou falha |
+| `composed_text` | o valor veio do texto composto: a camada de texto de uma página que não é digitalização com camada de OCR |
+| `other_reading` | outra leitura do mesmo lugar: outra família, o leitor caro, a camada de OCR |
+| `same_page` | o mesmo valor na mesma página, por outra fonte: a tarja, pelo texto, e o corpo, por um leitor |
+| `same_document` | o mesmo valor em outra página |
+| `near_miss` | outro valor do mesmo campo, na mesma página e por outra fonte, a até `NEAR_MISS_DISTANCE` caracteres: indício de leitura errada de um dos dois |
+
+Numa digitalização com camada de OCR, a camada inteira conta como leitura de
+um motor, a tarja inclusive: ali a tarja dá `same_page`, e não `composed_text`.
+
+É uma lista, e não um veredito. A tarja repete o mesmo número em toda página
+de um processo, e duas páginas dela não são duas fontes: quem chama decide o
+que basta.
+
+**Páginas seguidas e janelas.** O id de uma ocorrência não depende de quais
+páginas foram lidas juntas: um documento lido em janelas, com `pages=`, dá os
+mesmos ids que lido inteiro. Por isso os resultados de várias janelas se
+juntam pela chave, fora da biblioteca. Dentro de um resultado, `occurrences` e
+`same_document` só veem as páginas daquela leitura. Um valor que começa numa
+página e termina na seguinte não é juntado: cada página é casada sozinha.
