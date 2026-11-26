@@ -656,3 +656,6 @@ def test_a_dotted_number_with_an_id_tail_or_after_a_number_label_is_not_an_amoun
     assert failures(AMOUNT_BRL, "total 4.329.30 - saldo") == 1, (
         "o valor com ponto decimal segue apontado"
     )
+    assert failures(AMOUNT_BRL, "retorno 4.329.30 e abono 1.250.75") == 2, (
+        "a palavra que termina em `no` não é o rótulo de número"
+    )
