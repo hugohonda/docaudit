@@ -46,6 +46,18 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Mudado
 
+- O mesmo valor inválido lido por outra família não prova erro impresso quando uma linha do valor
+  cruza outra linha da página, com área em comum entre as caixas: o carimbo desenhado por cima do
+  texto. As duas famílias leem a mesma mistura de tinta. `Entity.printed` fica `None`,
+  `Result.review()` dá `failed_value`, e a página segue ao leitor caro em vez de sair com o motivo
+  `erro do documento`. Caixas que só se tocam não contam. A caixa vizinha que invade a do valor
+  também cruza, e ali o veredito se perde.
+
+- A tarja à vista sobre uma digitalização com camada de OCR é texto composto: `Page.composes` é
+  verdadeiro para as linhas dela, e `Result.evidence` dá `composed_text` ao número da tarja. Um
+  valor dela que falha sai com `printed="text_layer"`. O novo campo `Stamp.visible` diz se toda
+  linha da tarja está à vista; a tarja que só a camada oculta traz segue como leitura de um motor.
+
 - O teto de páginas de `Budget` é aplicado depois da releitura por outra família. A releitura roda
   em toda página que uma verificação encaminhou, e a página que ela explica não gasta o teto. Com
   um teto curto, `Entity.printed` passa a cobrir toda página encaminhada, e o leitor caro recebe

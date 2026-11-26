@@ -54,6 +54,7 @@ margem de cada página de uma peça.
 | `at` | quando a peça foi protocolada ou liberada nos autos. É a hora local impressa, sem fuso, salvo quando o formato declara `tz` |
 | `protocol` | o número do protocolo. No e-SAJ, `null` no ato que o juízo liberou nos autos |
 | `bbox`, `chunk_ids` | a caixa e as linhas da tarja |
+| `visible` | se toda linha da tarja está à vista na folha, desenhada com tinta e sem imagem por cima. A tarja que só a camada oculta de OCR traz não está |
 
 Fora `code`, o campo que o formato não imprime sai `null`. Na página copiada
 de outro processo, vale a última tarja desenhada. A tarja cujo número de
@@ -172,9 +173,17 @@ A [entidade](../glossary.md#entidade) é um valor achado por uma verificação.
 com letras e dígitos, em maiúsculas. Duas ocorrências do mesmo valor têm a mesma
 chave, e `Result.occurrences(entity)` devolve as outras.
 
-`printed` vale `text_layer` quando o valor veio da camada à vista de uma página
-nato-digital, onde não há leitor que erre. Vale o nome de um leitor quando
-outra família leu o mesmo valor inválido no mesmo lugar.
+`printed` vale `text_layer` quando o valor veio de texto composto
+(`Page.composes`): a camada à vista de uma página nato-digital, ou a tarja à
+vista sobre uma digitalização. Ali não há leitor que erre. Vale o nome de um
+leitor quando outra família leu o mesmo valor inválido no mesmo lugar.
+
+A segunda prova não vale quando uma linha do valor cruza outra linha da
+página: as caixas se cortam com área, como o carimbo desenhado por cima do
+texto. As duas famílias leem a mesma mistura de tinta, e o valor que repetem
+não mostra o que o papel traz. Ali `printed` fica `null`, e
+`Result.review()` dá `failed_value`. Caixas que só se tocam na borda não
+cruzam.
 
 ## `Figure`
 

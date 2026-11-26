@@ -426,7 +426,7 @@
       }
      ],
      "default": null,
-     "description": "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor veio da camada composta, que não tem leitor a errar. O nome de um leitor: outra família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura.",
+     "description": "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor veio de texto composto (`Page.composes`), que não tem leitor a errar. O nome de um leitor: outra família leu o mesmo valor inválido no mesmo lugar, numa linha que não cruza outra da página. `None`: o erro pode ser de leitura.",
      "title": "Printed"
     },
     "span": {
@@ -1320,6 +1320,12 @@
      "default": null,
      "description": "Quem assinou, como impresso, com os espaços colapsados.",
      "title": "Signer"
+    },
+    "visible": {
+     "default": false,
+     "description": "Se toda linha da tarja está à vista na folha: desenhada com tinta, sem imagem por cima. A tarja que o tribunal desenha sobre a digitalização está; a que só a camada oculta de OCR traz, lida dos pixels de uma cópia, não está. Só `process` o preenche: `stamps_of` não lê o PDF e devolve False.",
+     "title": "Visible",
+     "type": "boolean"
     }
    },
    "required": [

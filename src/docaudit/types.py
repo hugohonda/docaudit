@@ -283,6 +283,15 @@ class Stamp(_Frozen):
     chunk_ids: tuple[str, ...] = PField(
         min_length=1, description="As linhas da tarja: a da assinatura e a da conferência."
     )
+    visible: bool = PField(
+        default=False,
+        description=(
+            "Se toda linha da tarja está à vista na folha: desenhada com tinta, sem imagem "
+            "por cima. A tarja que o tribunal desenha sobre a digitalização está; a que só a "
+            "camada oculta de OCR traz, lida dos pixels de uma cópia, não está. Só `process` "
+            "o preenche: `stamps_of` não lê o PDF e devolve False."
+        ),
+    )
 
 
 class Gazette(_Frozen):
@@ -481,9 +490,17 @@ class Page(_Frozen):
 
         A camada de texto de uma página `SEARCHABLE_SCAN` foi escrita por um
         motor de OCR. Nas outras, quem a escreveu foi quem compôs o documento:
-        não há leitor a errar, e o erro que ela traz é do documento.
+        não há leitor a errar, e o erro que ela traz é do documento. Na
+        digitalização, a tarja à vista (`Stamp.visible`) também é composta:
+        o tribunal a desenha com tinta por cima da imagem, e o texto dela é
+        exato. O resto da camada da digitalização segue sendo de um motor.
         """
-        return chunk.source == "text_layer" and self.substrate is not Substrate.SEARCHABLE_SCAN
+        if chunk.source != "text_layer":
+            return False
+        if self.substrate is not Substrate.SEARCHABLE_SCAN:
+            return True
+        stamp = self.stamp
+        return stamp is not None and stamp.visible and chunk.id in stamp.chunk_ids
 
 
 class Chunk(_Frozen):
@@ -662,8 +679,9 @@ class Entity(_Frozen):
         default=None,
         description=(
             "Num valor `failed`, quem mostra que o erro é do documento. `text_layer`: o valor "
-            "veio da camada composta, que não tem leitor a errar. O nome de um leitor: outra "
-            "família leu o mesmo valor inválido no mesmo lugar. `None`: o erro pode ser de leitura."
+            "veio de texto composto (`Page.composes`), que não tem leitor a errar. O nome de um "
+            "leitor: outra família leu o mesmo valor inválido no mesmo lugar, numa linha que não "
+            "cruza outra da página. `None`: o erro pode ser de leitura."
         ),
     )
 

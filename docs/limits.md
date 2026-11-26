@@ -87,6 +87,15 @@ precisa conhecer antes de confiar num resultado.
   [camada de OCR](glossary.md#camada-de-ocr) embutida. Ela conta como outra
   família, salvo a que o Tesseract escreveu, quando a linha que falhou veio
   dele.
+- **O valor sob outra linha não prova erro impresso.** Um carimbo desenhado
+  por cima do texto mistura as duas tintas, e as duas famílias podem ler a
+  mesma mistura. Quando uma linha do valor cruza outra linha da página, com
+  área em comum entre as caixas, o mesmo valor inválido não decide. A página
+  segue ao leitor caro, e a entidade sai sem `printed`, salvo quando o valor
+  está em texto composto. A regra é categórica e não tem limiar. A caixa de
+  OCR de uma linha vizinha que invade um pouco a do valor também cruza, e ali
+  o veredito de erro impresso se perde sem carimbo nenhum. É o lado
+  conservador: o valor fica como erro que pode ser de leitura.
 - **Um valor errado pode passar no dígito verificador.** O dígito prova que
   o valor é possível, não que é o impresso. No CPF e no CNPJ, que escrevem o
   resto 10 como 0, a troca de um só dígito passa em alguns casos. No número

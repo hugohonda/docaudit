@@ -1344,6 +1344,7 @@ def test_the_page_carries_its_own_stamp():
         "signer": "FULANO DE TAL",
         "at": datetime(2020, 5, 23, 15, 19),
         "protocol": "WJMJ20406814970",
+        "visible": True,
     }
     assert (released.signer, released.protocol) == ("JUIZ DE DIREITO", None)
     lines = {c.id: c.text for c in result.chunks}
@@ -2012,6 +2013,62 @@ def test_two_families_reading_the_same_decimal_point_do_not_prove_it_printed(sca
     assert printed == {0: None, 1: "other"}
 
 
+class _Lines:
+    """Leitor de pixels que devolve as mesmas linhas, com as caixas dadas, em toda página."""
+
+    external = False
+    output_version = "v1"
+
+    def __init__(self, name: str, lines: Sequence[tuple[str, BBox]]):
+        self.name = name
+        self.lines = lines
+        self.calls = 0
+
+    def read(self, view):
+        self.calls += 1
+        view.image()
+        return [
+            Chunk.make(view.page, box, self.name, text, reading_order=i)
+            for i, (text, box) in enumerate(self.lines)
+        ]
+
+
+_CPF_LINE = BBox(x0=0.1, y0=0.10, x1=0.6, y1=0.12)
+
+
+@pytest.mark.parametrize(
+    ("stamp", "printed"),
+    [
+        (BBox(x0=0.3, y0=0.11, x1=0.7, y1=0.13), None),
+        (BBox(x0=0.3, y0=0.12, x1=0.7, y1=0.14), "other"),
+        (BBox(x0=0.3, y0=0.30, x1=0.7, y1=0.32), "other"),
+    ],
+    ids=["cruza", "toca", "longe"],
+)
+def test_the_same_invalid_value_under_another_line_does_not_prove_it_printed(stamp, printed):
+    """O carimbo por cima do CPF: as duas famílias leem a mesma mistura, e o erro pode ser
+    de leitura. A caixa que só toca a do CPF na borda não cruza."""
+    doc = make_pdf(EMPTY_PAGE)
+    lines = [("CPF 529.982.247-26", _CPF_LINE), ("RECEBIDO EM CARTORIO", stamp)]
+    cheap, other = _Lines("cheap", lines), _Lines("other", lines)
+    result = process(doc, policy="evidence", cheap=[cheap], confirm=other)
+    [cpf] = [e for e in result.entities if e.kind == "CPF"]
+    assert cpf.state is EntityState.FAILED
+    assert cpf.printed == printed
+    [decision] = result.decisions
+    if printed is None:
+        reasons = result.review()[0]
+        assert "failed_value" in reasons
+        assert "printed_invalid" not in reasons
+        assert decision.tier is Tier.STRONG, "sem prova de erro impresso, a página segue"
+        assert any("cruza outra linha da página" in s for s in decision.steps)
+        assert result.spent.pages_confirmed_same == 0.0
+    else:
+        assert result.review() == {0: ("printed_invalid",)}
+        assert decision.tier is Tier.CHEAP
+        assert decision.reason.startswith("erro do documento: other")
+
+
 def test_each_decision_tells_what_happened_to_the_page_in_order(scanned_doc):
     """Os passos saem na ordem: leitura barata, política, releitura, leitor caro."""
     cheap = _Says(
@@ -2634,6 +2691,33 @@ def test_the_stamp_drawn_in_sight_over_a_scan_is_read_from_the_layer():
     layer = [c.text for c in result.chunks if c.source == "text_layer"]
     assert layer == list(strip), "só a tarja vem da camada; o corpo segue dos pixels"
     assert "corpo da peticao" in [c.text for c in result.chunks if c.source == "pixels"]
+
+
+def test_the_stamp_drawn_in_sight_over_a_scan_is_composed_text_and_the_body_is_not():
+    """A tarja à vista é texto exato: o número dela é texto composto. O do corpo veio dos
+    pixels, e a tarja que só a camada oculta traz é leitura de um motor."""
+    strip = _strip(_OWN, "AbCd1234")
+    body = [f"Processo {_OWN}", "segunda linha", "terceira linha", "quarta linha", "quinta linha"]
+    doc = make_scanned_pdf(body, stamped=strip)
+    result = process(doc, policy="all_cheap", cheap=[_OverLayer({})])
+    assert result.pages[0].substrate.value == "searchable_scan"
+    stamp = result.pages[0].stamp
+    assert stamp is not None
+    assert stamp.visible
+    sources = {c.id: c.source for c in result.chunks}
+    own = {sources[e.chunk_ids[0]]: e for e in result.entities if e.value == _OWN}
+    assert set(own) == {"text_layer", "pixels"}
+    kinds = [(v.kind, v.source) for v in result.evidence(own["text_layer"])]
+    assert ("composed_text", "text_layer") in kinds
+    assert "composed_text" not in [v.kind for v in result.evidence(own["pixels"])]
+
+    hidden = make_scanned_pdf(["corpo da peticao", *strip])
+    result = process(hidden, policy="all_cheap", cheap=["text_layer"], trust_layer="always")
+    stamp = result.pages[0].stamp
+    assert stamp is not None
+    assert not stamp.visible, "a tarja só da camada oculta foi lida dos pixels por um motor"
+    lines = {c.id: c for c in result.chunks}
+    assert not any(result.pages[0].composes(lines[i]) for i in stamp.chunk_ids)
 
 
 class _SidewaysOCR(FakeOCR):

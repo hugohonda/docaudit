@@ -91,7 +91,7 @@ from docaudit.types import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Container, Mapping, Sequence
+    from collections.abc import Collection, Container, Mapping, Sequence
 
     import pypdfium2 as pdfium
 
@@ -1131,6 +1131,20 @@ def _repeats(value: str, chunk: Chunk) -> bool:
     return value in " ".join(fold_lookalikes(chunk.text).split())
 
 
+def _overlapped(ids: Collection[str], lines: Sequence[Chunk]) -> bool:
+    """Se uma linha de `ids` cruza outra linha da página, fora de `ids`.
+
+    Cruzar é ter interseção de área positiva: caixas que só se tocam na
+    borda não contam. É o carimbo desenhado por cima do texto. As duas
+    famílias leem a mesma mistura de tinta, e o valor inválido que repetem
+    não prova que o papel o traz. A regra é categórica e não tem limiar: a
+    linha vizinha cuja caixa de OCR invade um pouco a desta também cruza, e
+    o veredito fica de fora. É o lado conservador do erro.
+    """
+    own = [c for c in lines if c.id in ids]
+    return any(c.bbox.intersection(o.bbox) > 0 for c in own for o in lines if o.id not in ids)
+
+
 def _printed(
     entity: Entity,
     page: Page,
@@ -1143,7 +1157,7 @@ def _printed(
     As duas provas da cascata: o valor só está em texto composto, que nenhum
     leitor reconheceu; ou outra família leu o mesmo valor inválido na linha.
     A segunda não vale na troca que as famílias fazem juntas, em `alike`, pelo
-    nome da verificação.
+    nome da verificação, nem na linha que cruza outra (`_overlapped`).
     """
     if entity.state is not EntityState.FAILED:
         return entity
@@ -1151,6 +1165,8 @@ def _printed(
     if not _machine_chunks(page, touched):
         return entity.model_copy(update={"printed": TextLayerReader.name})
     if (shared := alike.get(entity.kind)) is not None and shared(entity.value):
+        return entity
+    if _overlapped(entity.chunk_ids, lines):
         return entity
     for line in entity.chunk_ids:
         for other in same_by_line.get(line, ()):
@@ -1189,10 +1205,11 @@ def _confirm_stage(
     """Relê, com outra família, a página encaminhada por uma verificação.
 
     Duas famílias que devolvem o mesmo valor inválido confirmam o erro do
-    documento, salvo na troca que as famílias fazem juntas (`Check.alike`);
-    um valor que confere no mesmo lugar conserta a linha, e um valor sem
-    prova só quando mantém os dígitos lidos (`_fixes`). "Vale o
-    valor válido" seria a regra errada: uma leitura errada pode conferir.
+    documento, salvo na troca que as famílias fazem juntas (`Check.alike`)
+    e na linha que cruza outra da página (`_overlapped`). Um valor que
+    confere no mesmo lugar conserta a linha, e um valor sem prova só quando
+    mantém os dígitos lidos (`_fixes`). "Vale o valor válido" seria a regra
+    errada: uma leitura errada pode conferir.
     Numa `SEARCHABLE_SCAN` a primeira família é a camada de OCR embutida,
     que já está lida e custa zero; depois vem `confirm`. A primeira que
     decide encerra. Muda `decisions`, `reads` e `failures` no lugar.
@@ -1228,6 +1245,13 @@ def _confirm_stage(
         alike = ", ".join(
             dict.fromkeys(v for c, v, _ in before if c.check.alike is not None and c.check.alike(v))
         )
+        crossed = ", ".join(
+            dict.fromkeys(
+                v
+                for _, v, _ in before
+                if _overlapped({c.id for _, w, c in before if w == v}, chunks)
+            )
+        )
         for backend in families:
             who = f"releitura por {backend.name}"
             try:
@@ -1245,6 +1269,12 @@ def _confirm_stage(
                 steps.append(
                     f"{who}: leu o mesmo valor inválido ({values}), "
                     f"mas {alike} é troca que as famílias fazem juntas"
+                )
+                continue
+            if after == failing and crossed:
+                steps.append(
+                    f"{who}: leu o mesmo valor inválido ({values}), "
+                    f"mas a linha de {crossed} cruza outra linha da página"
                 )
                 continue
             if after == failing:
@@ -1345,6 +1375,16 @@ def _draw_order_of(run: _Run, pages: Mapping[int, Page]) -> DrawOrder:
         }
 
     return order
+
+
+def _seen(run: _Run, page: Page, stamp: Stamp) -> Stamp:
+    """A tarja com `visible`: se toda linha dela está à vista na folha, pelo PDF."""
+    visible = {
+        Chunk.make(page, d.line.bbox, TextLayerReader.name, d.line.text).id
+        for d in _pdf.drawn_lines_of(run.handle, page.index)
+        if d.visible
+    }
+    return stamp.model_copy(update={"visible": set(stamp.chunk_ids) <= visible})
 
 
 def _in_sequence(folhas: Mapping[int, Folha]) -> dict[int, Folha]:
@@ -2137,7 +2177,9 @@ def run_pipeline(
     # folha leem a ordem do arquivo, e por isso vêm antes da ordem do layout.
     by_page = mark_furniture(by_page)
     drawn = _draw_order_of(run, by_index)
-    found_stamps = stamps_of(by_page, stamp_formats, drawn)
+    found_stamps = {
+        i: _seen(run, by_index[i], s) for i, s in stamps_of(by_page, stamp_formats, drawn).items()
+    }
     page_folhas = _in_sequence(folhas_of(by_page, folha_checks, drawn))
     found_gazettes = gazettes_of(by_page, gazette_formats)
     selected = [
