@@ -10,6 +10,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `Entity.id` é a identidade de cada ocorrência de um valor, estável entre leituras que dão as
+  mesmas linhas, e `Entity.key` é o valor só com letras e dígitos. `Result.occurrences(entity)`
+  devolve as outras ocorrências do mesmo valor: o número do processo na tarja de cada página e no
+  corpo, por exemplo. Um resultado gravado antes traz os dois campos vazios.
+
 - `Check.valid_only`: uma forma fora da pontuação padrão que conta só quando a regra confere. O
   `CPF` a usa para o ponto ou a barra lidos no lugar do hífen, `529.982.247.25`: se os dígitos
   fecham, é o CPF; se não fecham, é outro número e não sai. Como a forma com rótulo, entra em

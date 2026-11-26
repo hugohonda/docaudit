@@ -399,6 +399,18 @@
      "title": "Chunk Ids",
      "type": "array"
     },
+    "id": {
+     "default": "",
+     "description": "A identidade desta ocorrência: sai do campo, das linhas, da posição nelas e do valor, e é a mesma em toda leitura que dê as mesmas linhas. Vazio num resultado gravado antes de o campo existir.",
+     "title": "Id",
+     "type": "string"
+    },
+    "key": {
+     "default": "",
+     "description": "O valor só com letras e dígitos, em maiúsculas: `529.982.247-25` e `52998224725` têm a mesma chave. É o que liga duas ocorrências do mesmo valor; ver `Result.occurrences`.",
+     "title": "Key",
+     "type": "string"
+    },
     "kind": {
      "description": "O nome do campo, o `name` do `Check` que o casou.",
      "title": "Kind",

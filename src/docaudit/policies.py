@@ -20,7 +20,16 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from docaudit.backends.textlayer import TextLayerReader
-from docaudit.types import BBox, Entity, EntityState, RoutingDecision, Substrate, Tier
+from docaudit.types import (
+    BBox,
+    Entity,
+    EntityState,
+    RoutingDecision,
+    Substrate,
+    Tier,
+    entity_id,
+    entity_key,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Container, Mapping, Sequence
@@ -1186,13 +1195,16 @@ def entities_of(
                 state = EntityState.CONFIRMED if check.proves(value) else EntityState.WELL_FORMED
             else:
                 state = EntityState.FAILED
+            chunk_ids = tuple(c.id for c in lines)
             entity = Entity(
+                id=entity_id(check.name, chunk_ids, start - begins[lines[0].id], value),
                 kind=check.name,
+                key=entity_key(value),
                 value=value,
                 state=state,
                 page=page.index,
                 bbox=BBox.envelope([c.bbox for c in lines]),
-                chunk_ids=tuple(c.id for c in lines),
+                chunk_ids=chunk_ids,
                 span=(start - begins[lines[0].id], end - begins[lines[0].id]) if spans else None,
             )
             found.append((start, entity))

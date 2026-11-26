@@ -313,6 +313,19 @@ def test_a_cpf_read_with_a_dot_before_its_check_digits_counts_only_when_they_clo
     )
 
 
+def test_each_occurrence_has_a_stable_id_and_a_key_that_ignores_punctuation():
+    """Duas ocorrências do mesmo valor na mesma linha têm ids diferentes e a mesma chave."""
+    page = make_page(0)
+    line = _line(page, 0.1, "CPF 529.982.247-25 e de novo CPF: 52998224725")
+    first, second = entities_of([CPF], page, [line])
+    assert first.key == second.key == "52998224725"
+    assert len({first.id, second.id, ""}) == 3
+    again = entities_of([CPF], page, [line])
+    assert [e.id for e in again] == [first.id, second.id], "a mesma leitura dá os mesmos ids"
+    moved = _line(page, 0.5, "CPF 529.982.247-25 e de novo CPF: 52998224725")
+    assert entities_of([CPF], page, [moved])[0].id != first.id, "outra linha, outra ocorrência"
+
+
 def test_the_folha_stamp_and_a_cited_folha_are_entities_and_a_range_is_not():
     page = make_page(0)
     stamp = _line(page, 0.03, "fls. 730")
