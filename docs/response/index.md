@@ -361,7 +361,7 @@ Onze métodos dão as outras formas de uso:
 | `by_page()` | `dict[int, list[Chunk]]` | as linhas de cada página na ordem de leitura. A linha sem `reading_order` vai ao fim, de cima para baixo |
 | `read_by()` | `dict[int, tuple[str, ...]]` | os leitores que deram linhas a cada página. Mostra o que `substrate` não diz: a folha digitalizada sob uma tarja de texto é `born_digital`, e o corpo vem dos pixels |
 | `verification()` | `dict[int, dict[str, dict[str, int]]]` | por página e por verificação, quantos valores em cada estado. A chave `printed` conta as falhas que são do documento |
-| `review()` | `dict[int, tuple[str, ...]]` | por página, os motivos para uma pessoa olhar: `incomplete`, `reader_failed`, `failed_value`, `printed_invalid`, `two_readings`. A página sem motivo não entra. Diz onde olhar, e não que o resto está certo |
+| `review()` | `dict[int, tuple[str, ...]]` | por página, os motivos para uma pessoa olhar: `incomplete`, `unread_lines`, `reader_failed`, `failed_value`, `printed_invalid`, `two_readings`, `one_reading`. A página sem motivo não entra. Diz onde olhar, e não que o resto está certo |
 | `readings(entity)` | `tuple[OtherReading, ...]` | as outras leituras das linhas de um valor: a que saiu, a de outra família que leu igual e a que leu diferente |
 | `refs()` | `dict[str, Chunk]` | uma referência curta por linha, `p<página>:<posição>`, para citar a linha |
 | `cited(refs, value, *, entity=None)` | `list[Chunk]` | as linhas citadas, se `value` está no texto delas; vazio se a citação não confere. Não usa modelo |

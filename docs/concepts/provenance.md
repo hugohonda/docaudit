@@ -168,6 +168,29 @@ exato. O número da tarja dá `composed_text`, e o mesmo número no corpo, lido
 dos pixels, dá `same_page` com a tarja. A tarja que só a camada oculta traz
 foi lida dos pixels de uma cópia, e segue como leitura de um motor.
 
+**Quem mais leu o valor.** `Entity.also_read_by` traz os outros leitores que
+leram o mesmo valor no mesmo lugar, pela chave. O valor em reais é comparado
+só pelos dígitos: o símbolo da moeda não é o valor, e o `R$` que um leitor lê
+`RS` não muda o número. Entram a linha barata que o
+leitor caro substituiu, mesmo quando saiu com o mesmo texto, a camada de OCR, a
+releitura de `confirm=` e a linha recusada do leitor caro. Cada um deles
+aparece em `evidence` como `other_reading` que concorda. Vazio quer dizer que
+só o leitor da linha leu o valor ali.
+
+O campo importa no valor sem redundância, como o valor em reais e a data:
+nenhuma regra o prova, e um leitor por modelo de linguagem devolve valores com
+cara de leitura na página que não consegue ler. `Result.review()` lista com
+`one_reading` a página em que o leitor caro trouxe um valor assim sem que
+outro leitor o lesse. O valor com dígito verificador que confere não entra: a
+regra o prova.
+
+Três limites. O leitor que devolve a página como um bloco só tem no lugar dele
+todas as linhas baratas da página, e ali o mesmo lugar é a página inteira. Dois
+leitores da mesma família erram juntos: a lista traz os nomes, e quem chama
+sabe quais são de famílias diferentes. E o campo só existe nos valores que uma
+verificação conhece: o número sem forma própria, como um código numa tabela,
+não é ocorrência, e nada o marca.
+
 É uma lista, e não um veredito. A tarja repete o mesmo número em toda página
 de um processo, e duas páginas dela não são duas fontes: quem chama decide o
 que basta.
