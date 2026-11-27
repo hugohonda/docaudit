@@ -24,6 +24,12 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 - `Chunk.as_read()` dá a caixa como a linha é lida, em pé. Quem agrupa ou ordena as linhas por
   conta própria precisa dela na página lida girada: `bbox` segue no sistema da imagem, e as
   linhas de uma folha de cabeça para baixo estão nele de baixo para cima.
+- `AzureRead`, de `docaudit.backends.azure`, lê uma página pelo modelo de leitura do Azure AI
+  Document Intelligence, só com a biblioteca padrão. É um leitor externo: `process()` exige
+  `allow_external=True`. Devolve uma linha por trecho, com a caixa no sistema da imagem, o giro
+  de cada linha e a confiança da palavra mais duvidosa dela. Conta as páginas enviadas e, com
+  `price_per_page`, os dólares. A chave recusada interrompe o documento; as outras falhas do
+  serviço são da página, que fica com a leitura barata.
 - `Read`, de `docaudit.types`, é o que um leitor devolve quando sabe o que deixou sem ler: a
   lista das linhas, com as caixas sem leitura em `unread`. Uma lista comum continua valendo.
 
@@ -102,6 +108,15 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   falso positivo. Quem o usava declara a própria `Check`, como em `docs/how-to/checks.md`.
 
 ### Corrigido
+
+- A linha barata sai quando está no mesmo lugar de uma linha do leitor caro, nos dois sentidos:
+  o centro dela numa caixa cara, ou o centro de uma linha cara na caixa dela. Com um leitor caro
+  que devolve linhas, e não blocos, a linha barata que atravessava duas colunas tinha o centro no
+  vão entre elas e ficava no resultado, ao lado da leitura que a substituía.
+
+- Com `reread="region"`, o pedaço da linha vizinha que o leitor caro devolve junto com a linha
+  relida não entra mais no resultado. O recorte de uma linha leva a borda das vizinhas; fica só
+  o que cruza a altura do meio da linha pedida.
 
 - O valor em reais sem `R$` e com ponto decimal, `4.329.30`, não casa mais o número logo depois de
   `nº` nem o seguido de hífen ou barra e dígito: `Proc. nº 533.505.49-00` é um número de processo,

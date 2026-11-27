@@ -47,6 +47,15 @@ precisa conhecer antes de confiar num resultado.
   PP-OCR. Quando são a maioria da página, `Result.review()` a lista com
   `unread_lines`; o texto só vem de um leitor caro que a leia. O Tesseract e
   o leitor `vlm` não informam essas caixas.
+- **A linha barata que o leitor caro não cobre fica no resultado.** Depois da
+  leitura cara da página inteira, sai a linha barata que divide o lugar com
+  uma linha cara. A que cai no vão entre duas linhas caras fica, mesmo sendo
+  um fragmento: ninguém a releu, e é assim que a tarja da margem sobrevive a
+  um leitor que a descarta. Na página que nenhum dos dois lê, como uma
+  tabela densa em letra miúda e baixa resolução, o leitor caro devolve
+  poucas linhas, e os fragmentos da leitura barata ficam quase todos.
+  `Result.read_by()` diz quais leitores deram linhas à página, e
+  `Chunk.source` diz de qual veio cada uma.
 - **Consistência entre páginas.** Os sinais veem uma página por vez.
   Conferir que o número do processo é o mesmo em todas as páginas exige
   olhar o documento inteiro. Para isso não há gancho além de uma política

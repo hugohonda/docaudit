@@ -477,7 +477,7 @@ def _read_cascade(
                 return _Cascade(chunks, hit, 0, failed, lost=True)
             lines = _in_place(chunks, extra, view.page.unread)
             return _Cascade(lines, hit, 1, failed, unread=extra.unread)
-        return _Cascade(chunks, hit, 0, failed, lost=bool(failed))
+        return _Cascade(chunks, hit, 0, failed, lost=bool(failed), unread=chunks.unread)
     return _Cascade([], False, 0, failed, unread=unread)
 
 
@@ -589,22 +589,28 @@ def _replace_read(
     """A leitura cara no lugar da barata só onde a cara leu, e a barata que saiu.
 
     Um leitor por região descarta cabeçalho, rodapé e a tarja da margem, e é
-    na tarja que o e-SAJ repete o número do processo. A linha barata cujo
-    centro não cai em nenhuma caixa da leitura cara fica, depois das linhas
-    caras e sem ordem de leitura. Um leitor da página inteira devolve a caixa
-    da página, e então nada da leitura barata fica.
+    na tarja que o e-SAJ repete o número do processo. A linha barata que não
+    está no mesmo lugar de nenhuma linha cara fica, depois das linhas caras e
+    sem ordem de leitura. Um leitor da página inteira devolve a caixa da
+    página, e então nada da leitura barata fica.
+
+    O mesmo lugar vale nos dois sentidos (`_same_place`): o centro da linha
+    barata numa caixa cara, ou o centro de uma linha cara na caixa barata. O
+    leitor caro que devolve linhas, e não blocos, parte a página de outro
+    jeito: a linha barata que atravessa duas colunas tem o centro no vão
+    entre elas, e cobre as linhas caras das duas.
 
     Fica também a linha barata de uma região que o leitor caro devolveu vazia,
     e a da margem, mesmo que tenha sido ela a disparar a escalada: ninguém a
     releu.
 
-    Cada linha barata que saiu com outro texto vai ao lado da linha cara que
-    a cobriu, a de maior interseção entre as que contêm o centro dela.
+    Cada linha barata que saiu com outro texto vai ao lado da linha cara do
+    mesmo lugar, a de maior interseção com ela.
     """
     kept: list[Chunk] = []
     replaced: list[OtherReading] = []
     for c in cheap:
-        if covering := _covering(c.bbox, strong):
+        if covering := [s for s in strong if _same_place(c, s)]:
             replaced += _replaced(max(covering, key=lambda s: s.bbox.intersection(c.bbox)), c)
         else:
             kept.append(c.model_copy(update={"reading_order": None}))
@@ -1636,6 +1642,34 @@ class _StrongRead(NamedTuple):
     """Se os blocos de layout da página vieram do cache."""
 
 
+class _Asked(NamedTuple):
+    """O que um recorte da releitura por região pede ao leitor caro."""
+
+    turn: Turn
+    """O giro em que o leitor vê o recorte."""
+    lines: tuple[BBox, ...]
+    """A caixa de cada linha pedida: duas, quando o valor quebra na linha."""
+
+
+def _on_a_line(chunk: Chunk, asked: _Asked) -> bool:
+    """Se a linha relida passa pelo meio de uma das linhas pedidas, na altura em que é lida.
+
+    O recorte de uma linha leva junto a borda das linhas vizinhas, e o leitor
+    devolve esses pedaços como linhas dele: baixos, colados à borda do recorte.
+    Fica o que cruza a altura do meio de uma linha pedida. Os dois pedaços de
+    uma linha que o leitor partiu ao meio ficam; o pedaço da vizinha, não. O
+    meio é o de cada linha, e não o do recorte: num valor quebrado em duas
+    linhas, o meio do recorte cai no vão entre elas.
+    """
+    back = (360 - asked.turn) % 360
+    read = chunk.bbox.unturned(back)
+    for line in asked.lines:
+        box = line.unturned(back)
+        if read.y0 <= (box.y0 + box.y1) / 2 <= read.y1:
+            return True
+    return False
+
+
 def _read_upright(
     view: PageView, reader: Reader, cache: ModelCallCache | None, turn: Turn
 ) -> tuple[list[Chunk], bool]:
@@ -1656,7 +1690,7 @@ def _read_upright(
 def _strong_one(
     run: _Run,
     page: Page,
-    boxes: Mapping[BBox, Turn],
+    boxes: Mapping[BBox, _Asked],
     turn: Turn,
     backend: Reader,
 ) -> _StrongRead:
@@ -1673,9 +1707,9 @@ def _strong_one(
         if boxes:
             strong: list[Chunk] = []
             hit = True
-            for box, box_turn in boxes.items():
-                found, found_hit = read_region(view, box, backend, run.cache, turn=box_turn)
-                strong.extend(within(found, box))
+            for box, asked in boxes.items():
+                found, found_hit = read_region(view, box, backend, run.cache, turn=asked.turn)
+                strong.extend(c for c in within(found, box) if _on_a_line(c, asked))
                 hit = hit and found_hit
             scope = f"{len(boxes)} recorte(s) das linhas que falharam"
             return _StrongRead(page, strong, hit, scope, True, None, layout_hit=layout_hit)
@@ -1719,7 +1753,7 @@ def _strong_stage(
         return deferred
     check_names = {c.name for c in checks}
 
-    def boxes_of(page: Page) -> dict[BBox, Turn]:
+    def boxes_of(page: Page) -> dict[BBox, _Asked]:
         # Por região, a verificação diz onde a leitura falhou, e o leitor
         # caro lê só ali: um recorte por valor inválido, cobrindo as linhas
         # em que o valor está, que são duas quando ele quebra na linha. Se
@@ -1732,7 +1766,10 @@ def _strong_stage(
         lines: dict[tuple[str, str], list[Chunk]] = {}
         for check, value, chunk in failures.get(page.index, ()):
             lines.setdefault((check.name, value), []).append(chunk)
-        return {BBox.envelope([c.bbox for c in ls]): _turn_of(ls) for ls in lines.values()}
+        return {
+            BBox.envelope([c.bbox for c in ls]): _Asked(_turn_of(ls), tuple(c.bbox for c in ls))
+            for ls in lines.values()
+        }
 
     def one(page: Page) -> _StrongRead | None:
         """A leitura cara da página, ou None quando o teto de tempo chegou antes dela."""

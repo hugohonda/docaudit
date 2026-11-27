@@ -51,6 +51,10 @@ registra, e um motor alternativo leva o nome do motor.
 
 Os extras se combinam: `docaudit[ppocr,openvino,tesseract,layout]`.
 
+O leitor `AzureRead` não tem extra nem nome registrado: fala com o serviço pela
+biblioteca padrão e entra como instância, com o endereço e a chave do recurso. Ver
+[Ler com o Azure como última etapa](how-to/azure.md).
+
 ## Plataformas
 
 | plataforma | núcleo e Tesseract | `ppocr` e `layout` | `openvino` | `engine="cuda"` |

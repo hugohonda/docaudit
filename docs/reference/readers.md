@@ -50,6 +50,8 @@ instância. O nome vem do grupo de entry points `docaudit.backends`, e
     options:
       heading_level: 3
 
+::: docaudit.backends.azure.AzureRead
+
 ::: docaudit.backends.vlm.VLM
 
 ::: docaudit.backends.vlm.DEFAULT_URL

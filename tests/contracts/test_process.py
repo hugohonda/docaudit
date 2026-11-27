@@ -3174,6 +3174,45 @@ def test_a_strong_read_that_is_refused_leaves_the_unread_lines_on_the_page():
     assert result.review()[0] == ("unread_lines", "two_readings")
 
 
+def test_a_region_reread_drops_the_slivers_of_the_neighbouring_lines():
+    """O recorte de uma linha leva a borda da vizinha, e o leitor a devolve como linha dele.
+
+    Fica o que cruza a altura do meio da linha pedida: a linha relida, e os
+    dois pedaços dela quando o leitor a parte. O pedaço baixo, colado à borda
+    de baixo do recorte, é da linha de baixo.
+    """
+
+    class _WithSlivers(FakeVLM):
+        def read(self, view):
+            self.calls += 1
+            view.image()
+            page = view.page
+            return [
+                Chunk.make(page, BBox(x0=0.0, y0=0.05, x1=0.45, y1=0.9), self.name, "CPF"),
+                Chunk.make(
+                    page, BBox(x0=0.5, y0=0.05, x1=1.0, y1=0.9), self.name, "529.982.247-25"
+                ),
+                Chunk.make(page, BBox(x0=0.0, y0=0.8, x1=0.6, y1=1.0), self.name, "vaior RS io"),
+                Chunk.make(page, BBox(x0=0.7, y0=0.93, x1=0.9, y1=1.0), self.name, "--"),
+            ]
+
+    doc = make_scanned_pdf(["PODER JUDICIARIO", "CPF 529.982.247-27", "Valor R$ 10,00"])
+    result = process(
+        doc,
+        reread="region",
+        policy="evidence",
+        cheap=["text_layer"],
+        strong=_WithSlivers(),
+        trust_layer="always",
+    )
+
+    assert sorted(c.text for c in result.chunks if c.source == "fake-vlm") == [
+        "529.982.247-25",
+        "CPF",
+    ]
+    assert "Valor R$ 10,00" in {c.text for c in result.chunks}, "a linha de baixo segue a barata"
+
+
 @pytest.mark.parametrize("turn", [90, 180, 270])
 def test_the_other_family_rereads_upright_the_page_the_cheap_read_turned(turn):
     """O leitor de `confirm=` não gira a página sozinho: recebe a folha como a barata a leu."""
@@ -3187,3 +3226,67 @@ def test_the_other_family_rereads_upright_the_page_the_cheap_read_turned(turn):
     )
 
     assert [view.turn for view in confirm.views] == [turn]
+
+
+def test_a_region_reread_of_a_value_broken_over_two_lines_keeps_both_lines():
+    """O recorte cobre as duas linhas do valor, e o meio dele cai no vão entre elas.
+
+    Cada linha relida cruza o meio de uma das linhas pedidas, e fica.
+    """
+    from docaudit.process import _Asked, _on_a_line
+
+    first = BBox(x0=0.1, y0=0.30, x1=0.9, y1=0.32)
+    second = BBox(x0=0.1, y0=0.36, x1=0.5, y1=0.38)
+    asked = _Asked(0, (first, second))
+    page = make_page(0)
+
+    def reread(box: BBox) -> Chunk:
+        return Chunk.make(page, box, "strong", "linha relida")
+
+    assert _on_a_line(reread(BBox(x0=0.1, y0=0.298, x1=0.9, y1=0.322)), asked)
+    assert _on_a_line(reread(BBox(x0=0.1, y0=0.358, x1=0.5, y1=0.381)), asked)
+    assert not _on_a_line(reread(BBox(x0=0.1, y0=0.33, x1=0.9, y1=0.35)), asked), "o vão"
+    assert not _on_a_line(reread(BBox(x0=0.1, y0=0.385, x1=0.9, y1=0.40)), asked), "a vizinha"
+    sideways = _Asked(90, (first.unturned(90),))
+    assert _on_a_line(reread(BBox(x0=0.1, y0=0.298, x1=0.9, y1=0.322).unturned(90)), sideways)
+
+
+def test_a_cheap_line_spanning_two_strong_lines_gives_way_to_them():
+    """O leitor caro devolve linhas, e não blocos: a linha barata que atravessa duas colunas sai.
+
+    O centro dela cai no vão entre as colunas, fora das duas linhas caras, mas
+    ela cobre o centro das duas. A linha barata da margem, que ninguém releu, fica.
+    """
+
+    class _TwoColumns(FakeVLM):
+        def read(self, view):
+            self.calls += 1
+            view.image()
+            page = view.page
+            left = BBox(x0=0.05, y0=0.30, x1=0.45, y1=0.32)
+            right = BBox(x0=0.55, y0=0.30, x1=0.95, y1=0.32)
+            return [
+                Chunk.make(page, left, self.name, "coluna da esquerda", reading_order=0),
+                Chunk.make(page, right, self.name, "coluna da direita", reading_order=1),
+            ]
+
+    class _MostlyUnread(_Boxes):
+        """A leitura barata com mais linhas detectadas do que lidas: a página escala inteira."""
+
+        def read(self, view):
+            unread = [BBox(x0=0.1, y0=0.6 + 0.03 * i, x1=0.9, y1=0.62 + 0.03 * i) for i in range(3)]
+            return Read(super().read(view), unread=unread)
+
+    cheap = _MostlyUnread(
+        [
+            ("lixo que atravessa as duas colunas", (0.05, 0.298, 0.95, 0.322)),
+            ("tarja da margem", (0.97, 0.10, 0.99, 0.90)),
+        ]
+    )
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[cheap], strong=_TwoColumns())
+
+    assert sorted(c.text for c in result.chunks) == [
+        "coluna da direita",
+        "coluna da esquerda",
+        "tarja da margem",
+    ]

@@ -9,12 +9,13 @@ Por padrão, nada. A camada de texto, o Tesseract, o PP-OCR, um motor de OCR (re
 layout rodam na própria máquina. O leitor `vlm` apontado para um servidor
 na própria máquina também.
 
-Duas coisas acessam a rede:
+Três coisas acessam a rede:
 
 | o quê | quando | o que vai |
 |---|---|---|
 | download de pesos | na primeira leitura do PP-OCR, ou em `PPOCR.prepare()`, e na primeira detecção de layout | só o pedido do arquivo de pesos; nenhum dado do documento |
 | leitor `vlm` com servidor externo | a cada página ou região que ele lê | a imagem da página ou da região, e o prompt |
+| leitor `AzureRead` | a cada página ou região que ele lê | a imagem da página ou da região |
 
 Os pesos do detector de layout são conferidos pelo SHA-256 depois de
 baixados.
@@ -23,7 +24,8 @@ baixados.
 
 Todo leitor declara `external`: se é [externo](glossary.md#externo), isto é, se envia a página para fora da máquina. O leitor `vlm` calcula o valor pelo
 endereço: ele é externo quando o host da URL não é `127.0.0.1`, `localhost`
-ou `::1`. Um leitor de terceiros declara o próprio valor.
+ou `::1`. O leitor `AzureRead` é sempre externo. Um leitor de terceiros declara o
+próprio valor.
 
 `process()` e `Document` recusam um leitor externo com
 `ExternalBackendError`, antes de abrir o documento. Vale para a cascata
