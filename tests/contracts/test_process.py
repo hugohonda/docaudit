@@ -3314,6 +3314,18 @@ def test_a_value_the_cheap_line_also_read_names_the_cheap_reader(scanned_doc):
     assert agreeing == ["cheap"], "o fato aparece uma vez só"
 
 
+def test_the_currency_sign_read_as_letters_does_not_hide_the_other_reading(scanned_doc):
+    """O `R$` que um leitor lê `RS` não é o valor: os dígitos são os mesmos.
+
+    A linha cara é recusada por não trazer o valor como a barata o escreveu, e
+    fica ao lado dela. O valor da linha barata tem as duas leituras.
+    """
+    result = _costly("total R$ 1.234,56", "total RS 1.234,56", scanned_doc)
+
+    amount = next(e for e in result.entities if e.kind == "valor em reais")
+    assert (amount.value, amount.also_read_by) == ("R$ 1.234,56", ("strong",))
+
+
 def test_a_value_only_the_costly_reader_brought_is_a_reason_to_look(scanned_doc):
     """Onde a barata não leu o valor, só o leitor caro o sustenta."""
     result = _costly("", "total R$ 1.234,56", scanned_doc)

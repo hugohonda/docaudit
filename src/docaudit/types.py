@@ -734,8 +734,17 @@ class Entity(_Frozen):
         return _letters_and_digits(self.value).upper()
 
     def is_in(self, text: str) -> bool:
-        """Se `text` traz este valor, pela `key`: a pontuação e os espaços não contam."""
-        return self.key in _letters_and_digits(text).upper()
+        """Se `text` traz este valor: a pontuação e os espaços não contam.
+
+        O valor com dígitos é comparado só pelos dígitos, em sequência. As
+        letras em volta deles não são o valor: o `R$` que um leitor lê `RS`
+        deixaria duas leituras do mesmo número sem casar. O valor sem
+        dígito é comparado pela `key`.
+        """
+        key = self.key
+        if digits := "".join(c for c in key if c.isdigit()):
+            return digits in "".join(c for c in text if c.isdigit())
+        return key in _letters_and_digits(text).upper()
 
     @staticmethod
     def make_id(kind: str, chunk_ids: Sequence[str], offset: int, value: str) -> str:
