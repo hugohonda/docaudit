@@ -144,6 +144,36 @@ result = process(
 print(result.spent.usd, result.spent.tokens_in, result.spent.tokens_out)
 ```
 
+### Só a página que a leitura barata não leu
+
+O serviço de um provedor serve de última etapa: a leitura barata lê o
+documento inteiro na máquina, e só a página que ela não leu sai. A política
+`evidence` encaminha a página vazia e a página com mais linhas detectadas do
+que lidas, que é a folha manuscrita ou a cópia fraca. O teto de `Budget`
+limita quantas páginas vão ao provedor.
+
+```python
+from docaudit import Budget
+
+result = process(
+    "documento-publico.pdf",
+    policy="evidence",
+    strong=reader,
+    allow_external=True,
+    budget=Budget(max_strong_pages=20),
+)
+for page, reasons in result.review().items():
+    print(page, reasons)
+print(result.read_by())
+```
+
+`Result.review()` lista a página que ficou incompleta, por estar fora do
+teto ou porque o provedor falhou nela. `Result.read_by()` diz quais páginas
+o leitor externo leu. Passe `layout=` ao leitor: sem ele, o `vlm` devolve
+um bloco só com a folha inteira, que entra no lugar de todas as linhas da
+leitura barata. O leitor externo vê em pé a página que a leitura barata
+leu girada. A página em que nenhum giro leu chega a ele como está.
+
 | parâmetro | para que serve |
 |---|---|
 | `served` | o nome do modelo no pedido; obrigatório fora da máquina |

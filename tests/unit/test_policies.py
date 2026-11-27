@@ -670,3 +670,19 @@ def test_a_dotted_number_with_an_id_tail_or_after_a_number_label_is_not_an_amoun
     assert failures(AMOUNT_BRL, "retorno 4.329.30 e abono 1.250.75") == 2, (
         "a palavra que termina em `no` não é o rótulo de número"
     )
+
+
+def test_unread_lines_fires_only_when_they_outnumber_the_lines_read():
+    """A maioria da página sem leitura dispara, com a contagem; a minoria, não."""
+    from docaudit.policies import DEFAULT_SIGNALS, UnreadLines, mostly_unread
+    from docaudit.types import BBox
+
+    box = BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.2)
+    page = make_page(0).model_copy(update={"unread_lines": (box, box)})
+    signal = UnreadLines()
+
+    assert signal(page, _read(0, "uma linha")) == 2
+    assert signal(page, [*_read(0, "uma"), *_read(0, "duas")]) == 0, "empate não é maioria"
+    assert signal(make_page(0), []) == 0, "sem caixa, a leitura vazia é de outro sinal"
+    assert mostly_unread((box,), [])
+    assert any(isinstance(s, UnreadLines) for s in DEFAULT_SIGNALS)

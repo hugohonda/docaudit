@@ -57,10 +57,12 @@ from docaudit.policies import (
     fold_lookalikes,
     garbled_runs,
     get_policy,
+    mostly_unread,
     touched_lines,
 )
 from docaudit.registry import get_backend
 from docaudit.types import (
+    SCHEMA_VERSION,
     BBox,
     Budget,
     Chunk,
@@ -74,6 +76,7 @@ from docaudit.types import (
     Metered,
     OtherReading,
     Page,
+    Read,
     Reader,
     Region,
     Reread,
@@ -285,7 +288,7 @@ def within(chunks: Sequence[Chunk], box: BBox) -> list[Chunk]:
 
 def _read_cached(
     view: PageView, reader: Reader, cache: ModelCallCache | None
-) -> tuple[Sequence[Chunk], bool, bool]:
+) -> tuple[Read, bool, bool]:
     """Leitura de uma página, ou de uma região dela, servida pelo cache quando possível.
 
     Devolve os chunks, se vieram do cache, e se o leitor pediu os pixels. O
@@ -293,6 +296,9 @@ def _read_cached(
     pelo cache não reporte o mesmo gasto de uma que chamou o leitor. O
     terceiro diz à cascata se a leitura já cobriu os rasters da página; vai
     no cache junto com os chunks, e uma entrada sem ele é relida.
+
+    As caixas que o leitor detectou e não leu (`Read.unread`) vão no cache com
+    as linhas: a leitura servida diz o mesmo que a leitura feita.
     """
     page = view.page
     region = view.box.key() if view.box is not None else ""
@@ -308,16 +314,22 @@ def _read_cached(
         hit = cache.get(key)
         if hit is not None and "rendered" in hit:
             chunks = [Chunk.model_validate(c) for c in cast("list[object]", hit["chunks"])]
-            return chunks, True, bool(hit["rendered"])
+            boxes = [BBox.model_validate(b) for b in cast("list[object]", hit.get("unread", []))]
+            return Read(chunks, unread=boxes), True, bool(hit["rendered"])
     before = view.requests
-    produced = list(reader.read(view))
+    answer = reader.read(view)
+    produced = Read(answer, unread=answer.unread if isinstance(answer, Read) else ())
     rendered = view.requests > before
     if cache is not None:
         cache.put(
             key,
             reader.name,
             reader.output_version,
-            {"chunks": [c.model_dump(mode="json") for c in produced], "rendered": rendered},
+            {
+                "chunks": [c.model_dump(mode="json") for c in produced],
+                "rendered": rendered,
+                "unread": [b.model_dump(mode="json") for b in produced.unread],
+            },
         )
     return produced, False, rendered
 
@@ -347,7 +359,7 @@ def read_region(
     cache: ModelCallCache | None,
     *,
     turn: Turn = 0,
-) -> tuple[list[Chunk], bool]:
+) -> tuple[Read, bool]:
     """O que `reader` lê dentro de `box`, com caixas e ids levados à página.
 
     O leitor vê o recorte, girado `turn` graus, e devolve caixas relativas a
@@ -358,7 +370,7 @@ def read_region(
     region = view.region(box, turn=turn)
     chunks, hit, _ = _read_cached(region, reader, cache)
     page = view.page
-    out: list[Chunk] = []
+    out = Read(unread=[region.to_page(b) for b in chunks.unread])
     for chunk in chunks:
         bbox = region.to_page(chunk.bbox)
         out.append(
@@ -388,6 +400,8 @@ class _Cascade(NamedTuple):
     """A nota de cada leitor que falhou."""
     lost: bool = False
     """Se as linhas são só parte da página: nenhum outro leu no lugar de quem falhou."""
+    unread: tuple[BBox, ...] = ()
+    """As caixas que o leitor de pixels detectou e não leu."""
 
 
 def _turn_of(chunks: Sequence[Chunk]) -> Turn:
@@ -438,6 +452,7 @@ def _read_cascade(
     pixels para nada. O raster fica em `Page.unread`, sem linha.
     """
     failed: list[str] = []
+    unread: tuple[BBox, ...] = ()
     if trust_layer == "visible" and view.page.substrate is Substrate.SEARCHABLE_SCAN:
         readers = [r for r in readers if r.name != TextLayerReader.name]
     for position, reader in enumerate(readers):
@@ -447,19 +462,22 @@ def _read_cascade(
             failed.append(_warn_failure(reader, view.page, exc))
             continue
         if not chunks:
+            # O leitor que não leu nada pode ter detectado tinta: as caixas ficam.
+            unread = chunks.unread or unread
             continue
         rasters = [(i, b) for i, b in enumerate(view.page.unread) if b.area >= min_raster]
         if rendered or not rasters:
-            return _Cascade(chunks, hit, 0, failed)
+            return _Cascade(chunks, hit, 0, failed, unread=chunks.unread)
         for filler in readers[position + 1 :]:
             try:
                 extra = _from_rasters(view, filler, cache, _straight(view, chunks), rasters)
             except RuntimeError as exc:
                 failed.append(_warn_failure(filler, view.page, exc))
                 return _Cascade(chunks, hit, 0, failed, lost=True)
-            return _Cascade(_in_place(chunks, extra, view.page.unread), hit, 1, failed)
+            lines = _in_place(chunks, extra, view.page.unread)
+            return _Cascade(lines, hit, 1, failed, unread=extra.unread)
         return _Cascade(chunks, hit, 0, failed, lost=bool(failed))
-    return _Cascade([], False, 0, failed)
+    return _Cascade([], False, 0, failed, unread=unread)
 
 
 def _straight(view: PageView, read: Sequence[Chunk]) -> list[Chunk]:
@@ -481,7 +499,7 @@ def _from_rasters(
     cache: ModelCallCache | None,
     read: Sequence[Chunk],
     rasters: Sequence[tuple[int, BBox]],
-) -> list[Chunk]:
+) -> Read:
     """As linhas que `reader` lê nos recortes de `rasters`, com `region` no índice de cada um.
 
     Cada raster ganha a folga de `RASTER_MARGIN`, e recortes que se tocam
@@ -491,19 +509,33 @@ def _from_rasters(
     as linhas centradas num raster e em nada já lido: um raster fora de um
     recorte não toca nele, e nenhuma linha dele vem de lá. O raster que ocupa
     a folha inteira, ou um grupo que a cobre, é a página.
+
+    A caixa detectada e não lida segue a mesma regra: fica a que está centrada
+    num raster e em nada já lido. O carimbo que a camada de texto leu não é
+    tinta sem texto.
     """
     with_margin = [(i, b.padded(RASTER_MARGIN)) for i, b in rasters]
     padded = [(i, (p.x0, p.y0, p.x1, p.y1)) for i, p in with_margin]
     found: list[Chunk] = []
+    undecoded: list[BBox] = []
     for _, (x0, y0, x1, y1) in merge_touching(padded):
         if (x0, y0, x1, y1) == (0.0, 0.0, 1.0, 1.0):
             # O grupo que cobre a folha é a página: a mesma leitura, a mesma chave de cache.
-            found.extend(_read_cached(view, reader, cache)[0])
+            lines = _read_cached(view, reader, cache)[0]
         else:
-            found.extend(read_region(view, BBox(x0=x0, y0=y0, x1=x1, y1=y1), reader, cache)[0])
+            lines = read_region(view, BBox(x0=x0, y0=y0, x1=x1, y1=y1), reader, cache)[0]
+        found.extend(lines)
+        undecoded.extend(lines.unread)
     # Duas regiões podem se sobrepor: a área de uma fonte sem mapa por cima
     # da digitalização. A linha fica uma vez, na menor região que a contém.
-    out: list[Chunk] = []
+    out = Read(
+        unread=[
+            b
+            for b in undecoded
+            if any(_distance(raster, *_centre(b)) == 0.0 for _, raster in rasters)
+            and not _already_read(b, read)
+        ]
+    )
     taken: set[str] = set()
     for index, box in sorted(rasters, key=lambda pair: pair[1].area):
         for chunk in within(found, box):
@@ -1023,6 +1055,8 @@ class _Run:
     """Por página, a nota de cada leitor que falhou, para `RoutingDecision.failures`."""
     incomplete: set[int] = field(default_factory=set[int])
     """As páginas em que um leitor falhou e nenhum outro leu, para `RoutingDecision.incomplete`."""
+    unread: dict[int, tuple[BBox, ...]] = field(default_factory=dict[int, tuple[BBox, ...]])
+    """Por página, as caixas que o leitor de pixels detectou e não leu, para `Page.unread_lines`."""
     seconds: defaultdict[int, dict[str, float]] = field(default_factory=_page_seconds)
     """Por página, os segundos de cada etapa que a tocou, para `RoutingDecision.seconds`."""
 
@@ -1061,6 +1095,16 @@ class _Run:
             yield
         finally:
             self.spent[key] += time.perf_counter() - tick
+
+
+def _with_unread_lines(run: _Run, pages: Sequence[Page]) -> list[Page]:
+    """As páginas com as caixas detectadas e não lidas em `Page.unread_lines`."""
+    return [
+        p.model_copy(update={"unread_lines": run.unread.get(p.index, ())})
+        if p.unread_lines != run.unread.get(p.index, ())
+        else p
+        for p in pages
+    ]
 
 
 def _cheap_stage(
@@ -1111,6 +1155,14 @@ def _cheap_stage(
         run.failures[page.index].extend(read.failed)
         if read.lost:
             run.incomplete.add(page.index)
+        if read.unread:
+            run.unread[page.index] = read.unread
+            if mostly_unread(read.unread, read.chunks):
+                run.incomplete.add(page.index)
+                run.steps[page.index].append(
+                    f"tier barato: {len(read.unread)} linha(s) detectada(s) sem leitura, "
+                    "a maioria da página"
+                )
         run.spent["pages_layout_cached"] += layout_hit
         run.steps[page.index].append(_describe_cheap(read.chunks, read.hit))
         out[page.index] = read.chunks
@@ -1731,7 +1783,9 @@ def _strong_stage(
                 merged = clean
             by_page[page.index] = merged
             if not read.by_region:
+                # A folha inteira foi lida de novo: o que a barata deixou sem ler não vale mais.
                 run.incomplete.discard(page.index)
+                run.unread.pop(page.index, None)
             kept = len(merged) - len(accepted)
             run.spent["pages_strong"] += 1
             run.spent["pages_strong_cached"] += read.hit
@@ -2011,9 +2065,15 @@ def run_pipeline(
         # página que ela não encaminha solta a vista logo depois. A escalada por
         # outro sinal renderiza a página de novo, e a conta continua a mesma.
         def may_escalate(page: Page, chunks: Sequence[Chunk]) -> bool:
-            return not chunks or any(c.failing(page, chunks) for c in checks)
+            return (
+                not chunks
+                or page.index in run.unread
+                or any(c.failing(page, chunks) for c in checks)
+            )
 
         by_page = _cheap_stage(run, selected, readers, workers, trust_layer, may_escalate)
+        # O sinal de linhas sem leitura olha a página: as caixas vão nela antes da decisão.
+        selected = _with_unread_lines(run, selected)
     else:
         by_page = {}
     # A política decide sem teto de páginas: o teto vem depois da releitura
@@ -2188,12 +2248,14 @@ def run_pipeline(
         )
 
     usage_after = _usage_of([*readers, strong, confirm])
+    selected = _with_unread_lines(run, selected)
     chunks = tuple(c for p in selected for c in by_page.get(p.index, ()))
     # A página sem linha que só tem falhas é a que o leitor caro não leu e nenhum barato tentou.
     run.incomplete.update(
         p.index for p in selected if run.failures.get(p.index) and not by_page.get(p.index)
     )
     return Result(
+        schema_version=SCHEMA_VERSION,
         doc_id=doc_id,
         pages=tuple(selected),
         chunks=chunks,

@@ -40,9 +40,9 @@ def test_without_blocks_the_order_is_left_as_it_came():
 
 
 def test_inside_a_block_a_line_read_on_its_side_comes_out_in_the_order_it_is_read():
-    """A página lida girada 90 ou 270 graus: a linha de cima é a de cima na página em pé."""
+    """A página lida girada 90, 180 ou 270 graus: a linha de cima é a de cima na página em pé."""
     page = Region(label="text", bbox=BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0))
-    for turn in (0, 90, 270):
+    for turn in (0, 90, 180, 270):
         lines = [
             Chunk(
                 id=f"L{i}",

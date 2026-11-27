@@ -507,6 +507,32 @@ def test_a_region_view_crops_the_page_and_maps_boxes_back():
         assert (back.x0, back.y0, back.x1, back.y1) == pytest.approx((0.5, 0.25, 0.75, 0.75))
 
 
+def test_a_region_turned_upside_down_keeps_its_size_and_its_boxes_return_to_the_image():
+    """A meia-volta não troca largura por altura, e o canto do alto vai ao pé oposto."""
+    from PIL import Image
+
+    class Painted(PageView):
+        def pixels(self, *, grayscale=True):
+            image = Image.new("L", (400, 200), 255)
+            image.paste(0, (0, 0, 200, 100))
+            return image
+
+    doc = make_scanned_pdf(pixels=(1240, 1754))
+    with opened(doc) as pdf:
+        page = load_pages(doc)[0]
+        region = Painted(pdf, page, dpi=72).region(BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0), turn=180)
+        before = region.page.dimensions
+        assert (before.width_pt, before.height_pt) == pytest.approx(
+            (page.dimensions.width_pt, page.dimensions.height_pt)
+        )
+        upright = region.pixels()
+        assert upright.size == (400, 200)
+        assert upright.getpixel((300, 150)) == 0
+        assert upright.getpixel((100, 50)) == 255
+        back = region.to_page(BBox(x0=0.5, y0=0.5, x1=1.0, y1=1.0))
+        assert (back.x0, back.y0, back.x1, back.y1) == pytest.approx((0.0, 0.0, 0.5, 0.5))
+
+
 @pytest.mark.parametrize(
     ("turn", "corner"),
     [(90, BBox(x0=0.0, y0=0.5, x1=0.5, y1=1.0)), (270, BBox(x0=0.5, y0=0.0, x1=1.0, y1=0.5))],

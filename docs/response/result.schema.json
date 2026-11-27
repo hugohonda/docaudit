@@ -200,7 +200,7 @@
     "turn": {
      "$ref": "#/$defs/Turn",
      "default": 0,
-     "description": "Graus, no sentido anti-horário, que o leitor girou a página para ler a linha em pé. A caixa fica no sistema da imagem; sem `layout=`, `reading_order` segue a leitura. Meça antes de reagrupar as linhas girando as caixas."
+     "description": "Graus, no sentido anti-horário, que o leitor girou a página para ler a linha em pé. A caixa fica no sistema da imagem; sem `layout=`, `reading_order` segue a leitura. Meça antes de reagrupar as linhas girando as caixas. O giro é da linha: na folha de cabeça para baixo, o carimbo aposto em pé fica com 0."
     }
    },
    "required": [
@@ -773,6 +773,15 @@
      },
      "title": "Unread",
      "type": "array"
+    },
+    "unread_lines": {
+     "default": [],
+     "description": "Caixas das linhas que o leitor de pixels detectou e não leu: a nota do reconhecedor ficou abaixo do corte dele. É tinta na página sem texto no resultado. Vazio na página que nenhum leitor de pixels leu.",
+     "items": {
+      "$ref": "#/$defs/BBox"
+     },
+     "title": "Unread Lines",
+     "type": "array"
     }
    },
    "required": [
@@ -847,7 +856,7 @@
     },
     "incomplete": {
      "default": false,
-     "description": "Um leitor falhou e nenhum outro leu no lugar dele: as linhas da página, se houver, são só parte dela. Falso quando o seguinte da cascata leu, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes da leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura barata, e sem linha nenhuma sai verdadeiro.",
+     "description": "Um leitor falhou e nenhum outro leu no lugar dele, ou o leitor de pixels detectou mais linhas do que a página tem lidas (`Page.unread_lines`): as linhas da página, se houver, são só parte dela. Falso quando o seguinte da cascata leu, quando o leitor caro leu a folha inteira, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes da leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura barata, e sem linha nenhuma sai verdadeiro.",
      "title": "Incomplete",
      "type": "boolean"
     },
@@ -1374,6 +1383,7 @@
    "enum": [
     0,
     90,
+    180,
     270
    ],
    "type": "integer"
@@ -1455,7 +1465,7 @@
    "description": "Os leitores, as versões e os argumentos da execução. `process` sempre o preenche; `None` num JSON sem o campo."
   },
   "schema_version": {
-   "default": "1",
+   "default": "2",
    "description": "A versão do formato deste JSON. Um JSON gravado antes de o campo existir é lido como da versão 1.",
    "title": "Schema Version",
    "type": "string"

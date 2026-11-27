@@ -14,10 +14,10 @@ import functools
 import hashlib
 import itertools
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic import Field as PField
@@ -53,6 +53,7 @@ __all__ = [
     "Page",
     "PageDimensions",
     "Piece",
+    "Read",
     "Reader",
     "Record",
     "Region",
@@ -87,7 +88,7 @@ type TrustLayer = Literal["visible", "always"]
 type Reread = Literal["page", "region"]
 """O que o leitor caro recebe de uma página encaminhada: a página inteira ou um recorte."""
 
-type Turn = Literal[0, 90, 270]
+type Turn = Literal[0, 90, 180, 270]
 """Graus, no sentido anti-horário, que uma página ou uma vista dela é girada."""
 
 type FormKind = Literal["none", "acroform", "xfa_full", "xfa_foreground"]
@@ -171,6 +172,8 @@ class BBox(_Frozen):
         """A caixa de uma página girada `turn` graus (anti-horário), no sistema da imagem."""
         if turn == 90:
             return BBox(x0=1.0 - self.y1, y0=self.x0, x1=1.0 - self.y0, y1=self.x1)
+        if turn == 180:
+            return BBox(x0=1.0 - self.x1, y0=1.0 - self.y1, x1=1.0 - self.x0, y1=1.0 - self.y0)
         if turn == 270:
             return BBox(x0=self.y0, y0=1.0 - self.x1, x1=self.y1, y1=1.0 - self.x0)
         return self
@@ -466,6 +469,14 @@ class Page(_Frozen):
             "o índice."
         ),
     )
+    unread_lines: tuple[BBox, ...] = PField(
+        default=(),
+        description=(
+            "Caixas das linhas que o leitor de pixels detectou e não leu: a nota do "
+            "reconhecedor ficou abaixo do corte dele. É tinta na página sem texto no "
+            "resultado. Vazio na página que nenhum leitor de pixels leu."
+        ),
+    )
     hidden_fonts: tuple[str, ...] = PField(
         default=(),
         description=(
@@ -514,7 +525,8 @@ class Chunk(_Frozen):
         description=(
             "Graus, no sentido anti-horário, que o leitor girou a página para ler a linha em "
             "pé. A caixa fica no sistema da imagem; sem `layout=`, `reading_order` segue a "
-            "leitura. Meça antes de reagrupar as linhas girando as caixas."
+            "leitura. Meça antes de reagrupar as linhas girando as caixas. O giro é da "
+            "linha: na folha de cabeça para baixo, o carimbo aposto em pé fica com 0."
         ),
     )
     kind: str | None = PField(
@@ -916,9 +928,46 @@ def _rows_by_overlap(lines: Sequence[Chunk]) -> list[list[Chunk]]:
     return [sorted(row, key=lambda c: c.bbox.x0) for row in rows]
 
 
+def _blocks_of(lines: Sequence[Chunk], gap: float) -> list[list[list[Chunk]]]:
+    """As linhas de um mesmo giro em blocos de fileiras, na ordem em que são lidas.
+
+    A geometria é a da página como a linha é lida: a caixa de uma linha de
+    cabeça para baixo é desvirada antes de entrar numa fileira.
+    """
+    upright = {c.id: c for c in lines}
+    as_read = [c.model_copy(update={"bbox": c.bbox.unturned((360 - c.turn) % 360)}) for c in lines]
+    heights = sorted(c.bbox.y1 - c.bbox.y0 for c in as_read)
+    median = heights[len(heights) // 2] if heights else 0.0
+    blocks: list[list[list[Chunk]]] = []
+    bottom = 0.0
+    for row in _rows_of(as_read):
+        span = BBox.envelope([c.bbox for c in row])
+        if blocks and span.y0 - bottom <= gap * median:
+            blocks[-1].append([upright[c.id] for c in row])
+        else:
+            blocks.append([[upright[c.id] for c in row]])
+        bottom = span.y1
+    return blocks
+
+
 def reading_order_key(chunk: Chunk) -> tuple[bool, int, float, float]:
     """A ordem de leitura da página: a do leitor, e a linha sem ordem ao fim, de cima para baixo."""
     return (chunk.reading_order is None, chunk.reading_order or 0, chunk.bbox.y0, chunk.bbox.x0)
+
+
+class Read(list[Chunk]):
+    """As linhas de uma leitura, com as caixas do que o leitor detectou e não leu.
+
+    É o que um leitor devolve quando sabe que deixou tinta sem texto: uma
+    lista de linhas como qualquer outra, com `unread` a mais. Quem a trata
+    como lista perde só essas caixas. `process()` as leva a
+    `Page.unread_lines`.
+    """
+
+    def __init__(self, chunks: Iterable[Chunk] = (), *, unread: Iterable[BBox] = ()) -> None:
+        """Guarda as linhas lidas e, em `unread`, a caixa de cada linha detectada e não lida."""
+        super().__init__(chunks)
+        self.unread: tuple[BBox, ...] = tuple(unread)
 
 
 class Tier(StrEnum):
@@ -960,8 +1009,10 @@ class RoutingDecision(_Frozen):
     incomplete: bool = PField(
         default=False,
         description=(
-            "Um leitor falhou e nenhum outro leu no lugar dele: as linhas da página, se "
-            "houver, são só parte dela. Falso quando o seguinte da cascata leu, e quando só o "
+            "Um leitor falhou e nenhum outro leu no lugar dele, ou o leitor de pixels "
+            "detectou mais linhas do que a página tem lidas (`Page.unread_lines`): as linhas "
+            "da página, se houver, são só parte dela. Falso quando o seguinte da cascata leu, "
+            "quando o leitor caro leu a folha inteira, e quando só o "
             "leitor caro falhou e a leitura barata ficou. Numa política que decide antes da "
             "leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura "
             "barata, e sem linha nenhuma sai verdadeiro."
@@ -1128,7 +1179,7 @@ def _letters_and_digits(text: str) -> str:
 REVIEW_REASONS = ("incomplete", "reader_failed", "failed_value", "printed_invalid", "two_readings")
 """Os motivos de `Result.review`, na ordem em que saem."""
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 """A versão do formato de `Result` em JSON.
 
 Sobe quando um campo sai, muda de tipo ou muda de sentido: quem guardou um JSON
@@ -1193,6 +1244,15 @@ class Result(_Frozen):
         ),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _version_of_an_old_json(cls, data: object) -> object:
+        """O JSON sem `schema_version` foi gravado antes de o campo existir: é da versão 1."""
+        if not isinstance(data, dict):
+            return data
+        fields = cast("dict[str, object]", data)
+        return fields if "schema_version" in fields else {**fields, "schema_version": "1"}
+
     def by_page(self) -> dict[int, list[Chunk]]:
         """Os chunks de cada página, na ordem de leitura.
 
@@ -1237,8 +1297,9 @@ class Result(_Frozen):
 
         Cada motivo é um fato categórico deste resultado, sem limiar, na ordem de
         `REVIEW_REASONS`: `incomplete`, um leitor falhou e ninguém leu no lugar
-        dele; `reader_failed`, um leitor falhou e outro cobriu; `failed_value`,
-        um valor falha a regra e nenhuma outra família o leu igual;
+        dele, ou a maioria das linhas detectadas ficou sem leitura;
+        `reader_failed`, um leitor falhou e outro cobriu; `failed_value`, um
+        valor falha a regra e nenhuma outra família o leu igual;
         `printed_invalid`, o valor falha e outra família leu igual, o erro é do
         documento; `two_readings`, outro leitor leu a linha de outro modo e a
         dúvida ficou. Diz onde olhar, e não que o resto está certo: a leitura
@@ -1481,25 +1542,21 @@ class Result(_Frozen):
         documento. Nenhum modelo roda aqui. Numa página em duas colunas sem
         detector de layout, as linhas lado a lado saem como células de uma
         fileira; `process(layout=)` dá a ordem por bloco nesse caso. A linha
-        lida de lado sai sozinha no bloco dela. Com `furniture=False`, as
+        lida de lado sai sozinha no bloco dela. A linha lida de cabeça para
+        baixo forma fileiras com as outras de cabeça para baixo, na ordem em
+        que são lidas, e nunca com uma linha em pé. Com `furniture=False`, as
         linhas de elemento fixo ficam de fora.
         """
         out: list[Record] = []
         for page, chunks in self.by_page().items():
             lines = [c for c in chunks if furniture or not c.furniture]
-            upright = [c for c in lines if c.turn == 0]
-            heights = sorted(c.bbox.y1 - c.bbox.y0 for c in upright)
-            median = heights[len(heights) // 2] if heights else 0.0
             blocks: list[list[list[Chunk]]] = []
-            bottom = 0.0
-            for row in _rows_of(upright):
-                span = BBox.envelope([c.bbox for c in row])
-                if blocks and span.y0 - bottom <= gap * median:
-                    blocks[-1].append(row)
-                else:
-                    blocks.append([row])
-                bottom = span.y1
-            blocks.extend([[c]] for c in lines if c.turn != 0)
+            # As linhas em pé e as de cabeça para baixo formam fileiras só entre si, cada
+            # grupo no sistema em que é lido; o grupo maior, que é o corpo, vem primeiro.
+            groups = [[c for c in lines if c.turn == turn] for turn in (0, 180)]
+            for group in sorted(groups, key=len, reverse=True):
+                blocks.extend(_blocks_of(group, gap))
+            blocks.extend([[c]] for c in lines if c.turn in (90, 270))
             for index, block in enumerate(blocks):
                 cells = [c for row in block for c in row]
                 out.append(
