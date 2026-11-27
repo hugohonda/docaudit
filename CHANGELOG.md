@@ -15,8 +15,8 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 - `Entity.also_read_by` traz os outros leitores que leram o mesmo valor no mesmo lugar: a linha
   barata que o leitor caro substituiu, a camada de OCR, a releitura de `confirm=` e a linha
   recusada do leitor caro. `Result.evidence()` lista cada um como `other_reading` que concorda,
-  inclusive a linha barata que saiu com o mesmo texto, que não deixava registro. O valor com
-  dígitos é comparado pelos dígitos: o `R$` lido como `RS` por um dos leitores não separa duas
+  inclusive a linha barata que saiu com o mesmo texto, que não deixava registro. O valor em
+  reais é comparado pelos dígitos: o `R$` lido como `RS` por um dos leitores não separa duas
   leituras do mesmo número.
 - `Result.review()` ganha o motivo `one_reading`: o leitor caro trouxe um valor sem
   redundância que nenhum outro leitor leu no lugar. É o caso do valor que um leitor por modelo

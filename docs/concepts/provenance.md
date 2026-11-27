@@ -169,9 +169,9 @@ dos pixels, dá `same_page` com a tarja. A tarja que só a camada oculta traz
 foi lida dos pixels de uma cópia, e segue como leitura de um motor.
 
 **Quem mais leu o valor.** `Entity.also_read_by` traz os outros leitores que
-leram o mesmo valor no mesmo lugar. O valor com dígitos é comparado só pelos
-dígitos, porque o `R$` que um leitor lê `RS` não muda o número; o valor sem
-dígito, pela chave. Entram a linha barata que o
+leram o mesmo valor no mesmo lugar, pela chave. O valor em reais é comparado
+só pelos dígitos: o símbolo da moeda não é o valor, e o `R$` que um leitor lê
+`RS` não muda o número. Entram a linha barata que o
 leitor caro substituiu, mesmo quando saiu com o mesmo texto, a camada de OCR, a
 releitura de `confirm=` e a linha recusada do leitor caro. Cada um deles
 aparece em `evidence` como `other_reading` que concorda. Vazio quer dizer que

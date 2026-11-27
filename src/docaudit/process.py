@@ -583,8 +583,15 @@ def _describe_cheap(chunks: Sequence[Chunk], hit: bool) -> str:
 # ── Composição das leituras ──────────────────────────────────────────────────
 
 
+class _Left(NamedTuple):
+    """O que fica de uma linha barata que saiu do lugar de uma linha do leitor caro."""
+
+    source: str
+    text: str
+
+
 def _replace_read(
-    cheap: Sequence[Chunk], strong: Sequence[Chunk]
+    cheap: Sequence[Chunk], strong: Sequence[Chunk], displaced: dict[str, list[_Left]]
 ) -> tuple[list[Chunk], list[OtherReading]]:
     """A leitura cara no lugar da barata só onde a cara leu, e a barata que saiu.
 
@@ -605,13 +612,17 @@ def _replace_read(
     releu.
 
     Cada linha barata que saiu com outro texto vai ao lado da linha cara do
-    mesmo lugar, a de maior interseção com ela.
+    mesmo lugar, a de maior interseção com ela. `displaced` recebe, por linha
+    cara, toda linha barata que saiu do lugar dela, também a de mesmo texto:
+    é o que diz quem mais leu um valor ali (`_also_read`).
     """
     kept: list[Chunk] = []
     replaced: list[OtherReading] = []
     for c in cheap:
         if covering := [s for s in strong if _same_place(c, s)]:
             replaced += _replaced(max(covering, key=lambda s: s.bbox.intersection(c.bbox)), c)
+            for s in covering:
+                displaced.setdefault(s.id, []).append(_Left(c.source, c.text))
         else:
             kept.append(c.model_copy(update={"reading_order": None}))
     return [*strong, *kept], replaced
@@ -1026,10 +1037,6 @@ def _step_lists() -> defaultdict[int, list[str]]:
     return defaultdict(list)
 
 
-def _chunk_lists() -> defaultdict[str, list[Chunk]]:
-    return defaultdict(list)
-
-
 def _page_seconds() -> defaultdict[int, dict[str, float]]:
     return defaultdict(dict)
 
@@ -1057,8 +1064,8 @@ class _Run:
     """As vistas das páginas ainda em curso: a renderização de uma etapa serve à seguinte."""
     others: list[OtherReading] = field(default_factory=list[OtherReading])
     """As outras leituras de uma linha, e as linhas substituídas, para `Result.others`."""
-    displaced: defaultdict[str, list[Chunk]] = field(default_factory=_chunk_lists)
-    """Pelo id da linha do leitor caro, as linhas baratas que saíram do lugar dela.
+    displaced: dict[str, list[_Left]] = field(default_factory=dict[str, list[_Left]])
+    """Pelo id da linha do leitor caro, o leitor e o texto das linhas baratas que saíram dali.
 
     `Result.others` só guarda a linha que saiu com outro texto. Estas servem
     a `Entity.also_read_by`, que conta também a que leu igual.
@@ -1220,8 +1227,9 @@ def _printed(
 def _also_read(
     entity: Entity,
     lines: Mapping[str, Chunk],
-    displaced: Mapping[str, Sequence[Chunk]],
+    displaced: Mapping[str, Sequence[_Left]],
     beside: Mapping[str, Sequence[OtherReading]],
+    bare: str | None,
 ) -> Entity:
     """A entidade com os outros leitores que leram o mesmo valor no lugar das linhas dela.
 
@@ -1231,14 +1239,26 @@ def _also_read(
     linhas baratas conta. Um leitor que devolve a página como um bloco só
     tem no lugar dele todas as linhas baratas da página, e ali o mesmo lugar
     é a página inteira.
+
+    O valor é comparado pela `key`. No campo de `bare`, o valor em reais, só
+    pelos dígitos: o símbolo da moeda não é o valor, e o `R$` que um leitor
+    lê `RS` deixaria duas leituras do mesmo número sem casar. Nos outros
+    campos a letra é do valor, como no CNPJ com letra.
     """
     own = {lines[i].source for i in entity.chunk_ids if i in lines}
-    read: dict[str, list[str]] = {}
+    # A linha que saiu com outro texto está nas duas fontes: uma vez só.
+    read: dict[str, dict[str, None]] = {}
     for line in entity.chunk_ids:
-        for chunk in (*displaced.get(line, ()), *(o.reading for o in beside.get(line, ()))):
-            if chunk.source not in own:
-                read.setdefault(chunk.source, []).append(chunk.text)
-    also = tuple(reader for reader, texts in read.items() if entity.is_in(" ".join(texts)))
+        others = (_Left(o.reading.source, o.reading.text) for o in beside.get(line, ()))
+        for source, text in (*displaced.get(line, ()), *others):
+            if source not in own:
+                read.setdefault(source, {})[text] = None
+    digits = _digits(entity.value) if entity.kind == bare else ""
+
+    def same(text: str) -> bool:
+        return digits in _digits(text) if digits else entity.is_in(text)
+
+    also = tuple(reader for reader, texts in read.items() if same(" ".join(texts)))
     return entity.model_copy(update={"also_read_by": also}) if also else entity
 
 
@@ -1842,11 +1862,8 @@ def _strong_stage(
             refused = [s for s in read.strong if s.id in rejected]
             run.others.extend(_other_readings(fails, refused))
             run.others.extend(lost)
-            merged, replaced = _replace_read(cheap, accepted)
+            merged, replaced = _replace_read(cheap, accepted, run.displaced)
             run.others.extend(replaced)
-            for s in accepted:
-                if left := [c for c in cheap if _same_place(c, s)]:
-                    run.displaced[s.id].extend(left)
             # A linha barata que sobra fora das caixas do leitor caro fica
             # porque ninguém a releu. A linha mal decodificada é a exceção
             # quando o leitor caro leu a folha inteira: ela é lixo por
@@ -2314,20 +2331,24 @@ def run_pipeline(
     # A prova de erro do documento vem de outra família: a releitura por
     # `confirm` ou a camada oculta. A linha recusada do leitor caro fica em
     # `others` para quem revisa, e não prova nada.
-    same_by_line: dict[str, list[OtherReading]] = {}
-    for other in others:
-        if other.same and (strong is None or other.reading.source != strong.name):
-            same_by_line.setdefault(other.line, []).append(other)
-    alike = {c.name: c.alike for c in entity_checks if c.alike is not None}
     beside: dict[str, list[OtherReading]] = {}
     for other in others:
         beside.setdefault(other.line, []).append(other)
+    same_by_line = {
+        line: [
+            o for o in readings if o.same and (strong is None or o.reading.source != strong.name)
+        ]
+        for line, readings in beside.items()
+    }
+    alike = {c.name: c.alike for c in entity_checks if c.alike is not None}
     found: list[Entity] = []
     for page in selected:
         lines = sorted(by_page.get(page.index, ()), key=reading_order_key)
         by_id = {c.id: c for c in lines}
         found.extend(
-            _also_read(_printed(e, page, lines, same_by_line, alike), by_id, run.displaced, beside)
+            _also_read(
+                _printed(e, page, lines, same_by_line, alike), by_id, run.displaced, beside, bare
+            )
             for e in entities_of(entity_checks, page, lines, spans=spans)
         )
 

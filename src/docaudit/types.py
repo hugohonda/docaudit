@@ -734,17 +734,8 @@ class Entity(_Frozen):
         return _letters_and_digits(self.value).upper()
 
     def is_in(self, text: str) -> bool:
-        """Se `text` traz este valor: a pontuação e os espaços não contam.
-
-        O valor com dígitos é comparado só pelos dígitos, em sequência. As
-        letras em volta deles não são o valor: o `R$` que um leitor lê `RS`
-        deixaria duas leituras do mesmo número sem casar. O valor sem
-        dígito é comparado pela `key`.
-        """
-        key = self.key
-        if digits := "".join(c for c in key if c.isdigit()):
-            return digits in "".join(c for c in text if c.isdigit())
-        return key in _letters_and_digits(text).upper()
+        """Se `text` traz este valor, pela `key`: a pontuação e os espaços não contam."""
+        return self.key in _letters_and_digits(text).upper()
 
     @staticmethod
     def make_id(kind: str, chunk_ids: Sequence[str], offset: int, value: str) -> str:
@@ -1387,13 +1378,13 @@ class Result(_Frozen):
                 found.setdefault(other.reading.page, set()).add("two_readings")
         # O valor com dígito verificador prova a si mesmo, e o que falha já tem motivo.
         strong = self.run.strong if self.run is not None else None
-        by_id = self._lines
-        for entity in self.entities:
+        for entity in self.entities if strong is not None else ():
             if (
-                strong is not None
-                and entity.state is EntityState.WELL_FORMED
+                entity.state is EntityState.WELL_FORMED
                 and not entity.also_read_by
-                and all(i in by_id and by_id[i].source == strong for i in entity.chunk_ids)
+                and all(
+                    i in self._lines and self._lines[i].source == strong for i in entity.chunk_ids
+                )
             ):
                 found.setdefault(entity.page, set()).add("one_reading")
         return {
@@ -1471,7 +1462,8 @@ class Result(_Frozen):
         found.extend(
             Evidence(
                 kind="other_reading",
-                agrees=entity.is_in(other.reading.text),
+                agrees=entity.is_in(other.reading.text)
+                or other.reading.source in entity.also_read_by,
                 source=other.reading.source,
                 page=other.reading.page,
                 chunk_ids=(other.line,),
