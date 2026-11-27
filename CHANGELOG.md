@@ -108,6 +108,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Corrigido
 
+- A linha barata sai quando está no mesmo lugar de uma linha do leitor caro, nos dois sentidos:
+  o centro dela numa caixa cara, ou o centro de uma linha cara na caixa dela. Com um leitor caro
+  que devolve linhas, e não blocos, a linha barata que atravessava duas colunas tinha o centro no
+  vão entre elas e ficava no resultado, ao lado da leitura que a substituía.
+
 - Com `reread="region"`, o pedaço da linha vizinha que o leitor caro devolve junto com a linha
   relida não entra mais no resultado. O recorte de uma linha leva a borda das vizinhas; fica só
   o que cruza a altura do meio da linha pedida.

@@ -3249,3 +3249,44 @@ def test_a_region_reread_of_a_value_broken_over_two_lines_keeps_both_lines():
     assert not _on_a_line(reread(BBox(x0=0.1, y0=0.385, x1=0.9, y1=0.40)), asked), "a vizinha"
     sideways = _Asked(90, (first.unturned(90),))
     assert _on_a_line(reread(BBox(x0=0.1, y0=0.298, x1=0.9, y1=0.322).unturned(90)), sideways)
+
+
+def test_a_cheap_line_spanning_two_strong_lines_gives_way_to_them():
+    """O leitor caro devolve linhas, e não blocos: a linha barata que atravessa duas colunas sai.
+
+    O centro dela cai no vão entre as colunas, fora das duas linhas caras, mas
+    ela cobre o centro das duas. A linha barata da margem, que ninguém releu, fica.
+    """
+
+    class _TwoColumns(FakeVLM):
+        def read(self, view):
+            self.calls += 1
+            view.image()
+            page = view.page
+            left = BBox(x0=0.05, y0=0.30, x1=0.45, y1=0.32)
+            right = BBox(x0=0.55, y0=0.30, x1=0.95, y1=0.32)
+            return [
+                Chunk.make(page, left, self.name, "coluna da esquerda", reading_order=0),
+                Chunk.make(page, right, self.name, "coluna da direita", reading_order=1),
+            ]
+
+    class _MostlyUnread(_Boxes):
+        """A leitura barata com mais linhas detectadas do que lidas: a página escala inteira."""
+
+        def read(self, view):
+            unread = [BBox(x0=0.1, y0=0.6 + 0.03 * i, x1=0.9, y1=0.62 + 0.03 * i) for i in range(3)]
+            return Read(super().read(view), unread=unread)
+
+    cheap = _MostlyUnread(
+        [
+            ("lixo que atravessa as duas colunas", (0.05, 0.298, 0.95, 0.322)),
+            ("tarja da margem", (0.97, 0.10, 0.99, 0.90)),
+        ]
+    )
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[cheap], strong=_TwoColumns())
+
+    assert sorted(c.text for c in result.chunks) == [
+        "coluna da direita",
+        "coluna da esquerda",
+        "tarja da margem",
+    ]

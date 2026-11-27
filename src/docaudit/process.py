@@ -477,7 +477,7 @@ def _read_cascade(
                 return _Cascade(chunks, hit, 0, failed, lost=True)
             lines = _in_place(chunks, extra, view.page.unread)
             return _Cascade(lines, hit, 1, failed, unread=extra.unread)
-        return _Cascade(chunks, hit, 0, failed, lost=bool(failed))
+        return _Cascade(chunks, hit, 0, failed, lost=bool(failed), unread=chunks.unread)
     return _Cascade([], False, 0, failed, unread=unread)
 
 
@@ -589,22 +589,28 @@ def _replace_read(
     """A leitura cara no lugar da barata só onde a cara leu, e a barata que saiu.
 
     Um leitor por região descarta cabeçalho, rodapé e a tarja da margem, e é
-    na tarja que o e-SAJ repete o número do processo. A linha barata cujo
-    centro não cai em nenhuma caixa da leitura cara fica, depois das linhas
-    caras e sem ordem de leitura. Um leitor da página inteira devolve a caixa
-    da página, e então nada da leitura barata fica.
+    na tarja que o e-SAJ repete o número do processo. A linha barata que não
+    está no mesmo lugar de nenhuma linha cara fica, depois das linhas caras e
+    sem ordem de leitura. Um leitor da página inteira devolve a caixa da
+    página, e então nada da leitura barata fica.
+
+    O mesmo lugar vale nos dois sentidos (`_same_place`): o centro da linha
+    barata numa caixa cara, ou o centro de uma linha cara na caixa barata. O
+    leitor caro que devolve linhas, e não blocos, parte a página de outro
+    jeito: a linha barata que atravessa duas colunas tem o centro no vão
+    entre elas, e cobre as linhas caras das duas.
 
     Fica também a linha barata de uma região que o leitor caro devolveu vazia,
     e a da margem, mesmo que tenha sido ela a disparar a escalada: ninguém a
     releu.
 
-    Cada linha barata que saiu com outro texto vai ao lado da linha cara que
-    a cobriu, a de maior interseção entre as que contêm o centro dela.
+    Cada linha barata que saiu com outro texto vai ao lado da linha cara do
+    mesmo lugar, a de maior interseção com ela.
     """
     kept: list[Chunk] = []
     replaced: list[OtherReading] = []
     for c in cheap:
-        if covering := _covering(c.bbox, strong):
+        if covering := [s for s in strong if _same_place(c, s)]:
             replaced += _replaced(max(covering, key=lambda s: s.bbox.intersection(c.bbox)), c)
         else:
             kept.append(c.model_copy(update={"reading_order": None}))
