@@ -1639,6 +1639,20 @@ class _StrongRead(NamedTuple):
     """Se os blocos de layout da página vieram do cache."""
 
 
+def _on_the_line(chunk: Chunk, box: BBox, turn: Turn) -> bool:
+    """Se a linha relida passa pelo meio da linha pedida, na altura em que ela é lida.
+
+    O recorte de uma linha leva junto a borda das linhas vizinhas, e o leitor
+    devolve esses pedaços como linhas dele: baixos, colados à borda do recorte.
+    Fica o que cruza a altura do meio da linha pedida. Os dois pedaços de uma
+    linha que o leitor partiu ao meio ficam; o pedaço da vizinha, não.
+    """
+    asked = box.unturned((360 - turn) % 360)
+    middle = (asked.y0 + asked.y1) / 2
+    read = chunk.bbox.unturned((360 - turn) % 360)
+    return read.y0 <= middle <= read.y1
+
+
 def _strong_one(
     run: _Run,
     page: Page,
@@ -1661,7 +1675,7 @@ def _strong_one(
             hit = True
             for box, box_turn in boxes.items():
                 found, found_hit = read_region(view, box, backend, run.cache, turn=box_turn)
-                strong.extend(within(found, box))
+                strong.extend(c for c in within(found, box) if _on_the_line(c, box, box_turn))
                 hit = hit and found_hit
             scope = f"{len(boxes)} recorte(s) das linhas que falharam"
             return _StrongRead(page, strong, hit, scope, True, None, layout_hit=layout_hit)

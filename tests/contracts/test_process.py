@@ -3172,3 +3172,42 @@ def test_a_strong_read_that_is_refused_leaves_the_unread_lines_on_the_page():
     assert vlm.name not in result.read_by()[0], "a leitura sem o CPF foi recusada"
     assert len(result.pages[0].unread_lines) == 3
     assert result.review()[0] == ("unread_lines", "two_readings")
+
+
+def test_a_region_reread_drops_the_slivers_of_the_neighbouring_lines():
+    """O recorte de uma linha leva a borda da vizinha, e o leitor a devolve como linha dele.
+
+    Fica o que cruza a altura do meio da linha pedida: a linha relida, e os
+    dois pedaços dela quando o leitor a parte. O pedaço baixo, colado à borda
+    de baixo do recorte, é da linha de baixo.
+    """
+
+    class _WithSlivers(FakeVLM):
+        def read(self, view):
+            self.calls += 1
+            view.image()
+            page = view.page
+            return [
+                Chunk.make(page, BBox(x0=0.0, y0=0.05, x1=0.45, y1=0.9), self.name, "CPF"),
+                Chunk.make(
+                    page, BBox(x0=0.5, y0=0.05, x1=1.0, y1=0.9), self.name, "529.982.247-25"
+                ),
+                Chunk.make(page, BBox(x0=0.0, y0=0.8, x1=0.6, y1=1.0), self.name, "vaior RS io"),
+                Chunk.make(page, BBox(x0=0.7, y0=0.93, x1=0.9, y1=1.0), self.name, "--"),
+            ]
+
+    doc = make_scanned_pdf(["PODER JUDICIARIO", "CPF 529.982.247-27", "Valor R$ 10,00"])
+    result = process(
+        doc,
+        reread="region",
+        policy="evidence",
+        cheap=["text_layer"],
+        strong=_WithSlivers(),
+        trust_layer="always",
+    )
+
+    assert sorted(c.text for c in result.chunks if c.source == "fake-vlm") == [
+        "529.982.247-25",
+        "CPF",
+    ]
+    assert "Valor R$ 10,00" in {c.text for c in result.chunks}, "a linha de baixo segue a barata"

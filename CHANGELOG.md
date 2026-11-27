@@ -105,6 +105,10 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Corrigido
 
+- Com `reread="region"`, o pedaço da linha vizinha que o leitor caro devolve junto com a linha
+  relida não entra mais no resultado. O recorte de uma linha leva a borda das vizinhas; fica só
+  o que cruza a altura do meio da linha pedida.
+
 - O valor em reais sem `R$` e com ponto decimal, `4.329.30`, não casa mais o número logo depois de
   `nº` nem o seguido de hífen ou barra e dígito: `Proc. nº 533.505.49-00` é um número de processo,
   e saía como valor que falha a regra.
