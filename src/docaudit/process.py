@@ -2067,11 +2067,7 @@ def run_pipeline(
         # página que ela não encaminha solta a vista logo depois. A escalada por
         # outro sinal renderiza a página de novo, e a conta continua a mesma.
         def may_escalate(page: Page, chunks: Sequence[Chunk]) -> bool:
-            return (
-                not chunks
-                or page.index in run.unread
-                or any(c.failing(page, chunks) for c in checks)
-            )
+            return not chunks or any(c.failing(page, chunks) for c in checks)
 
         by_page = _cheap_stage(run, selected, readers, workers, trust_layer, may_escalate)
         # O sinal de linhas sem leitura olha a página: as caixas vão nela antes da decisão.
