@@ -528,11 +528,11 @@ class PPOCR:
 
         A página de cabeça para baixo tem as linhas deitadas, e esse teste não a vê. O
         reconhecedor lê a linha invertida como texto trocado, e parte dessas linhas passa
-        no corte de confiança: a nota sozinha não diz que a folha está virada. Na página
-        que não girou de lado, uma sonda reconhece em meia-volta as linhas deitadas mais
-        largas (`_probe`). Se a maioria lê melhor assim, a página é lida de novo em
-        meia-volta, e `_upside_down` compara as duas leituras linha a linha. A folha
-        virada tem linhas de dois sistemas, e cada linha diz o giro dela.
+        no corte de confiança: a nota sozinha não diz que a folha está virada. Uma sonda
+        reconhece em meia-volta as linhas deitadas mais largas (`_probe`). Se a maioria lê
+        melhor assim, a página é lida de novo em meia-volta, e `_upside_down` compara as
+        duas leituras linha a linha. A folha virada tem linhas de dois sistemas, e cada
+        linha diz o giro dela. O teste de página de lado compara com essa leitura.
         """
         try:
             import numpy as np
@@ -547,9 +547,16 @@ class PPOCR:
             engine = self._load()
             lines, flipped, crops = self._recognize(engine, pixels)
             tall = sum(line.sideways for line in lines)
+            mostly_tall = 2 * tall > len(lines)
             threshold = float(engine.cfg.Global.text_score)
+            # A meia-volta vem antes do teste de página de lado. Na folha invertida de
+            # poucas linhas, a tarja faz a maioria alta, e o corpo ilegível perderia para a
+            # leitura de lado, em que a tarja sai inteira.
+            if self._probe(engine, lines, crops):
+                other, _, _ = self._recognize(engine, np.ascontiguousarray(pixels[::-1, ::-1]))
+                lines = _upside_down(lines, other) or lines
             turn: Turn = 0
-            if 2 * tall > len(lines):
+            if mostly_tall:
                 # O RapidOCR deita o recorte alto no sentido anti-horário; se a meia-volta
                 # leu melhor, o texto sobe da base para o topo e a página gira no horário.
                 candidate: Literal[90, 270] = 270 if 2 * flipped > tall else 90
@@ -557,9 +564,6 @@ class PPOCR:
                 other, _, _ = self._recognize(engine, rotated)
                 if _wide(other, threshold) > _wide(lines, threshold):
                     lines, turn = other, candidate
-            if turn == 0 and self._probe(engine, lines, crops):
-                other, _, _ = self._recognize(engine, np.ascontiguousarray(pixels[::-1, ::-1]))
-                lines = _upside_down(lines, other) or lines
 
         chunks = Read()
         unread: list[BBox] = []
