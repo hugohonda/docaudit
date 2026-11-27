@@ -348,3 +348,64 @@ def test_the_amount_the_service_reads_with_rs_for_the_currency_sign_still_counts
     assert [c.text for c in result.chunks] == ["Total RS 1.234,56"]
     (amount,) = result.entities
     assert (amount.value, amount.state.value) == ("RS 1.234,56", "well_formed")
+
+
+def test_the_result_of_a_whole_page_is_handed_over_and_gives_the_same_lines_later(monkeypatch):
+    """Quem guarda o resultado do serviço monta as mesmas linhas depois, sem pagar de novo."""
+    kept: list[tuple[PageView, dict[str, object]]] = []
+    reader = _reader(on_result=lambda view, result: kept.append((view, dict(result))))
+    lines = [_line("Vistos em correição", [124, 175, 620, 176, 620, 210, 124, 209], 0)]
+    words = [_word("Vistos", 0.99, 0), _word("em", 0.61, 7), _word("correição", 0.97, 10)]
+    _service(monkeypatch, _accepted(), _done(lines, words=words))
+    doc = make_scanned_pdf(pixels=(1240, 1754))
+
+    with opened(doc) as handle:
+        view = PageView(handle, load_pages(doc)[0], dpi=150)
+        read = list(reader.read(view))
+        ((seen, result),) = kept
+        again = reader.lines_of(view, json.loads(json.dumps(result)))
+
+    assert seen is view
+    assert again == read
+    assert reader.usage == {"calls": 1.0}, "montar as linhas de um resultado guardado não conta"
+
+
+def test_the_result_of_a_crop_is_not_handed_over(monkeypatch):
+    """O resultado de um recorte não é o da página, e não serve a quem a guarda."""
+    kept: list[object] = []
+    reader = _reader(on_result=lambda view, result: kept.append(result))
+    line = _line("R$ 10,00", [10, 5, 110, 5, 110, 25, 10, 25], 0)
+    doc = make_scanned_pdf(pixels=(1240, 1754))
+
+    with opened(doc) as handle:
+        crop = PageView(handle, load_pages(doc)[0], dpi=150).region(
+            BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.3)
+        )
+        _service(monkeypatch, _accepted(), _done([line], size=crop.pixels().size))
+        (chunk,) = reader.read(crop)
+
+    assert chunk.text == "R$ 10,00"
+    assert kept == []
+
+
+def test_a_result_kept_from_a_turned_page_gives_the_lines_of_the_page_as_it_is(monkeypatch):
+    """A página foi enviada em meia-volta; guardado, o resultado serve à página como ela é."""
+    kept: list[dict[str, object]] = []
+    reader = _reader(on_result=lambda view, result: kept.append(dict(result)))
+    lines = [_line("corpo lido em pé", [124, 175, 620, 176, 620, 210, 124, 209], 0)]
+    _service(monkeypatch, _accepted(), _done(lines))
+    doc = make_scanned_pdf(pixels=(1240, 1754))
+
+    with opened(doc) as handle:
+        view = PageView(handle, load_pages(doc)[0], dpi=150)
+        turned = view.region(BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0), turn=180)
+        (sent,) = reader.read(turned)
+        (as_it_is,) = reader.lines_of(view, kept[0], turn=180)
+        (same,) = reader.lines_of(turned, kept[0], turn=180)
+
+    on_the_page = turned.to_page(sent.bbox)
+    assert same == sent
+    assert as_it_is.turn == 180
+    assert (as_it_is.bbox.x0, as_it_is.bbox.y0, as_it_is.bbox.x1, as_it_is.bbox.y1) == (
+        pytest.approx((on_the_page.x0, on_the_page.y0, on_the_page.x1, on_the_page.y1))
+    )
