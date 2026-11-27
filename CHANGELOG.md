@@ -67,11 +67,14 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 - O PP-OCR lê em pé a página digitalizada de cabeça para baixo. Ele reconhece de novo, em
   meia-volta, as linhas deitadas mais largas; se a maioria lê melhor assim, lê a página girada e
-  compara as duas leituras linha a linha. `Chunk.turn` aceita `180`, e o giro é da linha: a
-  tarja da margem e o rodapé carimbado em pé sobre a folha invertida seguem com `0`. A página
-  em pé bem lida não paga a sonda. O `output_version` do `ppocr` sobe, e o cache dele é relido.
+  compara as duas leituras linha a linha. `Chunk.turn` aceita `180`, e o giro é da linha: o
+  rodapé carimbado em pé sobre a folha invertida segue com `0`, e a tarja vertical da margem
+  leva o giro da folha. A página em pé bem lida não paga a sonda. O `output_version` do `ppocr` sobe, e o cache dele é relido.
 - `SCHEMA_VERSION` passa a `"2"`: `turn` ganha o valor `180`. `Page.unread_lines` é campo novo
   com padrão. Um JSON gravado sem `schema_version` continua lido como da versão 1.
+- A releitura por outra família (`confirm=`) mostra ao leitor de pixels a página com o giro
+  da leitura barata. O Tesseract lia como lixo a página que a barata tinha lido de lado ou de
+  cabeça para baixo, e nunca confirmava um valor nela.
 - `Result.records()` agrupa as linhas de cabeça para baixo em fileiras e blocos, na ordem em
   que são lidas, e nunca na mesma fileira de uma linha em pé.
 - A política `evidence` encaminha mais páginas: as do sinal `UnreadLines`. Quem passa a

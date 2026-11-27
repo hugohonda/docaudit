@@ -3172,3 +3172,18 @@ def test_a_strong_read_that_is_refused_leaves_the_unread_lines_on_the_page():
     assert vlm.name not in result.read_by()[0], "a leitura sem o CPF foi recusada"
     assert len(result.pages[0].unread_lines) == 3
     assert result.review()[0] == ("unread_lines", "two_readings")
+
+
+@pytest.mark.parametrize("turn", [90, 180, 270])
+def test_the_other_family_rereads_upright_the_page_the_cheap_read_turned(turn):
+    """O leitor de `confirm=` não gira a página sozinho: recebe a folha como a barata a leu."""
+    confirm = _RecordingVLM(text="CPF 529.982.247-25")
+    confirm.name = "outra-familia"
+    process(
+        make_scanned_pdf(pixels=(600, 800)),
+        policy="evidence",
+        cheap=[_SidewaysOCR(turn)],
+        confirm=confirm,
+    )
+
+    assert [view.turn for view in confirm.views] == [turn]

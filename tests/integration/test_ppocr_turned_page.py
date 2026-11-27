@@ -170,7 +170,10 @@ def _vertical(chunks: Sequence[docaudit.Chunk]) -> list[docaudit.Chunk]:
 def test_a_sheet_scanned_upside_down_is_read_line_by_line_and_the_stamps_stay(
     stamp: bool, footer: bool
 ) -> None:
-    """O corpo sai com `turn=180` e a caixa sobre a tinta; a tarja e o rodapé seguem em pé."""
+    """O corpo sai com `turn=180` e a caixa sobre a tinta; o rodapé carimbado segue em pé.
+
+    A tarja é de través na folha, e leva o giro dela.
+    """
     result = docaudit.process(_sheet(180, stamp=stamp, footer=footer), cheap=[PPOCR()])
     chunks = _by_text(result.chunks)
     body = _body(result.chunks)
@@ -188,7 +191,7 @@ def test_a_sheet_scanned_upside_down_is_read_line_by_line_and_the_stamps_stay(
     if stamp:
         strip = _vertical(result.chunks)
         assert strip, sorted(chunks)
-        assert all(c.turn == 0 for c in strip), "a tarja é do PDF, e segue em pé"
+        assert all(c.turn == 180 for c in strip), "a tarja leva o giro da folha"
     assert "unread_lines" not in result.review().get(0, ())
 
 
@@ -210,7 +213,7 @@ def test_a_sparse_sheet_upside_down_with_a_margin_stamp_is_read() -> None:
     assert "1.249,01" in text, sorted(_by_text(result.chunks))
     assert "Valor total" in text, sorted(_by_text(result.chunks))
     assert all(c.turn == 180 for c in body if c.text.strip() and len(c.text.strip()) > 3)
-    assert all(c.turn == 0 for c in _vertical(result.chunks)), "a página não foi lida de lado"
+    assert {c.turn for c in result.chunks} <= {0, 180}, "a página não foi lida de lado"
 
 
 def test_a_cover_sheet_with_more_upright_stamps_than_body_keeps_the_stamps() -> None:
