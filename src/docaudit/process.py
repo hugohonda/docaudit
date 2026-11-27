@@ -1780,8 +1780,13 @@ def _strong_stage(
             by_page[page.index] = merged
             if not read.by_region:
                 run.incomplete.discard(page.index)
-                # A folha inteira foi lida de novo: o que a barata deixou sem ler não vale mais.
-                run.unread.pop(page.index, None)
+            # A caixa que a barata deixou sem ler está lida quando uma linha aceita do leitor
+            # caro a cobre. A linha recusada não cobre nada: a página segue com a caixa.
+            run.unread[page.index] = tuple(
+                box
+                for box in run.unread.get(page.index, ())
+                if not any(line.bbox.holds_centre_of(box) for line in accepted)
+            )
             kept = len(merged) - len(accepted)
             run.spent["pages_strong"] += 1
             run.spent["pages_strong_cached"] += read.hit

@@ -3142,3 +3142,33 @@ def test_a_line_the_strong_reader_turns_inside_a_turned_page_adds_its_turn_to_th
 
     assert vlm.views[0].turn == 180
     assert turns == {"CPF 529.982.247-25": 180, "rodape em pe": 0}
+
+
+def test_a_strong_reader_that_reads_only_part_of_the_page_leaves_the_rest_unread():
+    """O leitor caro leu um bloco no alto: as caixas sem leitura do meio da folha ficam."""
+    vlm = FakeVLM(box=BBox(x0=0.0, y0=0.0, x1=1.0, y1=0.3))
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[_LeavesUnread(1, 3)], strong=vlm)
+
+    assert vlm.name in result.read_by()[0]
+    assert len(result.pages[0].unread_lines) == 3
+    assert "unread_lines" in result.review()[0]
+
+
+def test_a_strong_read_that_is_refused_leaves_the_unread_lines_on_the_page():
+    """A linha cara que perde um valor válido da barata é recusada, e não cobre caixa nenhuma."""
+
+    class _WithAValue(_LeavesUnread):
+        def read(self, view):
+            read = super().read(view)
+            line = Chunk.make(
+                view.page, BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.12), self.name, "CPF 529.982.247-25"
+            )
+            return Read([line], unread=read.unread)
+
+    vlm = FakeVLM()
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[_WithAValue(1, 3)], strong=vlm)
+
+    assert vlm.calls == 1
+    assert vlm.name not in result.read_by()[0], "a leitura sem o CPF foi recusada"
+    assert len(result.pages[0].unread_lines) == 3
+    assert result.review()[0] == ("unread_lines", "two_readings")
