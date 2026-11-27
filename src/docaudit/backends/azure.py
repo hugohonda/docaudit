@@ -55,7 +55,7 @@ from docaudit.backends.vlm import (
 from docaudit.types import BBox, Chunk
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Mapping, Sequence
     from email.message import Message
 
     from PIL import Image
@@ -69,6 +69,8 @@ _MIN_SIDE = 50
 """O menor lado, em pixels, que o serviço aceita numa imagem."""
 _MAX_SIDE = 10_000
 """O maior lado, em pixels, que o serviço aceita numa imagem."""
+_WHOLE = BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0)
+"""A caixa da página inteira: a vista com ela é a página, girada ou não."""
 _POLL = 2.0
 """Segundos entre duas consultas à operação, quando o serviço não diz a espera.
 
@@ -140,6 +142,7 @@ class AzureRead:
         price_per_page: float | None = None,
         timeout: float = 120.0,
         retries: int = 3,
+        on_result: Callable[[PageView, Mapping[str, object]], None] | None = None,
     ) -> None:
         """Aponta para o recurso do Azure. Nada é enviado até a primeira leitura.
 
@@ -160,6 +163,15 @@ class AzureRead:
                 por carga (HTTP 429 ou 5xx), que esgotou o `timeout` ou cuja
                 conexão caiu, antes de a página falhar. A espera segue o
                 `Retry-After` do serviço, ou dobra a partir de um segundo.
+            on_result: chamado com a vista e o `analyzeResult` de cada página
+                inteira que o serviço leu, antes de as linhas serem montadas.
+                Serve a quem guarda o resultado do serviço para não pagar a
+                mesma página duas vezes; `lines_of` monta as linhas de um
+                resultado guardado. A leitura de um recorte não o chama: o
+                resultado dela não é o da página. `view.turn` diz o giro em
+                que a página foi enviada, e as medidas da imagem estão no
+                próprio resultado. Com `workers` > 1, a chamada vem de várias
+                threads. A exceção que ele levanta falha a página.
 
         Raises:
             ValueError: `endpoint` ou `api_key` vazio, ou `retries` negativo.
@@ -175,6 +187,7 @@ class AzureRead:
         self.price_per_page = price_per_page
         self.timeout = timeout
         self.retries = retries
+        self.on_result = on_result
         self.output_version = f"1:{model}:{api_version}"
         self.usage: dict[str, float] = {"calls": 0.0}
         if price_per_page is not None:
@@ -190,7 +203,39 @@ class AzureRead:
         if pixels.getcolors(1) is not None:
             return []
         result = self._analyze(_sendable(pixels, view.image(grayscale=False)))
+        if self.on_result is not None and view.box in (None, _WHOLE):
+            self.on_result(view, result)
         return _lines(view.page, result, pixels.size, self.name)
+
+    def lines_of(
+        self, view: PageView, result: Mapping[str, object], *, turn: Turn = 0
+    ) -> list[Chunk]:
+        """As linhas de um `analyzeResult` guardado, como `read` as devolveria para `view`.
+
+        `result` é o que `on_result` recebeu para a página inteira, e `turn`
+        o giro da vista daquela leitura. A página pode chegar agora em outro
+        giro, porque a leitura barata a leu de outro jeito: as caixas e o
+        giro de cada linha são levados ao sistema de `view`. Nada é enviado
+        ao serviço, e `usage` não conta.
+        """
+        first = _obj(next(iter(_items(result.get("pages"))), None))
+        size = (int(_number(first.get("width"), 1.0)), int(_number(first.get("height"), 1.0)))
+        lines = _lines(view.page, dict(result), size, self.name)
+        if turn == view.turn:
+            return lines
+        back = (360 - view.turn) % 360
+        return [
+            Chunk.make(
+                view.page,
+                line.bbox.unturned(turn).unturned(back),
+                line.source,
+                line.text,
+                confidence=line.confidence,
+                reading_order=line.reading_order,
+                turn=_quarter(float(turn + line.turn + back)),
+            )
+            for line in lines
+        ]
 
     def _analyze(self, png: bytes) -> dict[str, object]:
         """Envia a imagem e espera a operação: o `analyzeResult`, ou a falha da página."""

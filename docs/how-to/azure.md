@@ -72,6 +72,47 @@ lê os pixels, sem depender da camada de texto do arquivo. Com
 `reread="region"`, vai só o recorte das linhas que falharam, e o serviço
 cobra cada recorte como uma página.
 
+## Guardar o resultado do serviço
+
+O [cache](../glossary.md#cache) guarda as linhas que o leitor montou. Quem
+precisa do `analyzeResult` inteiro, para outro uso ou para não pagar a mesma
+página em outro processo, recebe-o em `on_result`:
+
+```python
+kept = {}
+
+def keep(view, result):
+    kept[view.page.index] = (view.turn, result)
+
+reader = AzureRead(endpoint, key, on_result=keep)
+```
+
+O leitor chama `on_result` com a vista e o resultado de cada página inteira
+que o serviço leu. A leitura de um recorte não o chama: o resultado dela não é
+o da página. `view.turn` é o giro em que a página foi enviada, porque o leitor
+caro recebe em pé a página que a leitura barata leu girada. As medidas da
+imagem enviada estão no próprio resultado, em pixels.
+
+`reader.lines_of(view, result, turn=giro)` monta as linhas de um resultado
+guardado, como `read` as devolveria para `view`, sem chamar o serviço. `turn`
+é o giro guardado junto com o resultado. Um leitor próprio que procura o
+resultado guardado antes de delegar ao `AzureRead` reusa a leitura assim:
+
+```python
+WHOLE = BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0)
+
+class KeptAzure:
+    name, external = reader.name, True
+    output_version = reader.output_version
+
+    def read(self, view):
+        # A página girada chega como um recorte da página inteira.
+        if view.box in (None, WHOLE) and view.page.index in kept:
+            turn, result = kept[view.page.index]
+            return reader.lines_of(view, result, turn=turn)
+        return reader.read(view)
+```
+
 ## Quando o serviço falha
 
 | o que acontece | o que o leitor faz |
