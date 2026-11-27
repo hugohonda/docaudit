@@ -40,7 +40,9 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   `allow_external=True`. Devolve uma linha por trecho, com a caixa no sistema da imagem, o giro
   de cada linha e a confiança da palavra mais duvidosa dela. Conta as páginas enviadas e, com
   `price_per_page`, os dólares. A chave recusada interrompe o documento; as outras falhas do
-  serviço são da página, que fica com a leitura barata.
+  serviço são da página, que fica com a leitura barata. Com `on_result`, entrega o
+  `analyzeResult` de cada página inteira a quem o guarda, e `lines_of` monta as linhas de um
+  resultado guardado sem chamar o serviço.
 - `Read`, de `docaudit.types`, é o que um leitor devolve quando sabe o que deixou sem ler: a
   lista das linhas, com as caixas sem leitura em `unread`. Uma lista comum continua valendo.
 
