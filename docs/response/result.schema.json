@@ -399,6 +399,12 @@
    "additionalProperties": false,
    "description": "Um valor que uma verificação (`Check`) casou no texto lido, com estado e linha de origem.",
    "properties": {
+    "alike": {
+     "default": false,
+     "description": "Num valor `failed`, se a falha é a troca que leitores de famílias diferentes fazem igual (`Check.alike`), como o ponto no lugar da vírgula decimal de um valor em reais. Outro leitor tende a ler a mesma troca: reler não a conserta, e a leitura igual de outra família não prova que ela está impressa.",
+     "title": "Alike",
+     "type": "boolean"
+    },
     "also_read_by": {
      "default": [],
      "description": "Os outros leitores que leram este mesmo valor no mesmo lugar: a linha barata que o leitor caro substituiu, a camada de OCR, a releitura de `confirm=`, a linha recusada do leitor caro. Compara a `key`. Vazio: só o leitor da linha leu o valor ali. Dois leitores da mesma família erram juntos, e a concordância deles vale menos.",

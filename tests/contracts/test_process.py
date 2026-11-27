@@ -20,7 +20,15 @@ from docaudit import Budget, mark_furniture, process
 from docaudit.backends.textlayer import TextLayerReader
 from docaudit.cache import ModelCallCache
 from docaudit.pdf import PageView, RegionView, drawn_lines_of, load_pages, opened, pages_of
-from docaudit.policies import CPF, ESAJ_STAMP, Check, StampFormat
+from docaudit.policies import (
+    AMOUNT_BRL,
+    CPF,
+    ESAJ_STAMP,
+    Check,
+    EvidenceRouter,
+    FailsCheck,
+    StampFormat,
+)
 from docaudit.process import (
     RASTER_MARGIN,
     _in_place_of_pixels,
@@ -2010,6 +2018,22 @@ def test_two_families_reading_the_same_decimal_point_do_not_prove_it_printed(sca
     result = process(scanned_doc, policy="evidence", cheap=[cheap], confirm=other)
     printed = {e.page: e.printed for e in result.entities if e.state is EntityState.FAILED}
     assert printed == {0: None, 1: "other"}
+
+
+def test_a_signal_told_not_to_count_the_shared_swap_leaves_its_page_cheap(scanned_doc):
+    """Só o ponto decimal não encaminha; o valor segue `failed`, e a letra no número ainda conta."""
+    cheap = _Says("cheap", {0: "total R$ 18.77", 1: "total R$ 1.O00,00", 2: "ok", 3: "ok", 4: "ok"})
+    vlm = FakeVLM()
+    policy = EvidenceRouter([FailsCheck(AMOUNT_BRL, alike=False)])
+
+    result = process(scanned_doc, policy=policy, cheap=[cheap], strong=vlm)
+
+    tiers = {d.page: d.tier for d in result.decisions}
+    assert (tiers[0], tiers[1]) == (Tier.CHEAP, Tier.STRONG)
+    assert result.decisions[0].reason == "sem evidência de falha"
+    failed = {e.page: (e.value, e.alike) for e in result.entities if e.state is EntityState.FAILED}
+    assert failed == {0: ("R$ 18.77", True), 1: ("R$ 1.O00,00", False)}
+    assert result.review()[0] == ("failed_value",), "a página segue na lista de quem revisa"
 
 
 def test_each_decision_tells_what_happened_to_the_page_in_order(scanned_doc):

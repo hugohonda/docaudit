@@ -169,6 +169,8 @@ A [entidade](../glossary.md#entidade) é um valor achado por uma verificação.
 | `chunk_ids` | os `id` das linhas que o valor toca: duas quando ele quebra entre linhas |
 | `span` | com `process(spans=True)`, o começo e o fim do valor no texto das linhas de `chunk_ids` unidas por quebra de linha; `null` por padrão |
 | `printed` | num valor `failed`, quem mostra que o erro é do documento; `null` quando o erro pode ser de leitura |
+| `alike` | num valor `failed`, se a falha é a troca que leitores de famílias diferentes fazem igual, como o ponto no lugar da vírgula decimal: reler não a conserta |
+| `also_read_by` | os outros leitores que leram o mesmo valor no mesmo lugar; vazio quando só o leitor da linha o leu ali. Ver [A ocorrência de um valor](../concepts/provenance.md#a-ocorrencia-de-um-valor-e-o-que-a-sustenta) |
 
 `Entity.key` é uma propriedade, calculada de `value` e fora do JSON: o valor só
 com letras e dígitos, em maiúsculas. Duas ocorrências do mesmo valor têm a mesma
