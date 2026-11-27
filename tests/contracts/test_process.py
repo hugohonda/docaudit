@@ -29,7 +29,7 @@ from docaudit.process import (
     folhas_of,
     stamps_of,
 )
-from docaudit.types import BBox, Chunk, EntityState, ExternalBackendError, Region, Tier
+from docaudit.types import BBox, Chunk, EntityState, ExternalBackendError, Read, Region, Tier
 
 
 def _is_blank(image: bytes) -> bool:
@@ -2215,16 +2215,16 @@ def test_a_read_of_one_page_of_a_longer_document_has_no_furniture():
     assert not any(c.furniture for c in result.chunks)
 
 
-def _read_box(y0: float, turn: Literal[0, 90, 270]) -> BBox:
+def _read_box(y0: float, turn: Literal[0, 90, 180, 270]) -> BBox:
     """A caixa de uma linha larga à altura `y0` da leitura, no sistema da imagem."""
     return BBox(x0=0.1, y0=y0, x1=0.9, y1=y0 + 0.02).unturned(turn)
 
 
-def _line(page: int, text: str, y0: float, turn: Literal[0, 90, 270]) -> Chunk:
+def _line(page: int, text: str, y0: float, turn: Literal[0, 90, 180, 270]) -> Chunk:
     return Chunk.make(make_page(page), _read_box(y0, turn), "ocr", text, turn=turn)
 
 
-@pytest.mark.parametrize("turn", [90, 270])
+@pytest.mark.parametrize("turn", [90, 180, 270])
 def test_a_page_read_sideways_marks_furniture_as_read_and_not_as_scanned(turn):
     """O cabeçalho e o rodapé repetidos ficam marcados; o rótulo repetido no meio da leitura, não.
 
@@ -2670,9 +2670,9 @@ class _SidewaysOCR(FakeOCR):
 
     name = "ocr"
 
-    def __init__(self, turn: Literal[90, 270]):
+    def __init__(self, turn: Literal[90, 180, 270]):
         super().__init__()
-        self.turn: Literal[90, 270] = turn
+        self.turn: Literal[90, 180, 270] = turn
 
     def read(self, view):
         self.calls += 1
@@ -2717,6 +2717,26 @@ def test_a_page_read_sideways_is_reread_upright_and_the_line_keeps_the_turn(rere
     assert vlm.calls == 1, "a releitura em pé vem do cache"
     assert [c.id for c in again.chunks] == [c.id for c in result.chunks]
     cache.close()
+
+
+@pytest.mark.parametrize("reread", ["region", "page"])
+def test_a_page_read_upside_down_is_reread_upright_and_the_line_keeps_the_turn(reread):
+    """A meia-volta não deita a página: o leitor caro a vê com as mesmas medidas, girada."""
+    doc = make_scanned_pdf(pixels=(600, 800))
+    vlm = _RecordingVLM(text="CPF 529.982.247-25 Valor R$ 10,00")
+    result = process(doc, reread=reread, policy="evidence", cheap=[_SidewaysOCR(180)], strong=vlm)
+
+    assert vlm.calls == 1
+    assert vlm.views[0].turn == 180
+    dimensions = vlm.views[0].page.dimensions
+    strong = next(c for c in result.chunks if c.source == vlm.name)
+    assert strong.turn == 180
+    if reread == "page":
+        assert dimensions.width_px < dimensions.height_px, "a folha continua em pé"
+    else:
+        assert dimensions.width_px > dimensions.height_px, "o recorte da linha continua deitado"
+        expected = _read_box(0.2, 180)
+        assert strong.bbox.intersection(expected) == pytest.approx(expected.area, rel=0.1)
 
 
 def test_the_time_cap_leaves_the_pages_it_reaches_with_the_cheap_read(scanned_doc):
@@ -2851,13 +2871,23 @@ class _Boxes:
     external = False
     output_version = "1"
 
-    def __init__(self, lines: list[tuple[str, tuple[float, float, float, float]]]) -> None:
+    def __init__(
+        self,
+        lines: list[tuple[str, tuple[float, float, float, float]]],
+        upside_down: frozenset[str] = frozenset(),
+    ) -> None:
         self.lines = lines
+        self.upside_down = upside_down
 
     def read(self, view):
         return [
             Chunk.make(
-                view.page, BBox(x0=x0, y0=y0, x1=x1, y1=y1), self.name, text, reading_order=n
+                view.page,
+                BBox(x0=x0, y0=y0, x1=x1, y1=y1),
+                self.name,
+                text,
+                reading_order=n,
+                turn=180 if text in self.upside_down else 0,
             )
             for n, (text, (x0, y0, x1, y1)) in enumerate(self.lines)
         ]
@@ -2888,6 +2918,30 @@ def test_records_group_lines_into_rows_and_blocks_by_geometry():
     assert len(records[0].chunk_ids) == 4
     assert records[0].bbox.y1 <= records[1].bbox.y0, "os blocos saem de cima para baixo"
     assert len(result.records(gap=100.0)) == 1, "um vão folgado junta a página num bloco"
+
+
+def test_records_of_a_page_read_upside_down_follow_the_reading_and_keep_upright_lines_apart():
+    """O corpo de cabeça para baixo sai em fileiras na ordem em que é lido; o rodapé em pé, à parte.
+
+    Na imagem, a primeira fileira lida é a de baixo, e a célula da esquerda é a da direita.
+    """
+    reader = _Boxes(
+        [
+            ("Carimbo em pe", (0.30, 0.790, 0.70, 0.805)),
+            ("R$ 10,00", (0.30, 0.780, 0.50, 0.795)),
+            ("ALFA LTDA", (0.70, 0.780, 0.90, 0.795)),
+            ("Valor", (0.30, 0.800, 0.50, 0.815)),
+            ("Nome", (0.70, 0.800, 0.90, 0.815)),
+        ],
+        upside_down=frozenset({"R$ 10,00", "ALFA LTDA", "Valor", "Nome"}),
+    )
+    result = process(make_scanned_pdf(), policy="all_cheap", cheap=[reader])
+    records = result.records()
+
+    assert [r.rows for r in records] == [
+        (("Nome", "Valor"), ("ALFA LTDA", "R$ 10,00")),
+        (("Carimbo em pe",),),
+    ]
 
 
 def test_each_decision_carries_the_seconds_of_the_stages_that_touched_its_page(scanned_doc):
@@ -2934,3 +2988,202 @@ def test_a_tall_vertical_line_in_the_margin_does_not_join_the_text_rows():
     assert [r for r in rows if r[0].startswith("linha")] == [
         (f"linha {i} do texto",) for i in range(5)
     ]
+
+
+class _LeavesUnread:
+    """Um leitor de pixels que lê `read` linhas e detecta outras `unread` sem conseguir lê-las."""
+
+    name = "leaves-unread"
+    external = False
+    output_version = "1"
+
+    def __init__(self, read: int, unread: int) -> None:
+        self.read_lines, self.unread_lines, self.calls = read, unread, 0
+
+    def read(self, view):
+        self.calls += 1
+        view.image()
+        return Read(
+            (
+                Chunk.make(
+                    view.page,
+                    BBox(x0=0.1, y0=0.1 + 0.05 * i, x1=0.9, y1=0.12 + 0.05 * i),
+                    self.name,
+                    f"linha {i} lida",
+                    reading_order=i,
+                )
+                for i in range(self.read_lines)
+            ),
+            unread=[
+                BBox(x0=0.1, y0=0.5 + 0.05 * i, x1=0.9, y1=0.52 + 0.05 * i)
+                for i in range(self.unread_lines)
+            ],
+        )
+
+
+def test_a_page_with_more_lines_detected_than_read_is_listed_for_review_and_says_where():
+    """Um carimbo lido e o corpo sem leitura: a página não some, sai marcada e com as caixas.
+
+    Nenhum leitor falhou: `incomplete` segue falso, e o motivo é outro.
+    """
+    result = process(make_scanned_pdf(), policy="all_cheap", cheap=[_LeavesUnread(1, 3)])
+
+    assert [c.text for c in result.chunks] == ["linha 0 lida"]
+    assert len(result.pages[0].unread_lines) == 3
+    assert result.pages[0].unread_lines[0] == BBox(x0=0.1, y0=0.5, x1=0.9, y1=0.52)
+    assert not result.decisions[0].incomplete
+    assert not result.decisions[0].failures
+    assert result.review() == {0: ("unread_lines",)}
+    assert any("sem leitura" in step for step in result.decisions[0].steps)
+    assert result.decisions[0].tier is Tier.CHEAP, "sem sinal na política, nada escala"
+
+
+def test_a_few_unread_lines_on_a_page_that_was_read_do_not_mark_it():
+    """A assinatura sem leitura numa página lida é minoria: as caixas ficam, a marca não."""
+    result = process(make_scanned_pdf(), policy="all_cheap", cheap=[_LeavesUnread(3, 1)])
+
+    assert len(result.pages[0].unread_lines) == 1
+    assert result.review() == {}
+
+
+def test_a_page_where_nothing_was_read_keeps_the_boxes_of_what_was_detected():
+    result = process(make_scanned_pdf(), policy="all_cheap", cheap=[_LeavesUnread(0, 2)])
+
+    assert not result.chunks
+    assert len(result.pages[0].unread_lines) == 2
+    assert result.review() == {0: ("unread_lines",)}
+
+
+def test_the_unread_lines_are_served_from_the_cache_as_they_were_read(tmp_path):
+    reader = _LeavesUnread(1, 3)
+    cache = ModelCallCache(tmp_path / "c.sqlite")
+    first = process(make_scanned_pdf(), policy="all_cheap", cheap=[reader], cache=cache)
+    again = process(make_scanned_pdf(), policy="all_cheap", cheap=[reader], cache=cache)
+
+    assert reader.calls == 1
+    assert again.pages[0].unread_lines == first.pages[0].unread_lines
+    assert again.review() == first.review() == {0: ("unread_lines",)}
+    cache.close()
+
+
+def test_evidence_sends_the_page_with_most_lines_unread_to_the_strong_reader():
+    """O leitor caro lê a folha inteira, e a marca e as caixas da leitura barata saem."""
+    vlm = FakeVLM()
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[_LeavesUnread(1, 3)], strong=vlm)
+
+    decision = result.decisions[0]
+    assert decision.tier is Tier.STRONG
+    assert decision.signals == {"linhas sem leitura": 3}
+    assert vlm.name in result.read_by()[0]
+    assert result.pages[0].unread_lines == ()
+    assert "unread_lines" not in result.review().get(0, ())
+
+
+def test_without_a_strong_reader_the_page_with_most_lines_unread_stays_marked():
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[_LeavesUnread(1, 3)])
+
+    assert result.decisions[0].signals == {"linhas sem leitura": 3}
+    assert result.review() == {0: ("unread_lines",)}
+    assert len(result.pages[0].unread_lines) == 3
+
+
+def test_the_unread_lines_of_a_raster_come_back_on_the_page_and_not_over_what_was_read():
+    """O leitor do raster deixa duas caixas sem ler: fica a que cai no raster e em nada já lido."""
+
+    class _InTheRaster:
+        name = "in-the-raster"
+        external = False
+        output_version = "1"
+
+        def read(self, view):
+            view.image()
+            # No recorte: uma caixa no meio do raster, e outra fora dele, na folga.
+            return Read(
+                unread=[
+                    BBox(x0=0.3, y0=0.4, x1=0.7, y1=0.6),
+                    BBox(x0=0.0, y0=0.0, x1=0.02, y1=0.01),
+                ]
+            )
+
+    doc = make_scanned_pdf(["acima"], render_mode=0, raster_box=(0.3, 0.3, 0.7, 0.5), text_y=780)
+    result = process(doc, policy="all_cheap", cheap=["text_layer", _InTheRaster()])
+    page = result.pages[0]
+    (raster,) = page.unread
+
+    assert [c.text for c in result.chunks] == ["acima"]
+    (box,) = page.unread_lines
+    assert raster.x0 < (box.x0 + box.x1) / 2 < raster.x1
+    assert raster.y0 < (box.y0 + box.y1) / 2 < raster.y1
+    assert result.review() == {}, "uma caixa sem leitura contra uma linha lida"
+
+
+def test_a_line_the_strong_reader_turns_inside_a_turned_page_adds_its_turn_to_the_page():
+    """A folha chega girada ao leitor caro; a linha que ele ainda gira 180 está em pé na imagem."""
+
+    class _TurnsOneBack(_RecordingVLM):
+        def read(self, view):
+            self.views.append(view)
+            view.image()
+            body = BBox(x0=0.1, y0=0.2, x1=0.9, y1=0.22)
+            footer = BBox(x0=0.1, y0=0.05, x1=0.9, y1=0.07)
+            return [
+                Chunk.make(view.page, body, self.name, "CPF 529.982.247-25", reading_order=0),
+                Chunk.make(view.page, footer, self.name, "rodape em pe", reading_order=1, turn=180),
+            ]
+
+    vlm = _TurnsOneBack()
+    result = process(
+        make_scanned_pdf(pixels=(600, 800)),
+        policy="evidence",
+        cheap=[_SidewaysOCR(180)],
+        strong=vlm,
+    )
+    turns = {c.text: c.turn for c in result.chunks if c.source == vlm.name}
+
+    assert vlm.views[0].turn == 180
+    assert turns == {"CPF 529.982.247-25": 180, "rodape em pe": 0}
+
+
+def test_a_strong_reader_that_reads_only_part_of_the_page_leaves_the_rest_unread():
+    """O leitor caro leu um bloco no alto: as caixas sem leitura do meio da folha ficam."""
+    vlm = FakeVLM(box=BBox(x0=0.0, y0=0.0, x1=1.0, y1=0.3))
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[_LeavesUnread(1, 3)], strong=vlm)
+
+    assert vlm.name in result.read_by()[0]
+    assert len(result.pages[0].unread_lines) == 3
+    assert "unread_lines" in result.review()[0]
+
+
+def test_a_strong_read_that_is_refused_leaves_the_unread_lines_on_the_page():
+    """A linha cara que perde um valor válido da barata é recusada, e não cobre caixa nenhuma."""
+
+    class _WithAValue(_LeavesUnread):
+        def read(self, view):
+            read = super().read(view)
+            line = Chunk.make(
+                view.page, BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.12), self.name, "CPF 529.982.247-25"
+            )
+            return Read([line], unread=read.unread)
+
+    vlm = FakeVLM()
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[_WithAValue(1, 3)], strong=vlm)
+
+    assert vlm.calls == 1
+    assert vlm.name not in result.read_by()[0], "a leitura sem o CPF foi recusada"
+    assert len(result.pages[0].unread_lines) == 3
+    assert result.review()[0] == ("unread_lines", "two_readings")
+
+
+@pytest.mark.parametrize("turn", [90, 180, 270])
+def test_the_other_family_rereads_upright_the_page_the_cheap_read_turned(turn):
+    """O leitor de `confirm=` não gira a página sozinho: recebe a folha como a barata a leu."""
+    confirm = _RecordingVLM(text="CPF 529.982.247-25")
+    confirm.name = "outra-familia"
+    process(
+        make_scanned_pdf(pixels=(600, 800)),
+        policy="evidence",
+        cheap=[_SidewaysOCR(turn)],
+        confirm=confirm,
+    )
+
+    assert [view.turn for view in confirm.views] == [turn]

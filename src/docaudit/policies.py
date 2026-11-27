@@ -25,6 +25,7 @@ from docaudit.types import (
     EntityState,
     RoutingDecision,
     Tier,
+    mostly_unread,
 )
 
 if TYPE_CHECKING:
@@ -79,6 +80,7 @@ __all__ = [
     "MojibakeText",
     "Signal",
     "StampFormat",
+    "UnreadLines",
     "date_in_words",
     "entities_of",
     "failures",
@@ -1335,6 +1337,22 @@ class EmptyRead:
         return 0 if _text_of(chunks).strip() else 1
 
 
+class UnreadLines:
+    """O leitor detectou mais linhas do que a página tem lidas (`Page.unread_lines`).
+
+    É a folha com tinta e quase sem texto: a digitalização que o reconhecedor
+    não soube ler, o manuscrito, a cópia fraca. A foto e a assinatura que
+    ocupam a página também disparam: há tinta que ninguém leu, e o teto de
+    `Budget` é o que limita o custo.
+    """
+
+    name = "linhas sem leitura"
+
+    def __call__(self, page: Page, chunks: Sequence[Chunk]) -> int:
+        """Quantas linhas ficaram sem leitura, se são a maioria da página; senão zero."""
+        return len(page.unread_lines) if mostly_unread(page.unread_lines, chunks) else 0
+
+
 class FailsCheck:
     """Campo na forma impressa que falha a própria verificação.
 
@@ -1493,6 +1511,7 @@ class MojibakeText:
 
 DEFAULT_SIGNALS: tuple[Signal, ...] = (
     EmptyRead(),
+    UnreadLines(),
     GarbledText(),
     FailsCheck(CPF),
     FailsCheck(CNPJ),
@@ -1502,11 +1521,12 @@ DEFAULT_SIGNALS: tuple[Signal, ...] = (
 )
 """Os sinais categóricos padrão, na ordem de prioridade.
 
-Cada um aponta uma leitura que não pode estar certa: vazia, com caractere
-que só uma decodificação quebrada produz, ou com um valor que a regra do
-campo recusa. `FailsCheck(AMOUNT_PRE_REAL)` usa a mesma grafia de
-`FailsCheck(AMOUNT_BRL)` nas moedas anteriores ao real, que são raras nos
-autos: o que se sabe dele vem da regra do real. Essa ordem não foi medida."""
+Cada um aponta uma leitura que não pode estar certa: vazia, com mais linhas
+detectadas do que lidas, com caractere que só uma decodificação quebrada
+produz, ou com um valor que a regra do campo recusa.
+`FailsCheck(AMOUNT_PRE_REAL)` usa a mesma grafia de `FailsCheck(AMOUNT_BRL)`
+nas moedas anteriores ao real, que são raras nos autos: o que se sabe dele
+vem da regra do real. Essa ordem não foi medida."""
 
 DEFAULT_CHECKS: tuple[FailsCheck, ...] = tuple(
     s for s in DEFAULT_SIGNALS if isinstance(s, FailsCheck)

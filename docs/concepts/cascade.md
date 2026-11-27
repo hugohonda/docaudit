@@ -88,6 +88,11 @@ O leitor seguinte da cascata lê esses rasters:
 seguinte falha num desses recortes, a página sai com
 `RoutingDecision.incomplete`.
 
+O PP-OCR diz também o que detectou e não leu: a linha cuja nota ficou
+abaixo do corte dele. As caixas ficam em `Page.unread_lines`. Quando são
+mais que as linhas lidas da página, `Result.review()` a lista com
+`unread_lines`, e a política `evidence` a encaminha ao leitor caro.
+
 `process(min_raster_fraction=)` deixa de fora o raster menor que essa
 fração da página. O logotipo e o brasão do cabeçalho custariam uma leitura
 de pixels sem linha útil. O raster fica em `Page.unread` e em

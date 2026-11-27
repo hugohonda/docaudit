@@ -114,8 +114,8 @@ a Reducto no [formato da resposta](https://docs.reducto.ai/parse/response-format
 
 ## O que o docaudit não faz
 
-Tabela em células, extração por esquema, confiança por palavra, detecção de
-página de cabeça para baixo e API assíncrona, entre outros. A lista e os
+Tabela em células, extração por esquema, confiança por palavra, correção de
+página inclinada e API assíncrona, entre outros. A lista e os
 comportamentos conhecidos estão em [Limites](limits.md). A ordem de custo
 que sustenta as escolhas está em [Desempenho](performance.md).
 

@@ -72,6 +72,17 @@ O leitor que gira a página para ler informa o giro em `Chunk.make(turn=)` e
 devolve a caixa no sistema da imagem, com `BBox.unturned`. Sem isso, a
 detecção de elementos fixos julga a linha como se a página estivesse em pé.
 
+O leitor que detecta uma linha e não consegue lê-la devolve um `Read`: a
+lista das linhas lidas, com a caixa de cada linha sem leitura em `unread`.
+`process()` leva essas caixas a `Page.unread_lines`, e a página em que elas
+são a maioria aparece em `Result.review()`. Devolver uma lista comum continua valendo.
+
+```python
+from docaudit.types import Read
+
+return Read(chunks, unread=[box for box, score in detected if score < cut])
+```
+
 ## Registrar o nome
 
 Declare o entry point, e o leitor passa a ser aceito pelo nome em qualquer

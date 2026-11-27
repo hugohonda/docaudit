@@ -22,10 +22,31 @@ precisa conhecer antes de confiar num resultado.
   leitor `vlm` não as lê. As linhas delas ficam da leitura barata, quando o
   OCR (reconhecimento óptico de caracteres) barato as leu.
 - **Rotação do conteúdo.** O `/Rotate` do arquivo é aplicado, e o PP-OCR lê
-  em pé a página digitalizada de lado (`Chunk.turn`). O [leitor caro](glossary.md#leitor-caro) vê em pé
-  a página que a leitura barata leu de lado. Na cascata barata, em
-  `confirm=` e em `Document.reread`, os outros leitores veem a imagem como
-  ela é. Uma página digitalizada de cabeça para baixo não é detectada.
+  em pé a página digitalizada de lado ou de cabeça para baixo
+  (`Chunk.turn`). O [leitor caro](glossary.md#leitor-caro) e o leitor de
+  pixels de `confirm=` veem em pé a página que a leitura barata leu girada.
+  Na cascata barata e em `Document.reread`, os outros leitores veem a imagem
+  como ela é: o Tesseract e o leitor `vlm` não giram a página.
+- **O giro é da linha.** Na folha de cabeça para baixo, o rodapé carimbado
+  depois da digitalização segue em pé, com `turn=0`, e o corpo sai com
+  `turn=180`. A tarja vertical da margem é de través na folha e leva o giro
+  dela. A linha curta lê quase igual nos dois sentidos e segue o giro da
+  folha: o carimbo em pé de poucos caracteres sai lido de cabeça para baixo.
+  Quem agrupa as linhas por conta própria usa `Chunk.as_read()`: a
+  caixa de uma linha girada segue no sistema da imagem.
+- **A folha invertida sob um timbrado em pé fica em pé.** A decisão começa
+  pelas linhas deitadas mais largas. Quando elas são um cabeçalho ou um
+  carimbo em pé e bem lido, a página não é relida girada, e o corpo
+  invertido não é lido, curto ou longo. As linhas dele ficam em
+  `Page.unread_lines`, e `Result.review()` lista a página com `unread_lines`
+  quando são a maioria.
+- **A página inclinada não é endireitada.** Só os quatro giros de um quarto
+  de volta são tratados.
+- **A linha detectada e não lida não tem texto.** O manuscrito, a cópia
+  fraca e a foto deixam caixas em `Page.unread_lines`, quando o leitor é o
+  PP-OCR. Quando são a maioria da página, `Result.review()` a lista com
+  `unread_lines`; o texto só vem de um leitor caro que a leia. O Tesseract e
+  o leitor `vlm` não informam essas caixas.
 - **Consistência entre páginas.** Os sinais veem uma página por vez.
   Conferir que o número do processo é o mesmo em todas as páginas exige
   olhar o documento inteiro. Para isso não há gancho além de uma política
@@ -115,6 +136,15 @@ precisa conhecer antes de confiar num resultado.
 - **Uma resposta cortada no teto de tokens falha a página.** É o caso de
   um modelo que entra em laço de repetição. A página fica com a leitura
   barata.
+- **O leitor `vlm` inventa valores na página que ninguém lê.** Diante de
+  uma cópia ilegível, um modelo de linguagem completa o padrão que espera:
+  devolve uma tabela limpa, com números em sequência, que não estão na
+  folha. Um identificador inventado pode fechar o próprio dígito
+  verificador. A recusa da linha cara só age quando a leitura barata tem um
+  valor válido a perder, e nessa página ela não leu nada. O `layout=` reduz
+  a invenção na página legível e não a impede na ilegível. Um OCR de pixels
+  como leitor caro devolve quase nada nessa página. Com o `vlm`, confira
+  contra outra leitura todo valor que só ele trouxe.
 - **O leitor `vlm` sem detector devolve a página como um trecho só.** A
   caixa cobre a página inteira, a página tem uma referência só em
   `Result.refs()`, e `Document.crop` dessa caixa é a página inteira. Um
@@ -162,8 +192,13 @@ precisa conhecer antes de confiar num resultado.
   veem.
 - **A página lida de lado custa duas leituras.** Quando a maioria das
   linhas detectadas é mais alta que larga, o PP-OCR lê a página de novo,
-  girada, e fica a leitura com mais linhas deitadas. A página em pé comum
-  paga uma leitura só.
+  girada, e fica a leitura com mais linhas deitadas.
+- **A página mal lida paga a sonda da meia-volta, e a de cabeça para baixo
+  paga duas leituras.** Quando a maioria das linhas deitadas mais largas não
+  lê em pé com nota alta, o PP-OCR as reconhece de novo em meia-volta,
+  primeiro duas e depois as outras. Se a maioria lê melhor assim, a página é lida de novo girada, e as duas
+  leituras são comparadas linha a linha. A página em pé bem lida não paga
+  nada a mais.
 - **Uma página nato-digital paga o OCR de cada raster que nenhuma camada
   leu.** O leitor de pixels lê o recorte de cada um, com a folga
   `RASTER_MARGIN` em volta, e os recortes que se tocam viram um só. Ficam de

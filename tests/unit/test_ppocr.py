@@ -11,10 +11,13 @@ from tests.support.fixtures import TEXT_CENTRAL
 from docaudit import process
 from docaudit.backends.ppocr import (
     PPOCR,
+    _Line,
     _require_cuda,
     _shrink_after_each_run,
+    _upside_down,
     _without_shape_cache,
 )
+from docaudit.types import BBox
 
 
 def _own(folder, weights: bytes, chars: str) -> PPOCR:
@@ -201,3 +204,90 @@ def test_threads_follow_the_cpus_available_to_the_process(monkeypatch):
     assert process_cpus() == 2
     monkeypatch.setattr("os.process_cpu_count", lambda: 16, raising=False)
     assert process_cpus() is None, "sem restrição, fica o padrão do motor"
+
+
+def _row(y0: float, text: str, score: float, *, sideways: bool = False) -> _Line:
+    """Uma linha deitada à altura `y0`, ou a tarja vertical na margem direita com `sideways`."""
+    if sideways:
+        return _Line(BBox(x0=0.93, y0=0.3, x1=0.95, y1=0.7), text, score, sideways=True)
+    return _Line(BBox(x0=0.1, y0=y0, x1=0.9, y1=y0 + 0.02), text, score, sideways=False)
+
+
+def _turned(line: _Line) -> _Line:
+    """A mesma linha como a leitura da imagem em meia-volta a devolve, na caixa dela."""
+    return line._replace(box=line.box.unturned(180))
+
+
+def test_a_sheet_whose_long_lines_read_better_turned_is_upside_down_line_by_line():
+    """O corpo vem da leitura girada, com `turn=180`, e o rodapé em pé fica com `0`.
+
+    A tarja é de través na folha: fica a leitura dela como está, com o giro da folha.
+    """
+    footer = _row(0.90, "Documento assinado digitalmente", 0.99)
+    stamp = _row(0.0, "Este documento foi assinado", 0.97, sideways=True)
+    as_is = [_row(0.10, " n  n oe n o  n s", 0.55), _row(0.14, "o    r  e n", 0.41), footer, stamp]
+    turned = [
+        _turned(_row(0.14, "segunda linha do corpo da folha", 0.98)),
+        _turned(_row(0.10, "primeira linha do corpo da folha", 0.99)),
+        _turned(_row(0.90, "aluawjeubip opeu", 0.30)),
+        _turned(_row(0.0, "opeuisse", 0.20, sideways=True)),
+    ]
+
+    lines = _upside_down(as_is, turned)
+
+    assert lines is not None
+    assert [(line.text, line.turn) for line in lines] == [
+        ("segunda linha do corpo da folha", 180),
+        ("primeira linha do corpo da folha", 180),
+        ("Documento assinado digitalmente", 0),
+        ("Este documento foi assinado", 180),
+    ]
+    back, expected = lines[0].box, as_is[1].box
+    assert (back.x0, back.y0, back.x1, back.y1) == pytest.approx(
+        (expected.x0, expected.y0, expected.x1, expected.y1)
+    ), "a caixa volta ao sistema da imagem"
+
+
+def test_a_sheet_whose_long_lines_read_better_as_they_are_stays_upright():
+    as_is = [
+        _row(0.10, "primeira linha do corpo da folha", 0.99),
+        _row(0.14, "segunda linha", 0.98),
+    ]
+    turned = [_turned(_row(0.10, " n  n oe n o  n s", 0.55)), _turned(_row(0.14, "o   r e", 0.41))]
+
+    assert _upside_down(as_is, turned) is None
+
+
+def test_short_lines_and_digits_do_not_decide_the_turn():
+    """`0`, `1`, `6`, `8` e `9` leem nos dois sentidos: o recorte de um valor fica como chegou."""
+    as_is = [_row(0.10, "1.689,06", 0.62), _row(0.14, "fls. 16", 0.55)]
+    turned = [_turned(_row(0.10, "90,689.1", 0.71)), _turned(_row(0.14, "91 .slj", 0.60))]
+
+    assert _upside_down(as_is, turned) is None
+
+
+def test_a_short_line_of_an_upside_down_sheet_follows_the_sheet():
+    """A linha curta lê quase igual nos dois sentidos: a nota maior como está não a segura."""
+    as_is = [_row(0.10, " n  n oe n o  n s", 0.55), _row(0.14, "90,689.1", 0.71)]
+    turned = [
+        _turned(_row(0.14, "1.689,06", 0.62)),
+        _turned(_row(0.10, "primeira linha do corpo da folha", 0.99)),
+    ]
+
+    lines = _upside_down(as_is, turned)
+
+    assert lines is not None
+    assert [(line.text, line.turn) for line in lines] == [
+        ("1.689,06", 180),
+        ("primeira linha do corpo da folha", 180),
+    ]
+
+
+def test_a_tie_keeps_the_sheet_upright():
+    as_is = [_row(0.10, "uma linha longa do corpo", 0.90), _row(0.14, " n  n oe n o  n s", 0.50)]
+    turned = [
+        _turned(_row(0.10, " n  n oe n o  n s", 0.50)),
+        _turned(_row(0.14, "outra linha longa do corpo", 0.90)),
+    ]
+
+    assert _upside_down(as_is, turned) is None

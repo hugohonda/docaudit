@@ -14,9 +14,9 @@ estão no [Glossário](../glossary.md).
 
 Comece sem leitor caro. A política `evidence` lê todas as páginas com a cascata
 barata. Depois encaminha só a página em que um sinal disparou. Os sinais são a
-leitura vazia, o texto mal decodificado e o valor que falha a verificação do
-campo, como um CPF (Cadastro de Pessoas Físicas) com o dígito verificador
-errado.
+leitura vazia, a página com mais linhas detectadas do que lidas, o texto mal
+decodificado e o valor que falha a verificação do campo, como um CPF
+(Cadastro de Pessoas Físicas) com o dígito verificador errado.
 
 ```python
 from docaudit import Tier, process

@@ -8,7 +8,24 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 <!-- --8<-- [start:versoes] -->
 ## [Não lançado]
 
+## [0.1.0.dev4] - 2026-11-27
+
 ### Adicionado
+
+- `Page.unread_lines` traz a caixa de cada linha que o PP-OCR detectou e não leu. A página em
+  que elas são mais que as linhas lidas aparece em `Result.review()` com o motivo novo
+  `unread_lines`. A folha manuscrita, a cópia fraca e a digitalização que o reconhecedor não
+  soube ler voltavam com poucas linhas ou nenhuma, sem marca. `RoutingDecision.incomplete` não
+  muda de sentido: segue dizendo que um leitor falhou.
+- O sinal `UnreadLines` entra em `DEFAULT_SIGNALS`: a política `evidence` encaminha ao leitor
+  caro a página com mais linhas detectadas do que lidas. Com `EvidenceRouter([EmptyRead(),
+  UnreadLines()])` e um teto em `Budget`, só a página que a leitura barata não leu vai a um
+  leitor externo.
+- `Chunk.as_read()` dá a caixa como a linha é lida, em pé. Quem agrupa ou ordena as linhas por
+  conta própria precisa dela na página lida girada: `bbox` segue no sistema da imagem, e as
+  linhas de uma folha de cabeça para baixo estão nele de baixo para cima.
+- `Read`, de `docaudit.types`, é o que um leitor devolve quando sabe o que deixou sem ler: a
+  lista das linhas, com as caixas sem leitura em `unread`. Uma lista comum continua valendo.
 
 - `Chunk.inked`: se a linha da camada de texto está desenhada com tinta, sem imagem por cima.
 
@@ -47,6 +64,22 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   Páginas da mesma edição trazem a mesma `edition`, o que dá a unidade de publicação de um diário.
 
 ### Mudado
+
+- O PP-OCR lê em pé a página digitalizada de cabeça para baixo. Ele reconhece de novo, em
+  meia-volta, as linhas deitadas mais largas; se a maioria lê melhor assim, lê a página girada e
+  compara as duas leituras linha a linha. `Chunk.turn` aceita `180`, e o giro é da linha: o
+  rodapé carimbado em pé sobre a folha invertida segue com `0`, e a tarja vertical da margem
+  leva o giro da folha. A linha curta, que lê quase igual nos dois sentidos, segue o giro da
+  folha. A página em pé bem lida não paga a sonda. O `output_version` do `ppocr` sobe, e o cache dele é relido.
+- `SCHEMA_VERSION` passa a `"2"`: `turn` ganha o valor `180`. `Page.unread_lines` é campo novo
+  com padrão. Um JSON gravado sem `schema_version` continua lido como da versão 1.
+- A releitura por outra família (`confirm=`) mostra ao leitor de pixels a página com o giro
+  da leitura barata. O Tesseract lia como lixo a página que a barata tinha lido de lado ou de
+  cabeça para baixo, e nunca confirmava um valor nela.
+- `Result.records()` agrupa as linhas de cabeça para baixo em fileiras e blocos, na ordem em
+  que são lidas, e nunca na mesma fileira de uma linha em pé.
+- A política `evidence` encaminha mais páginas: as do sinal `UnreadLines`. Quem passa a
+  própria lista de sinais não muda.
 
 - Numa digitalização com camada de OCR, a linha desenhada à vista por cima da imagem é texto
   composto (`Page.composes`): a tarja e a folha do tribunal dão `composed_text`, e o valor delas
@@ -193,7 +226,8 @@ com a página, a caixa e o leitor de origem.
   `Doubt` para uma sessão; `visualize` para a imagem com as caixas.
 - Cache de leituras em SQLite; nada sai da máquina sem `allow_external=True`.
 
-[Não lançado]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev3...HEAD
+[Não lançado]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev4...HEAD
+[0.1.0.dev4]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev3...v0.1.0.dev4
 [0.1.0.dev3]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev2...v0.1.0.dev3
 [0.1.0.dev2]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev1...v0.1.0.dev2
 [0.1.0.dev1]: https://github.com/hugohonda/docaudit/compare/v0.1.0.dev0...v0.1.0.dev1

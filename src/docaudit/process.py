@@ -61,6 +61,7 @@ from docaudit.policies import (
 )
 from docaudit.registry import get_backend
 from docaudit.types import (
+    SCHEMA_VERSION,
     BBox,
     Budget,
     Chunk,
@@ -74,6 +75,7 @@ from docaudit.types import (
     Metered,
     OtherReading,
     Page,
+    Read,
     Reader,
     Region,
     Reread,
@@ -87,6 +89,7 @@ from docaudit.types import (
     TriagePolicy,
     TrustLayer,
     Turn,
+    mostly_unread,
     reading_order_key,
 )
 
@@ -240,8 +243,7 @@ def _covering(box: BBox, read: Sequence[Chunk]) -> list[Chunk]:
     O centro, e não a sobreposição: a tarja do e-SAJ corre a margem inteira
     na vertical, e toda linha do corpo que chega à margem a tocaria.
     """
-    cx, cy = _centre(box)
-    return [c for c in read if _distance(c.bbox, cx, cy) == 0.0]
+    return [c for c in read if c.bbox.holds_centre_of(box)]
 
 
 def _already_read(box: BBox, read: Sequence[Chunk]) -> bool:
@@ -268,7 +270,7 @@ def within(chunks: Sequence[Chunk], box: BBox) -> list[Chunk]:
     """
     out: list[Chunk] = []
     for chunk in chunks:
-        if _distance(box, *_centre(chunk.bbox)) > 0.0:
+        if not box.holds_centre_of(chunk.bbox):
             continue
         clipped = BBox(
             x0=max(chunk.bbox.x0, box.x0),
@@ -285,7 +287,7 @@ def within(chunks: Sequence[Chunk], box: BBox) -> list[Chunk]:
 
 def _read_cached(
     view: PageView, reader: Reader, cache: ModelCallCache | None
-) -> tuple[Sequence[Chunk], bool, bool]:
+) -> tuple[Read, bool, bool]:
     """Leitura de uma página, ou de uma região dela, servida pelo cache quando possível.
 
     Devolve os chunks, se vieram do cache, e se o leitor pediu os pixels. O
@@ -293,6 +295,9 @@ def _read_cached(
     pelo cache não reporte o mesmo gasto de uma que chamou o leitor. O
     terceiro diz à cascata se a leitura já cobriu os rasters da página; vai
     no cache junto com os chunks, e uma entrada sem ele é relida.
+
+    As caixas que o leitor detectou e não leu (`Read.unread`) vão no cache com
+    as linhas: a leitura servida diz o mesmo que a leitura feita.
     """
     page = view.page
     region = view.box.key() if view.box is not None else ""
@@ -308,16 +313,22 @@ def _read_cached(
         hit = cache.get(key)
         if hit is not None and "rendered" in hit:
             chunks = [Chunk.model_validate(c) for c in cast("list[object]", hit["chunks"])]
-            return chunks, True, bool(hit["rendered"])
+            boxes = [BBox.model_validate(b) for b in cast("list[object]", hit.get("unread", []))]
+            return Read(chunks, unread=boxes), True, bool(hit["rendered"])
     before = view.requests
-    produced = list(reader.read(view))
+    answer = reader.read(view)
+    produced = Read(answer, unread=answer.unread if isinstance(answer, Read) else ())
     rendered = view.requests > before
     if cache is not None:
         cache.put(
             key,
             reader.name,
             reader.output_version,
-            {"chunks": [c.model_dump(mode="json") for c in produced], "rendered": rendered},
+            {
+                "chunks": [c.model_dump(mode="json") for c in produced],
+                "rendered": rendered,
+                "unread": [b.model_dump(mode="json") for b in produced.unread],
+            },
         )
     return produced, False, rendered
 
@@ -347,7 +358,7 @@ def read_region(
     cache: ModelCallCache | None,
     *,
     turn: Turn = 0,
-) -> tuple[list[Chunk], bool]:
+) -> tuple[Read, bool]:
     """O que `reader` lê dentro de `box`, com caixas e ids levados à página.
 
     O leitor vê o recorte, girado `turn` graus, e devolve caixas relativas a
@@ -358,7 +369,7 @@ def read_region(
     region = view.region(box, turn=turn)
     chunks, hit, _ = _read_cached(region, reader, cache)
     page = view.page
-    out: list[Chunk] = []
+    out = Read(unread=[region.to_page(b) for b in chunks.unread])
     for chunk in chunks:
         bbox = region.to_page(chunk.bbox)
         out.append(
@@ -369,7 +380,9 @@ def read_region(
                         Chunk.key_of(page), bbox, chunk.source, chunk.text, page=page.index
                     ),
                     "reading_order": None,
-                    "turn": turn or chunk.turn,
+                    # O giro da linha soma ao do recorte: o rodapé em pé de uma folha
+                    # invertida chega de cabeça para baixo ao leitor que a vê girada.
+                    "turn": (turn + chunk.turn) % 360,
                 }
             )
         )
@@ -388,6 +401,8 @@ class _Cascade(NamedTuple):
     """A nota de cada leitor que falhou."""
     lost: bool = False
     """Se as linhas são só parte da página: nenhum outro leu no lugar de quem falhou."""
+    unread: tuple[BBox, ...] = ()
+    """As caixas que o leitor de pixels detectou e não leu."""
 
 
 def _turn_of(chunks: Sequence[Chunk]) -> Turn:
@@ -438,6 +453,7 @@ def _read_cascade(
     pixels para nada. O raster fica em `Page.unread`, sem linha.
     """
     failed: list[str] = []
+    unread: tuple[BBox, ...] = ()
     if trust_layer == "visible" and view.page.substrate is Substrate.SEARCHABLE_SCAN:
         readers = [r for r in readers if r.name != TextLayerReader.name]
     for position, reader in enumerate(readers):
@@ -447,19 +463,22 @@ def _read_cascade(
             failed.append(_warn_failure(reader, view.page, exc))
             continue
         if not chunks:
+            # O leitor que não leu nada pode ter detectado tinta: as caixas ficam.
+            unread = chunks.unread or unread
             continue
         rasters = [(i, b) for i, b in enumerate(view.page.unread) if b.area >= min_raster]
         if rendered or not rasters:
-            return _Cascade(chunks, hit, 0, failed)
+            return _Cascade(chunks, hit, 0, failed, unread=chunks.unread)
         for filler in readers[position + 1 :]:
             try:
                 extra = _from_rasters(view, filler, cache, _straight(view, chunks), rasters)
             except RuntimeError as exc:
                 failed.append(_warn_failure(filler, view.page, exc))
                 return _Cascade(chunks, hit, 0, failed, lost=True)
-            return _Cascade(_in_place(chunks, extra, view.page.unread), hit, 1, failed)
+            lines = _in_place(chunks, extra, view.page.unread)
+            return _Cascade(lines, hit, 1, failed, unread=extra.unread)
         return _Cascade(chunks, hit, 0, failed, lost=bool(failed))
-    return _Cascade([], False, 0, failed)
+    return _Cascade([], False, 0, failed, unread=unread)
 
 
 def _straight(view: PageView, read: Sequence[Chunk]) -> list[Chunk]:
@@ -481,7 +500,7 @@ def _from_rasters(
     cache: ModelCallCache | None,
     read: Sequence[Chunk],
     rasters: Sequence[tuple[int, BBox]],
-) -> list[Chunk]:
+) -> Read:
     """As linhas que `reader` lê nos recortes de `rasters`, com `region` no índice de cada um.
 
     Cada raster ganha a folga de `RASTER_MARGIN`, e recortes que se tocam
@@ -491,19 +510,33 @@ def _from_rasters(
     as linhas centradas num raster e em nada já lido: um raster fora de um
     recorte não toca nele, e nenhuma linha dele vem de lá. O raster que ocupa
     a folha inteira, ou um grupo que a cobre, é a página.
+
+    A caixa detectada e não lida segue a mesma regra: fica a que está centrada
+    num raster e em nada já lido. O carimbo que a camada de texto leu não é
+    tinta sem texto.
     """
     with_margin = [(i, b.padded(RASTER_MARGIN)) for i, b in rasters]
     padded = [(i, (p.x0, p.y0, p.x1, p.y1)) for i, p in with_margin]
     found: list[Chunk] = []
+    undecoded: list[BBox] = []
     for _, (x0, y0, x1, y1) in merge_touching(padded):
         if (x0, y0, x1, y1) == (0.0, 0.0, 1.0, 1.0):
             # O grupo que cobre a folha é a página: a mesma leitura, a mesma chave de cache.
-            found.extend(_read_cached(view, reader, cache)[0])
+            lines = _read_cached(view, reader, cache)[0]
         else:
-            found.extend(read_region(view, BBox(x0=x0, y0=y0, x1=x1, y1=y1), reader, cache)[0])
+            lines = read_region(view, BBox(x0=x0, y0=y0, x1=x1, y1=y1), reader, cache)[0]
+        found.extend(lines)
+        undecoded.extend(lines.unread)
     # Duas regiões podem se sobrepor: a área de uma fonte sem mapa por cima
     # da digitalização. A linha fica uma vez, na menor região que a contém.
-    out: list[Chunk] = []
+    out = Read(
+        unread=[
+            b
+            for b in undecoded
+            if any(raster.holds_centre_of(b) for _, raster in rasters)
+            and not any(c.bbox.holds_centre_of(b) for c in read)
+        ]
+    )
     taken: set[str] = set()
     for index, box in sorted(rasters, key=lambda pair: pair[1].area):
         for chunk in within(found, box):
@@ -649,7 +682,7 @@ def _order_by_layout(chunks: Sequence[Chunk], regions: Sequence[Region]) -> list
 
     Cada linha vai ao bloco que contém o seu centro, ou ao mais próximo quando
     nenhum a contém, e recebe o rótulo do bloco em `kind` se o leitor não deu
-    um. Dentro do bloco, a ordem é a da linha como é lida (`_as_read`): na
+    um. Dentro do bloco, a ordem é a da linha como é lida (`Chunk.as_read`): na
     página lida de lado, de cima para baixo na página em pé. Sem bloco
     nenhum, a ordem de cada leitor fica como veio.
     """
@@ -662,7 +695,7 @@ def _order_by_layout(chunks: Sequence[Chunk], regions: Sequence[Region]) -> list
         by_block[nearest].append(chunk)
     out: list[Chunk] = []
     for i, block in by_block.items():
-        for chunk in sorted(block, key=lambda c: (_as_read(c).y0, _as_read(c).x0)):
+        for chunk in sorted(block, key=lambda c: (c.as_read().y0, c.as_read().x0)):
             out.append(
                 chunk.model_copy(
                     update={"reading_order": len(out), "kind": chunk.kind or regions[i].label}
@@ -868,12 +901,7 @@ def _has_letter(text: str) -> bool:
 
 def _same_place(a: Chunk, b: Chunk) -> bool:
     """O centro de uma caixa dentro da outra: a mesma linha no mesmo lugar da folha."""
-    return _already_read(a.bbox, [b]) or _already_read(b.bbox, [a])
-
-
-def _as_read(chunk: Chunk) -> BBox:
-    """A caixa como a linha é lida: em pé, na página girada `turn` graus."""
-    return chunk.bbox.unturned((360 - chunk.turn) % 360)
+    return b.bbox.holds_centre_of(a.bbox) or a.bbox.holds_centre_of(b.bbox)
 
 
 def _is_vertical(box: BBox) -> bool:
@@ -887,7 +915,7 @@ def _is_strip(chunk: Chunk) -> bool:
     Uma letra só não tem direção. O glifo é mais alto que largo, e o `x` de
     uma caixa de seleção repetido no meio da página pareceria tarja.
     """
-    return len("".join(chunk.text.split())) > 1 and _is_vertical(_as_read(chunk))
+    return len("".join(chunk.text.split())) > 1 and _is_vertical(chunk.as_read())
 
 
 def _repeated_elsewhere(items: Sequence[Chunk], copy_of: Mapping[int, object]) -> set[str]:
@@ -952,7 +980,7 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
             form = form_of(chunk.text)
             if _LETTER.search(form):
                 by_form[form].append(chunk)
-                if not _is_vertical(_as_read(chunk)):
+                if not _is_vertical(chunk.as_read()):
                     forms[chunk.page].add(form)
     copy_of = {c.page: frozenset(forms[c.page]) or c.page for cs in by_page.values() for c in cs}
     if len(set(copy_of.values())) == 1:
@@ -966,8 +994,8 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
         marked = {c.id for c in chunks if c.id in repeated and _is_strip(c)}
         for turn in {c.turn for c in chunks}:
             horizontal = sorted(
-                (c for c in chunks if c.turn == turn and not _is_vertical(_as_read(c))),
-                key=lambda c: (_as_read(c).y0, _as_read(c).x0),
+                (c for c in chunks if c.turn == turn and not _is_vertical(c.as_read())),
+                key=lambda c: (c.as_read().y0, c.as_read().x0),
             )
             for sequence in (horizontal, reversed(horizontal)):
                 for chunk in sequence:
@@ -1023,6 +1051,8 @@ class _Run:
     """Por página, a nota de cada leitor que falhou, para `RoutingDecision.failures`."""
     incomplete: set[int] = field(default_factory=set[int])
     """As páginas em que um leitor falhou e nenhum outro leu, para `RoutingDecision.incomplete`."""
+    unread: dict[int, tuple[BBox, ...]] = field(default_factory=dict[int, tuple[BBox, ...]])
+    """Por página, as caixas que o leitor de pixels detectou e não leu, para `Page.unread_lines`."""
     seconds: defaultdict[int, dict[str, float]] = field(default_factory=_page_seconds)
     """Por página, os segundos de cada etapa que a tocou, para `RoutingDecision.seconds`."""
 
@@ -1061,6 +1091,11 @@ class _Run:
             yield
         finally:
             self.spent[key] += time.perf_counter() - tick
+
+
+def _with_unread_lines(run: _Run, pages: Sequence[Page]) -> list[Page]:
+    """As páginas com as caixas detectadas e não lidas em `Page.unread_lines`."""
+    return [p.model_copy(update={"unread_lines": run.unread.get(p.index, ())}) for p in pages]
 
 
 def _cheap_stage(
@@ -1111,6 +1146,13 @@ def _cheap_stage(
         run.failures[page.index].extend(read.failed)
         if read.lost:
             run.incomplete.add(page.index)
+        if read.unread:
+            run.unread[page.index] = read.unread
+            if mostly_unread(read.unread, read.chunks):
+                run.steps[page.index].append(
+                    f"tier barato: {len(read.unread)} linha(s) detectada(s) sem leitura, "
+                    "a maioria da página"
+                )
         run.spent["pages_layout_cached"] += layout_hit
         run.steps[page.index].append(_describe_cheap(read.chunks, read.hit))
         out[page.index] = read.chunks
@@ -1231,7 +1273,10 @@ def _confirm_stage(
         for backend in families:
             who = f"releitura por {backend.name}"
             try:
-                other, hit, _ = _read_cached(view, backend, run.cache)
+                # A camada de texto não passa pelos pixels: só o leitor de pixels a vê em pé.
+                layer_read = isinstance(backend, TextLayerReader)
+                turn: Turn = 0 if layer_read else _turn_of(chunks)
+                other, hit = _read_upright(view, backend, run.cache, turn)
             except RuntimeError as exc:
                 run.failures[page.index].append(_warn_failure(backend, page, exc))
                 steps.append(f"{who} falhou: {exc}")
@@ -1591,6 +1636,23 @@ class _StrongRead(NamedTuple):
     """Se os blocos de layout da página vieram do cache."""
 
 
+def _read_upright(
+    view: PageView, reader: Reader, cache: ModelCallCache | None, turn: Turn
+) -> tuple[list[Chunk], bool]:
+    """A página inteira lida por `reader`, girada `turn` graus para ele a ver em pé.
+
+    É o giro em que a leitura barata leu a maioria das linhas. O leitor que
+    não gira a página sozinho leria a folha invertida como lixo. As caixas
+    voltam ao sistema da imagem, e a ordem é a do leitor.
+    """
+    if not turn:
+        cached, hit, _ = _read_cached(view, reader, cache)
+        return list(cached), hit
+    whole = BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0)
+    found, hit = read_region(view, whole, reader, cache, turn=turn)
+    return [c.model_copy(update={"reading_order": i}) for i, c in enumerate(found)], hit
+
+
 def _strong_one(
     run: _Run,
     page: Page,
@@ -1617,13 +1679,7 @@ def _strong_one(
                 hit = hit and found_hit
             scope = f"{len(boxes)} recorte(s) das linhas que falharam"
             return _StrongRead(page, strong, hit, scope, True, None, layout_hit=layout_hit)
-        if turn:
-            whole = BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0)
-            found, hit = read_region(view, whole, backend, run.cache, turn=turn)
-            read = [c.model_copy(update={"reading_order": i}) for i, c in enumerate(found)]
-        else:
-            cached, hit, _ = _read_cached(view, backend, run.cache)
-            read = list(cached)
+        read, hit = _read_upright(view, backend, run.cache, turn)
         return _StrongRead(page, read, hit, "a página inteira", False, None, layout_hit=layout_hit)
     except RuntimeError as exc:
         return _StrongRead(page, [], False, "", bool(boxes), exc, layout_hit=layout_hit)
@@ -1732,6 +1788,13 @@ def _strong_stage(
             by_page[page.index] = merged
             if not read.by_region:
                 run.incomplete.discard(page.index)
+            # A caixa que a barata deixou sem ler está lida quando uma linha aceita do leitor
+            # caro a cobre. A linha recusada não cobre nada: a página segue com a caixa.
+            run.unread[page.index] = tuple(
+                box
+                for box in run.unread.get(page.index, ())
+                if not any(line.bbox.holds_centre_of(box) for line in accepted)
+            )
             kept = len(merged) - len(accepted)
             run.spent["pages_strong"] += 1
             run.spent["pages_strong_cached"] += read.hit
@@ -2014,6 +2077,8 @@ def run_pipeline(
             return not chunks or any(c.failing(page, chunks) for c in checks)
 
         by_page = _cheap_stage(run, selected, readers, workers, trust_layer, may_escalate)
+        # O sinal de linhas sem leitura olha a página: as caixas vão nela antes da decisão.
+        selected = _with_unread_lines(run, selected)
     else:
         by_page = {}
     # A política decide sem teto de páginas: o teto vem depois da releitura
@@ -2188,12 +2253,14 @@ def run_pipeline(
         )
 
     usage_after = _usage_of([*readers, strong, confirm])
+    selected = _with_unread_lines(run, selected)
     chunks = tuple(c for p in selected for c in by_page.get(p.index, ()))
     # A página sem linha que só tem falhas é a que o leitor caro não leu e nenhum barato tentou.
     run.incomplete.update(
         p.index for p in selected if run.failures.get(p.index) and not by_page.get(p.index)
     )
     return Result(
+        schema_version=SCHEMA_VERSION,
         doc_id=doc_id,
         pages=tuple(selected),
         chunks=chunks,

@@ -14,10 +14,10 @@ import functools
 import hashlib
 import itertools
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from datetime import date, datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, cast, runtime_checkable
 
 from pydantic import BaseModel, ConfigDict, model_validator
 from pydantic import Field as PField
@@ -53,6 +53,7 @@ __all__ = [
     "Page",
     "PageDimensions",
     "Piece",
+    "Read",
     "Reader",
     "Record",
     "Region",
@@ -68,6 +69,7 @@ __all__ = [
     "TriagePolicy",
     "TrustLayer",
     "chunk_schema_digest",
+    "mostly_unread",
     "reading_order_key",
 ]
 
@@ -87,7 +89,7 @@ type TrustLayer = Literal["visible", "always"]
 type Reread = Literal["page", "region"]
 """O que o leitor caro recebe de uma página encaminhada: a página inteira ou um recorte."""
 
-type Turn = Literal[0, 90, 270]
+type Turn = Literal[0, 90, 180, 270]
 """Graus, no sentido anti-horário, que uma página ou uma vista dela é girada."""
 
 type FormKind = Literal["none", "acroform", "xfa_full", "xfa_foreground"]
@@ -145,6 +147,15 @@ class BBox(_Frozen):
         height = min(self.y1, other.y1) - max(self.y0, other.y0)
         return max(width, 0.0) * max(height, 0.0)
 
+    def holds_centre_of(self, other: BBox) -> bool:
+        """Se o centro de `other` cai nesta caixa: as duas estão no mesmo lugar da folha.
+
+        O centro, e não a sobreposição: a tarja vertical corre a margem inteira,
+        e toda linha do corpo que chega à margem a tocaria.
+        """
+        cx, cy = (other.x0 + other.x1) / 2, (other.y0 + other.y1) / 2
+        return self.x0 <= cx <= self.x1 and self.y0 <= cy <= self.y1
+
     def key(self) -> str:
         """A caixa como texto, com quatro casas: entra nos ids e nas chaves do cache."""
         return f"{self.x0:.4f},{self.y0:.4f},{self.x1:.4f},{self.y1:.4f}"
@@ -171,6 +182,8 @@ class BBox(_Frozen):
         """A caixa de uma página girada `turn` graus (anti-horário), no sistema da imagem."""
         if turn == 90:
             return BBox(x0=1.0 - self.y1, y0=self.x0, x1=1.0 - self.y0, y1=self.x1)
+        if turn == 180:
+            return BBox(x0=1.0 - self.x1, y0=1.0 - self.y1, x1=1.0 - self.x0, y1=1.0 - self.y0)
         if turn == 270:
             return BBox(x0=self.y0, y0=1.0 - self.x1, x1=self.y1, y1=1.0 - self.x0)
         return self
@@ -466,6 +479,15 @@ class Page(_Frozen):
             "o índice."
         ),
     )
+    unread_lines: tuple[BBox, ...] = PField(
+        default=(),
+        description=(
+            "Caixas das linhas que o leitor detectou e não leu: o reconhecedor não devolveu "
+            "texto, ou a nota ficou abaixo do corte dele. É tinta na página sem texto no "
+            "resultado. Só o leitor que devolve um `Read` as informa, como o PP-OCR; vazio "
+            "nos outros. A caixa sai quando uma linha aceita do leitor caro a cobre."
+        ),
+    )
     hidden_fonts: tuple[str, ...] = PField(
         default=(),
         description=(
@@ -514,7 +536,9 @@ class Chunk(_Frozen):
         description=(
             "Graus, no sentido anti-horário, que o leitor girou a página para ler a linha em "
             "pé. A caixa fica no sistema da imagem; sem `layout=`, `reading_order` segue a "
-            "leitura. Meça antes de reagrupar as linhas girando as caixas."
+            "leitura. Meça antes de reagrupar as linhas girando as caixas. O giro é da "
+            "linha: na folha de cabeça para baixo, o carimbo aposto em pé fica com 0. A "
+            "linha de través na folha, como a tarja da margem, leva o giro da folha."
         ),
     )
     kind: str | None = PField(
@@ -561,6 +585,14 @@ class Chunk(_Frozen):
             "e para ficar só com o corpo vale `furniture`."
         ),
     )
+
+    def as_read(self) -> BBox:
+        """A caixa como a linha é lida: em pé, na página girada `turn` graus.
+
+        É a geometria para agrupar e ordenar linhas de uma página lida girada.
+        `bbox` segue no sistema da imagem, que é onde a tinta está.
+        """
+        return self.bbox.unturned((360 - self.turn) % 360)
 
     @staticmethod
     def make_id(document: str, bbox: BBox, source: str, text: str, *, page: int) -> str:
@@ -916,9 +948,57 @@ def _rows_by_overlap(lines: Sequence[Chunk]) -> list[list[Chunk]]:
     return [sorted(row, key=lambda c: c.bbox.x0) for row in rows]
 
 
+def _blocks_of(lines: Sequence[Chunk], gap: float) -> list[list[list[Chunk]]]:
+    """As linhas de um mesmo giro em blocos de fileiras, na ordem em que são lidas.
+
+    A geometria é a da página como a linha é lida: a caixa de uma linha de
+    cabeça para baixo é desvirada antes de entrar numa fileira.
+    """
+    # A linha em pé já está na geometria em que é lida: só a girada ganha uma cópia.
+    as_read = [c if c.turn == 0 else c.model_copy(update={"bbox": c.as_read()}) for c in lines]
+    original = dict(zip(map(id, as_read), lines, strict=True))
+    heights = sorted(c.bbox.y1 - c.bbox.y0 for c in as_read)
+    median = heights[len(heights) // 2] if heights else 0.0
+    blocks: list[list[list[Chunk]]] = []
+    bottom = 0.0
+    for row in _rows_of(as_read):
+        span = BBox.envelope([c.bbox for c in row])
+        if blocks and span.y0 - bottom <= gap * median:
+            blocks[-1].append([original[id(c)] for c in row])
+        else:
+            blocks.append([[original[id(c)] for c in row]])
+        bottom = span.y1
+    return blocks
+
+
 def reading_order_key(chunk: Chunk) -> tuple[bool, int, float, float]:
     """A ordem de leitura da página: a do leitor, e a linha sem ordem ao fim, de cima para baixo."""
     return (chunk.reading_order is None, chunk.reading_order or 0, chunk.bbox.y0, chunk.bbox.x0)
+
+
+class Read(list[Chunk]):
+    """As linhas de uma leitura, com as caixas do que o leitor detectou e não leu.
+
+    É o que um leitor devolve quando sabe que deixou tinta sem texto: uma
+    lista de linhas como qualquer outra, com `unread` a mais. Quem a trata
+    como lista perde só essas caixas. `process()` as leva a
+    `Page.unread_lines`.
+    """
+
+    def __init__(self, chunks: Iterable[Chunk] = (), *, unread: Iterable[BBox] = ()) -> None:
+        """Guarda as linhas lidas e, em `unread`, a caixa de cada linha detectada e não lida."""
+        super().__init__(chunks)
+        self.unread: tuple[BBox, ...] = tuple(unread)
+
+
+def mostly_unread(unread: Sequence[BBox], chunks: Sequence[Chunk]) -> bool:
+    """Se a página tem mais linhas detectadas e não lidas do que linhas lidas.
+
+    Uma maioria, sem limiar. Conta toda linha da página, e não só as do leitor
+    de pixels: a assinatura sem leitura numa página de texto composto é
+    minoria, e a digitalização que o leitor não leu sob dois carimbos é maioria.
+    """
+    return len(unread) > len(chunks)
 
 
 class Tier(StrEnum):
@@ -1125,10 +1205,17 @@ def _letters_and_digits(text: str) -> str:
     return "".join(ch for ch in fold_lookalikes(text) if ch.isalnum())
 
 
-REVIEW_REASONS = ("incomplete", "reader_failed", "failed_value", "printed_invalid", "two_readings")
+REVIEW_REASONS = (
+    "incomplete",
+    "unread_lines",
+    "reader_failed",
+    "failed_value",
+    "printed_invalid",
+    "two_readings",
+)
 """Os motivos de `Result.review`, na ordem em que saem."""
 
-SCHEMA_VERSION = "1"
+SCHEMA_VERSION = "2"
 """A versão do formato de `Result` em JSON.
 
 Sobe quando um campo sai, muda de tipo ou muda de sentido: quem guardou um JSON
@@ -1193,6 +1280,14 @@ class Result(_Frozen):
         ),
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _version_of_an_old_json(cls, data: object) -> object:
+        """O JSON sem `schema_version` foi gravado antes de o campo existir: é da versão 1."""
+        if not isinstance(data, dict):
+            return data
+        return {"schema_version": "1", **cast("dict[str, object]", data)}
+
     def by_page(self) -> dict[int, list[Chunk]]:
         """Os chunks de cada página, na ordem de leitura.
 
@@ -1237,8 +1332,10 @@ class Result(_Frozen):
 
         Cada motivo é um fato categórico deste resultado, sem limiar, na ordem de
         `REVIEW_REASONS`: `incomplete`, um leitor falhou e ninguém leu no lugar
-        dele; `reader_failed`, um leitor falhou e outro cobriu; `failed_value`,
-        um valor falha a regra e nenhuma outra família o leu igual;
+        dele; `unread_lines`, o leitor detectou mais linhas do que a página tem
+        lidas (`Page.unread_lines`); `reader_failed`, um leitor falhou e outro
+        cobriu; `failed_value`, um valor falha a regra e nenhuma outra família
+        o leu igual;
         `printed_invalid`, o valor falha e outra família leu igual, o erro é do
         documento; `two_readings`, outro leitor leu a linha de outro modo e a
         dúvida ficou. Diz onde olhar, e não que o resto está certo: a leitura
@@ -1250,6 +1347,12 @@ class Result(_Frozen):
                 found.setdefault(decision.page, set()).add("incomplete")
             elif decision.failures:
                 found.setdefault(decision.page, set()).add("reader_failed")
+        lines: dict[int, list[Chunk]] = {}
+        for chunk in self.chunks:
+            lines.setdefault(chunk.page, []).append(chunk)
+        for page in self.pages:
+            if mostly_unread(page.unread_lines, lines.get(page.index, ())):
+                found.setdefault(page.index, set()).add("unread_lines")
         for entity in self.entities:
             if entity.state is EntityState.FAILED:
                 reason = "failed_value" if entity.printed is None else "printed_invalid"
@@ -1481,25 +1584,21 @@ class Result(_Frozen):
         documento. Nenhum modelo roda aqui. Numa página em duas colunas sem
         detector de layout, as linhas lado a lado saem como células de uma
         fileira; `process(layout=)` dá a ordem por bloco nesse caso. A linha
-        lida de lado sai sozinha no bloco dela. Com `furniture=False`, as
+        lida de lado sai sozinha no bloco dela. A linha lida de cabeça para
+        baixo forma fileiras com as outras de cabeça para baixo, na ordem em
+        que são lidas, e nunca com uma linha em pé. Com `furniture=False`, as
         linhas de elemento fixo ficam de fora.
         """
         out: list[Record] = []
         for page, chunks in self.by_page().items():
             lines = [c for c in chunks if furniture or not c.furniture]
-            upright = [c for c in lines if c.turn == 0]
-            heights = sorted(c.bbox.y1 - c.bbox.y0 for c in upright)
-            median = heights[len(heights) // 2] if heights else 0.0
             blocks: list[list[list[Chunk]]] = []
-            bottom = 0.0
-            for row in _rows_of(upright):
-                span = BBox.envelope([c.bbox for c in row])
-                if blocks and span.y0 - bottom <= gap * median:
-                    blocks[-1].append(row)
-                else:
-                    blocks.append([row])
-                bottom = span.y1
-            blocks.extend([[c]] for c in lines if c.turn != 0)
+            # As linhas em pé e as de cabeça para baixo formam fileiras só entre si, cada
+            # grupo no sistema em que é lido; o grupo maior, que é o corpo, vem primeiro.
+            groups = [[c for c in lines if c.turn == turn] for turn in (0, 180)]
+            for group in sorted(groups, key=len, reverse=True):
+                blocks.extend(_blocks_of(group, gap))
+            blocks.extend([[c]] for c in lines if c.turn in (90, 270))
             for index, block in enumerate(blocks):
                 cells = [c for row in block for c in row]
                 out.append(
@@ -1672,7 +1771,13 @@ class Reader(Protocol):
         """
         ...
 
-    def read(self, view: PageView) -> Sequence[Chunk]: ...
+    def read(self, view: PageView) -> Sequence[Chunk]:
+        """As linhas que o leitor leu em `view`: uma página, ou um recorte dela.
+
+        O leitor que sabe o que detectou e não leu devolve um `Read`, que é
+        uma lista de linhas com as caixas sem leitura em `unread`.
+        """
+        ...
 
 
 @runtime_checkable

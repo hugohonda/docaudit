@@ -76,6 +76,8 @@ páginas segue três critérios, nesta ordem:
 Os sinais padrão, `DEFAULT_SIGNALS`, são estes, nesta ordem:
 
 - `EmptyRead`, a leitura vazia;
+- `UnreadLines`, a página em que o leitor detectou mais linhas do que a
+  página tem lidas (`Page.unread_lines`, que o PP-OCR informa);
 - `GarbledText`, o texto mal decodificado;
 - `FailsCheck` de CPF (Cadastro de Pessoas Físicas);
 - `FailsCheck` de CNPJ (Cadastro Nacional da Pessoa Jurídica);
@@ -97,9 +99,12 @@ O campo só conta em texto escrito por máquina: a camada de uma página
 camada à vista de uma página nato-digital, o erro é do documento, e reler
 devolveria o mesmo erro.
 
-Os falsos positivos conhecidos são dois:
+Os falsos positivos conhecidos são três:
 
 - Uma página em branco volta vazia, e `EmptyRead` dispara.
+- Uma página de foto, de assinaturas ou de manuscrito tem mais linhas
+  detectadas do que lidas, e `UnreadLines` dispara. Há tinta que ninguém
+  leu, e é o teto de `Budget` que limita quantas vão ao leitor caro.
 - Um documento que imprime um identificador ou um valor em reais errados
   dispara, e reler devolve o mesmo valor. A releitura por outra família
   separa esse caso, abaixo.

@@ -35,11 +35,11 @@ import hashlib
 import importlib.util
 import threading
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, get_args
+from typing import TYPE_CHECKING, Any, Literal, NamedTuple, get_args
 
 from docaudit.backends import process_cpus
 from docaudit.cache import default_cache_path
-from docaudit.types import BBox, Chunk
+from docaudit.types import BBox, Chunk, Read
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
@@ -187,13 +187,136 @@ def turned(poly: Sequence[Sequence[float]], crop: Any) -> bool:
     return box_tall != crop_tall
 
 
-def _wide(lines: Sequence[tuple[BBox, str, float]], threshold: float) -> int:
+_PROBE = 5
+"""Quantas linhas a sonda da meia-volta reconhece de novo, as mais largas da página.
+
+A sonda decide por maioria. Mais linhas a deixam mais cara, e as mais largas
+são as que mais texto têm para comparar.
+"""
+
+_PROBE_FIRST = 2
+"""Quantas das linhas de `_PROBE` são reconhecidas primeiro.
+
+Se nenhuma delas lê melhor em meia-volta, a sonda para ali, e a folha em pé
+mal lida não paga as outras. A parada decide: a folha de cabeça para baixo
+cujas primeiras linhas leem melhor em pé fica em pé.
+"""
+
+_CONFIDENT = 0.8
+"""A nota a partir da qual uma linha lida em pé dispensa a sonda da meia-volta.
+
+A página em que a maioria das linhas da sonda já lê em pé com esta nota não
+é sondada: a linha invertida que passa no corte do reconhecedor passa com
+nota baixa. Mais alto, a sonda roda em mais páginas em pé; mais baixo, deixa
+de ver folhas invertidas.
+"""
+
+_LONG = 10
+"""Quantos caracteres uma linha precisa passar para votar na meia-volta.
+
+A linha curta e a linha só de dígitos leem quase igual nos dois sentidos, e a
+comparação das notas delas é um cara ou coroa: `0`, `1`, `6`, `8` e `9`
+viram dígitos de cabeça para baixo. Só a linha com mais texto que isto diz
+como a folha está. O recorte de um valor só não tem linha que vote, e fica
+como chegou.
+"""
+
+
+def _votes(text: str, turned_text: str) -> bool:
+    """Se a linha tem texto bastante, numa das duas leituras, para dizer o sentido da folha.
+
+    Numa das duas, porque a leitura invertida de uma linha longa costuma sair curta.
+    """
+    return max(len(text.strip()), len(turned_text.strip())) > _LONG
+
+
+class _Line(NamedTuple):
+    """Uma linha detectada, com a leitura que ficou."""
+
+    box: BBox
+    text: str
+    score: float
+    sideways: bool
+    """Se o RapidOCR deitou o recorte para ler: a linha escrita na vertical."""
+    turn: Turn = 0
+    """O giro em que a linha foi lida, quando não é o da página."""
+
+
+def _wide(lines: Sequence[_Line], threshold: float) -> int:
     """Quantas linhas entregues são mais largas que altas: as escritas deitadas e inteiras."""
     return sum(
         1
-        for box, text, score in lines
-        if text.strip() and score >= threshold and box.x1 - box.x0 > box.y1 - box.y0
+        for line in lines
+        if line.text.strip()
+        and line.score >= threshold
+        and line.box.x1 - line.box.x0 > line.box.y1 - line.box.y0
     )
+
+
+@contextlib.contextmanager
+def _page_errors() -> Generator[None]:
+    """Faz do erro do motor a falha de leitura desta página, ou o erro de instalação.
+
+    Erros nativos do ONNX Runtime e do OpenCV chegam como tipos próprios; a
+    cascata trata a falha de leitura de uma página como `RuntimeError`.
+    """
+    try:
+        yield
+    except Exception as exc:
+        if (broken := _broken_install(exc)) is not None:
+            raise broken from exc
+        raise RuntimeError(f"PP-OCR: {type(exc).__name__}: {exc}") from exc
+
+
+def _upside_down(lines: Sequence[_Line], turned_lines: Sequence[_Line]) -> list[_Line] | None:
+    """A leitura de uma folha de cabeça para baixo, ou None se a folha está em pé.
+
+    `lines` é a leitura da imagem como está, e `turned_lines` a da imagem em
+    meia-volta, com as caixas dela. A folha está de cabeça para baixo quando,
+    das linhas deitadas que as duas leituras têm no mesmo lugar, a maioria lê
+    melhor girada. Só vota a linha com texto bastante (`_votes`). É uma
+    maioria de comparações, e vale na folha de uma linha só; no empate, a
+    folha fica em pé.
+
+    A folha virada tem linhas de dois sistemas. O corpo é do papel, e a
+    leitura girada o tem em pé. A tarja da margem e o rodapé carimbado são do
+    PDF, apostos depois da digitalização, e a leitura como está os tem em pé.
+    Em cada lugar fica a leitura de maior nota: a linha como está ganha da
+    linha girada do mesmo lugar quando lê melhor, e segue com o giro dela.
+    Isso vale para a linha que vota. A linha curta lê quase igual nos dois
+    sentidos, e fica com a leitura girada, a da folha.
+    A linha vertical fica sempre a da primeira leitura, que já a reconheceu
+    nos dois sentidos. Ela é de través na folha e leva o giro da folha, como
+    numa página lida em pé. As linhas giradas vêm primeiro, na ordem em que
+    são lidas.
+    """
+    flipped = [line._replace(box=line.box.unturned(180), turn=180) for line in turned_lines]
+    kept: list[_Line] = []
+    covered: set[int] = set()
+    better = worse = 0
+    for line in lines:
+        same = [
+            i
+            for i, other in enumerate(flipped)
+            if line.box.holds_centre_of(other.box) or other.box.holds_centre_of(line.box)
+        ]
+        other = max((flipped[i] for i in same), key=lambda t: t.score, default=None)
+        if line.sideways or other is None:
+            stays = True
+        elif _votes(line.text, other.text):
+            better += other.score > line.score
+            worse += other.score < line.score
+            stays = line.score > other.score
+        else:
+            # A linha curta não diz o sentido dela pela nota, e segue o da folha.
+            stays = False
+        if stays:
+            kept.append(line._replace(turn=180) if line.sideways else line)
+            covered.update(same)
+    if better <= worse:
+        return None
+    body = [t for i, t in enumerate(flipped) if i not in covered and not t.sideways]
+    return [*body, *kept]
 
 
 class PPOCR:
@@ -281,7 +404,7 @@ class PPOCR:
             self.name += f"+{rec_hash}"
             rec_name = f"rec={rec_hash}:keys={keys_hash}"
         weights = f"{det_name}+{rec_name}"
-        self.output_version = f"3:{weights}:rapidocr={_rapidocr_version()}"
+        self.output_version = f"4:{weights}:rapidocr={_rapidocr_version()}"
         if engine != "onnxruntime":
             self.output_version += f":{engine}"
         self._engine: Any = None
@@ -389,13 +512,17 @@ class PPOCR:
         with _ENGINE:
             self._load()
 
-    def read(self, view: PageView) -> Sequence[Chunk]:
-        """Transcreve a página inteira, uma linha por chunk, de cima para baixo."""
+    def read(self, view: PageView) -> Read:
+        """Transcreve a página inteira, uma linha por chunk, na ordem em que é lida.
+
+        Devolve um `Read`: as linhas, e em `unread` a caixa de cada linha
+        detectada cuja leitura ficou abaixo do corte de confiança.
+        """
         # Em RGB, o formato para o qual os pesos foram feitos. A matriz vai direto ao
         # motor: o PNG não muda pixel e custava um quarto da página.
         return self._read(view.page, view.pixels(grayscale=False))
 
-    def _read(self, page: Page, image: Image.Image) -> Sequence[Chunk]:
+    def _read(self, page: Page, image: Image.Image) -> Read:
         """Detecta, recorta e reconhece com as etapas do RapidOCR, num lote só.
 
         Uma página digitalizada de lado tem a maioria das linhas altas: lida assim, cada
@@ -406,6 +533,14 @@ class PPOCR:
         inteiras. A tarja de margem, vertical, faz a maioria alta numa página de poucas
         linhas; girada, ela sai inteira, mas o corpo sai em pedaços, e a página fica em
         pé. Cada caixa volta ao sistema da imagem com o giro em `turn`.
+
+        A página de cabeça para baixo tem as linhas deitadas, e esse teste não a vê. O
+        reconhecedor lê a linha invertida como texto trocado, e parte dessas linhas passa
+        no corte de confiança: a nota sozinha não diz que a folha está virada. Quando a
+        sonda diz que vale (`_probe`), a página é lida de novo em meia-volta, e
+        `_upside_down` compara as duas leituras linha a linha. A folha virada tem linhas
+        de dois sistemas, e cada linha diz o giro dela. O teste de página de lado compara
+        com essa leitura.
         """
         try:
             import numpy as np
@@ -415,42 +550,58 @@ class PPOCR:
             ) from exc
         pixels = np.asarray(image.convert("RGB"))
         if pixels.ndim != 3 or min(pixels.shape[:2]) == 0:
-            return []
+            return Read()
         with _ENGINE:
             engine = self._load()
-            lines, tall, flipped = self._recognize(engine, pixels)
+            lines, flipped, crops = self._recognize(engine, pixels)
+            tall = sum(line.sideways for line in lines)
             threshold = float(engine.cfg.Global.text_score)
             turn: Turn = 0
+            sideways: list[_Line] | None = None
+            # O RapidOCR deita o recorte alto no sentido anti-horário; se a meia-volta
+            # leu melhor, o texto sobe da base para o topo e a página gira no horário.
+            candidate: Literal[90, 270] = 270 if 2 * flipped > tall else 90
             if 2 * tall > len(lines):
-                # O RapidOCR deita o recorte alto no sentido anti-horário; se a meia-volta
-                # leu melhor, o texto sobe da base para o topo e a página gira no horário.
-                candidate: Literal[90, 270] = 270 if 2 * flipped > tall else 90
                 rotated = np.ascontiguousarray(np.rot90(pixels, 1 if candidate == 90 else -1))
-                other, _, _ = self._recognize(engine, rotated)
-                if _wide(other, threshold) > _wide(lines, threshold):
-                    lines, turn = other, candidate
+                sideways, _, _ = self._recognize(engine, rotated)
+                # Lida em meia-volta, a página como está teria no máximo uma linha deitada
+                # por linha deitada detectada. Passando disso, a leitura de lado ganha de
+                # qualquer jeito, e a meia-volta não precisa ser tentada.
+                if _wide(sideways, threshold) > len(lines) - tall:
+                    lines, turn = sideways, candidate
+            if turn == 0:
+                if self._probe(engine, lines, crops):
+                    other, _, _ = self._recognize(engine, np.ascontiguousarray(pixels[::-1, ::-1]))
+                    lines = _upside_down(lines, other) or lines
+                # A meia-volta vem antes da comparação. Na folha invertida de poucas linhas,
+                # a tarja faz a maioria alta, e o corpo ilegível perderia para a leitura de
+                # lado, em que a tarja sai inteira.
+                if sideways is not None and _wide(sideways, threshold) > _wide(lines, threshold):
+                    lines, turn = sideways, candidate
 
         chunks: list[Chunk] = []
-        for box, text, score in lines:
-            if not text.strip() or score < threshold:
+        unread: list[BBox] = []
+        for line in lines:
+            box = line.box.unturned(turn)
+            if not line.text.strip() or line.score < threshold:
+                unread.append(box)
                 continue
             chunks.append(
                 Chunk.make(
                     page,
-                    box.unturned(turn),
+                    box,
                     self.name,
-                    text,
-                    confidence=min(max(float(score), 0.0), 1.0),
+                    line.text,
+                    confidence=min(max(float(line.score), 0.0), 1.0),
                     reading_order=len(chunks),
-                    turn=turn,
+                    # A linha só tem giro próprio na página que não girou de lado.
+                    turn=turn or line.turn,
                 )
             )
-        return chunks
+        return Read(chunks, unread=unread)
 
-    def _recognize(
-        self, engine: Any, pixels: Any
-    ) -> tuple[list[tuple[BBox, str, float]], int, int]:
-        """As linhas desta matriz; e quantas eram altas e quantas leram melhor viradas.
+    def _recognize(self, engine: Any, pixels: Any) -> tuple[list[_Line], int, list[Any]]:
+        """As linhas desta matriz, quantas das verticais leram melhor viradas, e os recortes.
 
         O RapidOCR gira um recorte alto um quarto de volta no sentido
         anti-horário, o que endireita texto escrito de cima para baixo. A tarja
@@ -458,37 +609,32 @@ class PPOCR:
         para baixo. Cada recorte girado é reconhecido também em meia-volta, no
         mesmo lote, e fica a leitura de maior confiança, como o EasyOCR faz com
         `rotation_info`. O corte de confiança do RapidOCR vem depois disso.
+
+        Os recortes voltam na ordem das linhas, para a sonda da meia-volta.
         """
         import numpy as np
         from rapidocr.main import RapidOCRError
         from rapidocr.utils.process_img import map_boxes_to_original
 
         height, width = pixels.shape[:2]
-        try:
+        with _page_errors():
             resized, op_record = engine.preprocess_img(pixels)
             try:
                 crops, detected = engine.detect_and_crop(resized, op_record)
             except RapidOCRError as exc:
                 if _broken_install(exc) is not None:
                     raise
-                return [], 0, 0
+                return [], 0, []
             # Um recorte sem largura ou altura vai ao ONNX Runtime como
             # tensor vazio; ele fica de fora antes de chegar ao motor.
             keep = [i for i, crop in enumerate(crops) if min(crop.shape[:2]) > 0]
             if not keep:
-                return [], 0, 0
+                return [], 0, []
             crops = [crops[i] for i in keep]
             detected.boxes = detected.boxes[keep]
             sideways = [i for i, crop in enumerate(crops) if turned(detected.boxes[i], crop)]
             flipped = [np.ascontiguousarray(np.rot90(crops[i], 2)) for i in sideways]
             recognized = engine.recognize_txt([*crops, *flipped])
-        except Exception as exc:
-            if (broken := _broken_install(exc)) is not None:
-                raise broken from exc
-            # Erros nativos do ONNX Runtime e do OpenCV chegam como tipos
-            # próprios; a cascata trata a falha de leitura desta página como
-            # `RuntimeError`.
-            raise RuntimeError(f"PP-OCR: {type(exc).__name__}: {exc}") from exc
         texts = [str(t) for t in recognized.txts]
         scores = [float(v) for v in recognized.scores]
         won = 0
@@ -497,11 +643,50 @@ class PPOCR:
                 texts[i], scores[i] = texts[len(crops) + k], scores[len(crops) + k]
                 won += 1
         boxes = map_boxes_to_original(detected.boxes, op_record, height, width)
-        lines = []
-        for poly, text, score in zip(boxes, texts, scores, strict=False):
+        tall = set(sideways)
+        lines: list[_Line] = []
+        for index, (poly, text, score) in enumerate(zip(boxes, texts, scores, strict=False)):
             xs, ys = [float(p[0]) for p in poly], [float(p[1]) for p in poly]
             bbox = BBox.from_pixels(
                 min(xs), min(ys), max(xs), max(ys), width_px=width, height_px=height
             )
-            lines.append((bbox, text, score))
-        return lines, len(sideways), won
+            lines.append(_Line(bbox, text, score, index in tall))
+        return lines, won, crops
+
+    def _probe(self, engine: Any, lines: Sequence[_Line], crops: Sequence[Any]) -> bool:
+        """Se as linhas deitadas mais largas leem melhor em meia-volta: vale ler a página girada.
+
+        A sonda reconhece em meia-volta as `_PROBE` linhas deitadas mais largas e
+        compara as notas. Só vota a linha com texto bastante (`_votes`). A página
+        em que a maioria delas já leu em pé com nota `_CONFIDENT` não paga a
+        sonda. A sonda para nas `_PROBE_FIRST` primeiras quando nenhuma delas lê
+        melhor em meia-volta. A leitura das linhas não muda. A linha vertical
+        fica fora: a tarja é do sistema do PDF, e não diz como o papel entrou no
+        scanner.
+        """
+        lying = [i for i, line in enumerate(lines) if not line.sideways]
+        sample = sorted(lying, key=lambda i: crops[i].shape[1], reverse=True)[:_PROBE]
+        if not sample or 2 * sum(lines[i].score >= _CONFIDENT for i in sample) > len(sample):
+            return False
+        reads = self._turned(engine, crops, sample[:_PROBE_FIRST])
+        if any(score > lines[i].score for i, _, score in reads):
+            reads += self._turned(engine, crops, sample[_PROBE_FIRST:])
+        votes = [score > lines[i].score for i, text, score in reads if _votes(lines[i].text, text)]
+        return 2 * sum(votes) > len(votes)
+
+    def _turned(
+        self, engine: Any, crops: Sequence[Any], indices: Sequence[int]
+    ) -> list[tuple[int, str, float]]:
+        """O índice, o texto e a nota de cada recorte de `indices` reconhecido em meia-volta."""
+        import numpy as np
+
+        if not indices:
+            return []
+        with _page_errors():
+            again = engine.recognize_txt(
+                [np.ascontiguousarray(np.rot90(crops[i], 2)) for i in indices]
+            )
+        return [
+            (i, str(text), float(score))
+            for i, text, score in zip(indices, again.txts, again.scores, strict=False)
+        ]

@@ -208,7 +208,7 @@ class RegionView(PageView):
         width_px, height_px = max(1, x1 - x0), max(1, y1 - y0)
         width_pt = dims.width_pt * width_px / dims.width_px
         height_pt = dims.height_pt * height_px / dims.height_px
-        if turn:
+        if turn in (90, 270):
             width_px, height_px = height_px, width_px
             width_pt, height_pt = height_pt, width_pt
         self._region_page = parent.page.model_copy(
