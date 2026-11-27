@@ -714,6 +714,15 @@ class Entity(_Frozen):
             "pode ser de leitura."
         ),
     )
+    also_read_by: tuple[str, ...] = PField(
+        default=(),
+        description=(
+            "Os outros leitores que leram este mesmo valor no mesmo lugar: a linha barata que "
+            "o leitor caro substituiu, a camada de OCR, a releitura de `confirm=`, a linha "
+            "recusada do leitor caro. Compara a `key`. Vazio: só o leitor da linha leu o valor "
+            "ali. Dois leitores da mesma família erram juntos, e a concordância deles vale menos."
+        ),
+    )
 
     @property
     def key(self) -> str:
@@ -723,6 +732,10 @@ class Entity(_Frozen):
         ocorrências do mesmo valor, em `Result.occurrences`.
         """
         return _letters_and_digits(self.value).upper()
+
+    def is_in(self, text: str) -> bool:
+        """Se `text` traz este valor, pela `key`: a pontuação e os espaços não contam."""
+        return self.key in _letters_and_digits(text).upper()
 
     @staticmethod
     def make_id(kind: str, chunk_ids: Sequence[str], offset: int, value: str) -> str:
@@ -1212,6 +1225,7 @@ REVIEW_REASONS = (
     "failed_value",
     "printed_invalid",
     "two_readings",
+    "one_reading",
 )
 """Os motivos de `Result.review`, na ordem em que saem."""
 
@@ -1338,8 +1352,10 @@ class Result(_Frozen):
         o leu igual;
         `printed_invalid`, o valor falha e outra família leu igual, o erro é do
         documento; `two_readings`, outro leitor leu a linha de outro modo e a
-        dúvida ficou. Diz onde olhar, e não que o resto está certo: a leitura
-        errada que passa na regra não aparece aqui.
+        dúvida ficou; `one_reading`, o leitor caro trouxe um valor sem
+        redundância que nenhum outro leitor leu no mesmo lugar
+        (`Entity.also_read_by`). Diz onde olhar, e não que o resto está certo:
+        a leitura errada que passa na regra não aparece aqui.
         """
         found: dict[int, set[str]] = {}
         for decision in self.decisions:
@@ -1360,6 +1376,17 @@ class Result(_Frozen):
         for other in self.others:
             if not other.replaced and not other.same:
                 found.setdefault(other.reading.page, set()).add("two_readings")
+        # O valor com dígito verificador prova a si mesmo, e o que falha já tem motivo.
+        strong = self.run.strong if self.run is not None else None
+        by_id = self._lines
+        for entity in self.entities:
+            if (
+                strong is not None
+                and entity.state is EntityState.WELL_FORMED
+                and not entity.also_read_by
+                and all(i in by_id and by_id[i].source == strong for i in entity.chunk_ids)
+            ):
+                found.setdefault(entity.page, set()).add("one_reading")
         return {
             page: tuple(r for r in REVIEW_REASONS if r in reasons)
             for page, reasons in sorted(found.items())
@@ -1432,18 +1459,25 @@ class Result(_Frozen):
             i in lines and page.composes(lines[i]) for i in entity.chunk_ids
         ):
             found.append(fact("composed_text", entity))
-        for other in self.readings(entity):
-            read = _letters_and_digits(other.reading.text).upper()
-            found.append(
-                Evidence(
-                    kind="other_reading",
-                    agrees=key in read,
-                    source=other.reading.source,
-                    page=other.reading.page,
-                    chunk_ids=(other.line,),
-                    value=other.value,
-                )
+        found.extend(
+            Evidence(
+                kind="other_reading",
+                agrees=entity.is_in(other.reading.text),
+                source=other.reading.source,
+                page=other.reading.page,
+                chunk_ids=(other.line,),
+                value=other.value,
             )
+            for other in self.readings(entity)
+        )
+        # O leitor que leu igual e não deixou linha em `others`: a linha dele
+        # saiu com o mesmo texto da que entrou, e não há linha para abrir.
+        listed = {f.source for f in found if f.kind == "other_reading" and f.agrees}
+        found.extend(
+            Evidence(kind="other_reading", agrees=True, source=reader, page=entity.page)
+            for reader in entity.also_read_by
+            if reader not in listed
+        )
         same = self.occurrences(entity)
         found.extend(fact("same_page", o) for o in same if o.page == entity.page and elsewhere(o))
         found.extend(fact("same_document", o) for o in same if o.page != entity.page)

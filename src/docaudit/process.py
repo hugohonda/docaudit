@@ -1026,6 +1026,10 @@ def _step_lists() -> defaultdict[int, list[str]]:
     return defaultdict(list)
 
 
+def _chunk_lists() -> defaultdict[str, list[Chunk]]:
+    return defaultdict(list)
+
+
 def _page_seconds() -> defaultdict[int, dict[str, float]]:
     return defaultdict(dict)
 
@@ -1053,6 +1057,12 @@ class _Run:
     """As vistas das páginas ainda em curso: a renderização de uma etapa serve à seguinte."""
     others: list[OtherReading] = field(default_factory=list[OtherReading])
     """As outras leituras de uma linha, e as linhas substituídas, para `Result.others`."""
+    displaced: defaultdict[str, list[Chunk]] = field(default_factory=_chunk_lists)
+    """Pelo id da linha do leitor caro, as linhas baratas que saíram do lugar dela.
+
+    `Result.others` só guarda a linha que saiu com outro texto. Estas servem
+    a `Entity.also_read_by`, que conta também a que leu igual.
+    """
     failures: defaultdict[int, list[str]] = field(default_factory=_step_lists)
     """Por página, a nota de cada leitor que falhou, para `RoutingDecision.failures`."""
     incomplete: set[int] = field(default_factory=set[int])
@@ -1205,6 +1215,31 @@ def _printed(
             if _repeats(entity.value, other.reading):
                 return entity.model_copy(update={"printed": other.reading.source})
     return entity
+
+
+def _also_read(
+    entity: Entity,
+    lines: Mapping[str, Chunk],
+    displaced: Mapping[str, Sequence[Chunk]],
+    beside: Mapping[str, Sequence[OtherReading]],
+) -> Entity:
+    """A entidade com os outros leitores que leram o mesmo valor no lugar das linhas dela.
+
+    As outras leituras do lugar são as linhas baratas que o leitor caro
+    substituiu e as leituras ao lado da linha (`Result.others`). O texto de
+    cada leitor é junto, na ordem em que foi lido: o valor quebrado em duas
+    linhas baratas conta. Um leitor que devolve a página como um bloco só
+    tem no lugar dele todas as linhas baratas da página, e ali o mesmo lugar
+    é a página inteira.
+    """
+    own = {lines[i].source for i in entity.chunk_ids if i in lines}
+    read: dict[str, list[str]] = {}
+    for line in entity.chunk_ids:
+        for chunk in (*displaced.get(line, ()), *(o.reading for o in beside.get(line, ()))):
+            if chunk.source not in own:
+                read.setdefault(chunk.source, []).append(chunk.text)
+    also = tuple(reader for reader, texts in read.items() if entity.is_in(" ".join(texts)))
+    return entity.model_copy(update={"also_read_by": also}) if also else entity
 
 
 def _other_readings(failures: Sequence[Failure], other: Sequence[Chunk]) -> list[OtherReading]:
@@ -1809,6 +1844,9 @@ def _strong_stage(
             run.others.extend(lost)
             merged, replaced = _replace_read(cheap, accepted)
             run.others.extend(replaced)
+            for s in accepted:
+                if left := [c for c in cheap if _same_place(c, s)]:
+                    run.displaced[s.id].extend(left)
             # A linha barata que sobra fora das caixas do leitor caro fica
             # porque ninguém a releu. A linha mal decodificada é a exceção
             # quando o leitor caro leu a folha inteira: ela é lixo por
@@ -2281,11 +2319,15 @@ def run_pipeline(
         if other.same and (strong is None or other.reading.source != strong.name):
             same_by_line.setdefault(other.line, []).append(other)
     alike = {c.name: c.alike for c in entity_checks if c.alike is not None}
+    beside: dict[str, list[OtherReading]] = {}
+    for other in others:
+        beside.setdefault(other.line, []).append(other)
     found: list[Entity] = []
     for page in selected:
         lines = sorted(by_page.get(page.index, ()), key=reading_order_key)
+        by_id = {c.id: c for c in lines}
         found.extend(
-            _printed(e, page, lines, same_by_line, alike)
+            _also_read(_printed(e, page, lines, same_by_line, alike), by_id, run.displaced, beside)
             for e in entities_of(entity_checks, page, lines, spans=spans)
         )
 

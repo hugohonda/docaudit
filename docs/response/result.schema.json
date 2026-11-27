@@ -399,6 +399,15 @@
    "additionalProperties": false,
    "description": "Um valor que uma verificação (`Check`) casou no texto lido, com estado e linha de origem.",
    "properties": {
+    "also_read_by": {
+     "default": [],
+     "description": "Os outros leitores que leram este mesmo valor no mesmo lugar: a linha barata que o leitor caro substituiu, a camada de OCR, a releitura de `confirm=`, a linha recusada do leitor caro. Compara a `key`. Vazio: só o leitor da linha leu o valor ali. Dois leitores da mesma família erram juntos, e a concordância deles vale menos.",
+     "items": {
+      "type": "string"
+     },
+     "title": "Also Read By",
+     "type": "array"
+    },
     "bbox": {
      "$ref": "#/$defs/BBox",
      "description": "A menor caixa que contém as linhas do valor."

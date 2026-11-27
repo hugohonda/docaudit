@@ -3290,3 +3290,73 @@ def test_a_cheap_line_spanning_two_strong_lines_gives_way_to_them():
         "coluna da esquerda",
         "tarja da margem",
     ]
+
+
+def _costly(cheap_text: str, strong_text: str, scanned_doc):
+    """A página em que um CPF que falha na leitura barata a leva ao leitor caro, que o conserta."""
+    return _strong_outcome(
+        f"CPF 529.982.247-26 {cheap_text}".strip(),
+        f"CPF 529.982.247-25 {strong_text}".strip(),
+        "evidence",
+        scanned_doc,
+    )
+
+
+def test_a_value_the_cheap_line_also_read_names_the_cheap_reader(scanned_doc):
+    """A linha barata saiu, mas trazia o mesmo valor: são duas leituras do valor."""
+    result = _costly("total R$ 1.234,56", "total: R$ 1.234,56", scanned_doc)
+
+    amount = next(e for e in result.entities if e.kind == "valor em reais")
+    assert [c.source for c in result.chunks] == ["strong"]
+    assert amount.also_read_by == ("cheap",)
+    assert "one_reading" not in result.review().get(0, ())
+    agreeing = [f.source for f in result.evidence(amount) if f.kind == "other_reading" and f.agrees]
+    assert agreeing == ["cheap"], "o fato aparece uma vez só"
+
+
+def test_a_value_only_the_costly_reader_brought_is_a_reason_to_look(scanned_doc):
+    """Onde a barata não leu o valor, só o leitor caro o sustenta."""
+    result = _costly("", "total R$ 1.234,56", scanned_doc)
+
+    amount = next(e for e in result.entities if e.kind == "valor em reais")
+    assert amount.also_read_by == ()
+    assert result.review()[0] == ("one_reading",)
+
+
+def test_a_confirmed_value_only_the_costly_reader_brought_is_not_a_reason(scanned_doc):
+    """O dígito verificador prova o valor sem outra leitura."""
+    result = _costly("", "", scanned_doc)
+
+    assert [(e.kind, e.state, e.also_read_by) for e in result.entities] == [
+        ("CPF", EntityState.CONFIRMED, ())
+    ]
+    assert result.review() == {}
+
+
+def test_a_page_block_counts_any_cheap_line_of_the_page_as_the_same_place():
+    """O leitor que devolve a página como um bloco tem no lugar dele todas as linhas baratas."""
+    cheap = _Boxes(
+        [
+            ("CPF 529.982.247-26", (0.1, 0.10, 0.9, 0.12)),
+            ("Total R$ 1.234,56", (0.1, 0.30, 0.9, 0.32)),
+        ]
+    )
+    strong = FakeVLM(text="CPF 529.982.247-25 Total R$ 1.234,56 e mais R$ 9.999,99")
+
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[cheap], strong=strong)
+
+    assert [(e.value, e.also_read_by) for e in result.entities if e.kind == "valor em reais"] == [
+        ("R$ 1.234,56", ("boxes",)),
+        ("R$ 9.999,99", ()),
+    ]
+    assert result.review()[0] == ("one_reading",)
+
+
+def test_a_value_of_a_page_only_the_cheap_reader_read_is_not_a_reason(scanned_doc):
+    """Sem leitor caro na página, todo valor tem uma leitura só, e isso não é notícia."""
+    cheap = _Says("cheap", {0: "total R$ 1.234,56"})
+
+    result = process(scanned_doc, cheap=[cheap], strong=FakeVLM(), policy="evidence", pages={0})
+
+    assert [c.source for c in result.chunks] == ["cheap"]
+    assert result.review() == {}

@@ -8,6 +8,16 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 <!-- --8<-- [start:versoes] -->
 ## [Não lançado]
 
+### Adicionado
+
+- `Entity.also_read_by` traz os outros leitores que leram o mesmo valor no mesmo lugar: a linha
+  barata que o leitor caro substituiu, a camada de OCR, a releitura de `confirm=` e a linha
+  recusada do leitor caro. `Result.evidence()` lista cada um como `other_reading` que concorda,
+  inclusive a linha barata que saiu com o mesmo texto, que não deixava registro.
+- `Result.review()` ganha o motivo `one_reading`: o leitor caro trouxe um valor sem
+  redundância que nenhum outro leitor leu no lugar. É o caso do valor que um leitor por modelo
+  de linguagem inventa na página ilegível. Nada sai do resultado, e o texto não muda.
+
 ## [0.1.0.dev4] - 2026-11-27
 
 ### Adicionado

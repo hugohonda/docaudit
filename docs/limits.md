@@ -153,7 +153,11 @@ precisa conhecer antes de confiar num resultado.
   valor válido a perder, e nessa página ela não leu nada. O `layout=` reduz
   a invenção na página legível e não a impede na ilegível. Um OCR de pixels
   como leitor caro devolve quase nada nessa página. Com o `vlm`, confira
-  contra outra leitura todo valor que só ele trouxe.
+  contra outra leitura todo valor que só ele trouxe:
+  [`Entity.also_read_by`](concepts/provenance.md#a-ocorrencia-de-um-valor-e-o-que-a-sustenta)
+  vem vazio nele, e `Result.review()` lista a página com `one_reading`. A
+  marca só alcança o valor que uma verificação conhece. O código inventado
+  numa tabela não é ocorrência, e nada o marca.
 - **O leitor `vlm` sem detector devolve a página como um trecho só.** A
   caixa cobre a página inteira, a página tem uma referência só em
   `Result.refs()`, e `Document.crop` dessa caixa é a página inteira. Um
