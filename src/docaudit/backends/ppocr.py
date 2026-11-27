@@ -282,7 +282,9 @@ def _upside_down(lines: Sequence[_Line], turned_lines: Sequence[_Line]) -> list[
     leitura girada o tem em pé. A tarja da margem e o rodapé carimbado são do
     PDF, apostos depois da digitalização, e a leitura como está os tem em pé.
     Em cada lugar fica a leitura de maior nota: a linha como está ganha da
-    linha girada do mesmo lugar quando lê melhor, e segue com o giro dela.
+    linha girada do mesmo lugar quando lê melhor, e
+    segue com o giro dela. Isso vale para a linha que vota. A linha curta lê
+    quase igual nos dois sentidos, e fica com a leitura girada, a da folha.
     A linha vertical fica sempre a da primeira leitura, que já a reconheceu
     nos dois sentidos. Ela é de través na folha e leva o giro da folha, como
     numa página lida em pé. As linhas giradas vêm primeiro, na ordem em que
@@ -299,10 +301,12 @@ def _upside_down(lines: Sequence[_Line], turned_lines: Sequence[_Line]) -> list[
             if line.box.holds_centre_of(other.box) or other.box.holds_centre_of(line.box)
         ]
         other = max((flipped[i] for i in same), key=lambda t: t.score, default=None)
-        if not line.sideways and other is not None and _votes(line.text, other.text):
+        votes = not line.sideways and other is not None and _votes(line.text, other.text)
+        if votes and other is not None:
             better += other.score > line.score
             worse += other.score < line.score
-        if line.sideways or other is None or line.score > other.score:
+        # A linha curta não diz o sentido dela pela nota, e segue o da folha.
+        if line.sideways or other is None or (votes and line.score > other.score):
             kept.append(line._replace(turn=180) if line.sideways else line)
             covered.update(same)
     if better <= worse:

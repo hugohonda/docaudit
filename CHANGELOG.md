@@ -69,7 +69,8 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
   meia-volta, as linhas deitadas mais largas; se a maioria lê melhor assim, lê a página girada e
   compara as duas leituras linha a linha. `Chunk.turn` aceita `180`, e o giro é da linha: o
   rodapé carimbado em pé sobre a folha invertida segue com `0`, e a tarja vertical da margem
-  leva o giro da folha. A página em pé bem lida não paga a sonda. O `output_version` do `ppocr` sobe, e o cache dele é relido.
+  leva o giro da folha. A linha curta, que lê quase igual nos dois sentidos, segue o giro da
+  folha. A página em pé bem lida não paga a sonda. O `output_version` do `ppocr` sobe, e o cache dele é relido.
 - `SCHEMA_VERSION` passa a `"2"`: `turn` ganha o valor `180`. `Page.unread_lines` é campo novo
   com padrão. Um JSON gravado sem `schema_version` continua lido como da versão 1.
 - A releitura por outra família (`confirm=`) mostra ao leitor de pixels a página com o giro

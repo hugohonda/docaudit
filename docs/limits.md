@@ -30,7 +30,9 @@ precisa conhecer antes de confiar num resultado.
 - **O giro é da linha.** Na folha de cabeça para baixo, o rodapé carimbado
   depois da digitalização segue em pé, com `turn=0`, e o corpo sai com
   `turn=180`. A tarja vertical da margem é de través na folha e leva o giro
-  dela. Quem agrupa as linhas por conta própria usa `Chunk.as_read()`: a
+  dela. A linha curta lê quase igual nos dois sentidos e segue o giro da
+  folha: o carimbo em pé de poucos caracteres sai lido de cabeça para baixo.
+  Quem agrupa as linhas por conta própria usa `Chunk.as_read()`: a
   caixa de uma linha girada segue no sistema da imagem.
 - **A folha invertida sob um timbrado em pé fica em pé.** A decisão começa
   pelas linhas deitadas mais largas. Quando elas são um cabeçalho ou um
