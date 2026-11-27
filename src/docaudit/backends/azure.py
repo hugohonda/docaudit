@@ -38,6 +38,7 @@ credencial recusada (401 ou 403) não é desta página: levanta
 
 from __future__ import annotations
 
+import bisect
 import io
 import json
 import math
@@ -183,16 +184,12 @@ class AzureRead:
 
     def read(self, view: PageView) -> Sequence[Chunk]:
         """Um chunk por linha que o serviço leu, na ordem em que ele as devolve."""
-        from PIL import Image
-
         # A imagem é renderizada no thread chamador: o pdfium não é seguro entre threads.
-        image = view.image(grayscale=False)
-        with Image.open(io.BytesIO(image)) as decoded:
-            pixels = decoded.convert("RGB")
+        pixels = view.pixels(grayscale=False)
         # Numa folha de uma cor só não há o que ler, e a chamada seria cobrada.
         if pixels.getcolors(1) is not None:
             return []
-        result = self._analyze(_sendable(pixels, image))
+        result = self._analyze(_sendable(pixels, view.image(grayscale=False)))
         return _lines(view.page, result, pixels.size, self.name)
 
     def _analyze(self, png: bytes) -> dict[str, object]:
@@ -217,10 +214,10 @@ class AzureRead:
             )
             status = state.get("status")
             if status == "succeeded":
-                result = state.get("analyzeResult")
-                if not isinstance(result, dict):
+                result = _obj(state.get("analyzeResult"))
+                if not result:
                     raise RuntimeError(f"o Azure terminou sem resultado: {str(state)[:300]}")
-                return cast("dict[str, object]", result)
+                return result
             if status in ("failed", "canceled"):
                 raise RuntimeError(f"o Azure não leu a página ({status}): {_error_of(state)}")
             if time.monotonic() > deadline:
@@ -280,13 +277,25 @@ class AzureRead:
         return headers, cast("dict[str, object]", data)
 
 
+def _obj(value: object) -> dict[str, object]:
+    """O valor como objeto JSON; vazio quando não é um."""
+    return cast("dict[str, object]", value) if isinstance(value, dict) else {}
+
+
+def _items(value: object) -> list[object]:
+    """O valor como lista JSON; vazia quando não é uma."""
+    return cast("list[object]", value) if isinstance(value, list) else []
+
+
+def _number(value: object, default: float = 0.0) -> float:
+    """O valor como número; `default` quando não é um."""
+    return float(value) if isinstance(value, int | float) else default
+
+
 def _error_of(state: dict[str, object]) -> str:
     """O código e a mensagem do erro de uma operação que falhou."""
-    error = state.get("error")
-    if not isinstance(error, dict):
-        return str(state)[:300]
-    fields = cast("dict[str, object]", error)
-    return f"{fields.get('code')}: {fields.get('message')}"
+    error = _obj(state.get("error"))
+    return f"{error.get('code')}: {error.get('message')}" if error else str(state)[:300]
 
 
 def _lines(
@@ -295,65 +304,58 @@ def _lines(
     """Um chunk por linha do resultado, com a caixa normalizada pela imagem de `size`.
 
     O serviço mede o polígono na unidade da página que ele devolve. A caixa é
-    a envoltória do polígono, dividida pela largura e pela altura da imagem
-    como ela chegou à biblioteca: a imagem pequena que foi enviada sobre um
-    fundo branco tem as caixas medidas pelo recorte, e não pelo fundo.
+    a envoltória do polígono, na imagem como ela chegou à biblioteca. A imagem
+    pequena que foi enviada sobre um fundo branco tem as caixas medidas pelo
+    recorte, e não pelo fundo.
     """
-    pages = result.get("pages")
-    if not isinstance(pages, list) or not pages:
+    pages = _items(result.get("pages"))
+    if not pages:
         return []
-    first = cast("dict[str, object]", cast("list[object]", pages)[0])
+    first = _obj(pages[0])
     width, height = size
-    sent = (max(width, _MIN_SIDE), max(height, _MIN_SIDE))
-    # Os fatores levam a unidade da página do serviço aos pixels da imagem enviada.
-    scale_x = sent[0] / float(cast("float", first.get("width") or sent[0]))
-    scale_y = sent[1] / float(cast("float", first.get("height") or sent[1]))
-    page_turn = _quarter(float(cast("float", first.get("angle") or 0.0)))
-    words = [cast("dict[str, object]", w) for w in cast("list[object]", first.get("words") or [])]
+    # A página do serviço é a imagem enviada, que tem ao menos `_MIN_SIDE` de lado. A
+    # caixa é medida no recorte: a largura dele na unidade do serviço é esta.
+    width_in_unit = width * _number(first.get("width"), 1.0) / max(width, _MIN_SIDE)
+    height_in_unit = height * _number(first.get("height"), 1.0) / max(height, _MIN_SIDE)
+    page_turn = _quarter(_number(first.get("angle")))
+    # As palavras vêm na ordem do texto: a posição de cada uma e a confiança dela.
+    words = sorted(
+        (int(_number(_obj(word.get("span")).get("offset"), -1.0)), _number(word["confidence"]))
+        for word in map(_obj, _items(first.get("words")))
+        if isinstance(word.get("confidence"), int | float)
+    )
+    starts = [start for start, _ in words]
     chunks: list[Chunk] = []
-    for raw in cast("list[object]", first.get("lines") or []):
-        line = cast("dict[str, object]", raw)
+    for line in map(_obj, _items(first.get("lines"))):
         text = str(line.get("content") or "").strip()
-        polygon = [float(v) for v in cast("list[float]", line.get("polygon") or [])]
+        polygon = [_number(v) for v in _items(line.get("polygon"))]
         if not text or len(polygon) < 8:
             continue
-        xs = [min(max(x * scale_x / width, 0.0), 1.0) for x in polygon[0::2]]
-        ys = [min(max(y * scale_y / height, 0.0), 1.0) for y in polygon[1::2]]
-        if max(xs) <= min(xs) or max(ys) <= min(ys):
+        xs, ys = polygon[0::2], polygon[1::2]
+        box = BBox.from_pixels(
+            min(xs), min(ys), max(xs), max(ys), width_px=width_in_unit, height_px=height_in_unit
+        )
+        if box.x1 <= box.x0 or box.y1 <= box.y0:
             continue
+        # A confiança da linha é a menor entre as palavras que começam num trecho dela.
+        found = [
+            confidence
+            for span in map(_obj, _items(line.get("spans")))
+            for _, confidence in words[
+                bisect.bisect_left(starts, int(_number(span.get("offset")))) : bisect.bisect_left(
+                    starts, int(_number(span.get("offset")) + _number(span.get("length")))
+                )
+            ]
+        ]
         chunks.append(
             Chunk.make(
                 page,
-                BBox(x0=min(xs), y0=min(ys), x1=max(xs), y1=max(ys)),
+                box,
                 source,
                 text,
-                confidence=_confidence(line, words),
+                confidence=min(max(min(found), 0.0), 1.0) if found else None,
                 reading_order=len(chunks),
                 turn=_turn_of(polygon, page_turn),
             )
         )
     return chunks
-
-
-def _confidence(line: dict[str, object], words: Sequence[dict[str, object]]) -> float | None:
-    """A menor confiança entre as palavras da linha, ou None sem palavra com confiança.
-
-    A palavra pertence à linha quando começa dentro de um dos trechos dela no
-    texto do resultado.
-    """
-    spans = [
-        (int(cast("int", s.get("offset", 0))), int(cast("int", s.get("length", 0))))
-        for s in (
-            cast("dict[str, object]", s) for s in cast("list[object]", line.get("spans") or [])
-        )
-    ]
-    found: list[float] = []
-    for word in words:
-        span = word.get("span")
-        confidence = word.get("confidence")
-        if not isinstance(span, dict) or not isinstance(confidence, int | float):
-            continue
-        start = int(cast("int", cast("dict[str, object]", span).get("offset", -1)))
-        if any(offset <= start < offset + length for offset, length in spans):
-            found.append(float(confidence))
-    return min(max(min(found), 0.0), 1.0) if found else None

@@ -3226,3 +3226,26 @@ def test_the_other_family_rereads_upright_the_page_the_cheap_read_turned(turn):
     )
 
     assert [view.turn for view in confirm.views] == [turn]
+
+
+def test_a_region_reread_of_a_value_broken_over_two_lines_keeps_both_lines():
+    """O recorte cobre as duas linhas do valor, e o meio dele cai no vão entre elas.
+
+    Cada linha relida cruza o meio de uma das linhas pedidas, e fica.
+    """
+    from docaudit.process import _Asked, _on_a_line
+
+    first = BBox(x0=0.1, y0=0.30, x1=0.9, y1=0.32)
+    second = BBox(x0=0.1, y0=0.36, x1=0.5, y1=0.38)
+    asked = _Asked(0, (first, second))
+    page = make_page(0)
+
+    def reread(box: BBox) -> Chunk:
+        return Chunk.make(page, box, "strong", "linha relida")
+
+    assert _on_a_line(reread(BBox(x0=0.1, y0=0.298, x1=0.9, y1=0.322)), asked)
+    assert _on_a_line(reread(BBox(x0=0.1, y0=0.358, x1=0.5, y1=0.381)), asked)
+    assert not _on_a_line(reread(BBox(x0=0.1, y0=0.33, x1=0.9, y1=0.35)), asked), "o vão"
+    assert not _on_a_line(reread(BBox(x0=0.1, y0=0.385, x1=0.9, y1=0.40)), asked), "a vizinha"
+    sideways = _Asked(90, (first.unturned(90),))
+    assert _on_a_line(reread(BBox(x0=0.1, y0=0.298, x1=0.9, y1=0.322).unturned(90)), sideways)

@@ -1636,18 +1636,32 @@ class _StrongRead(NamedTuple):
     """Se os blocos de layout da página vieram do cache."""
 
 
-def _on_the_line(chunk: Chunk, box: BBox, turn: Turn) -> bool:
-    """Se a linha relida passa pelo meio da linha pedida, na altura em que ela é lida.
+class _Asked(NamedTuple):
+    """O que um recorte da releitura por região pede ao leitor caro."""
+
+    turn: Turn
+    """O giro em que o leitor vê o recorte."""
+    lines: tuple[BBox, ...]
+    """A caixa de cada linha pedida: duas, quando o valor quebra na linha."""
+
+
+def _on_a_line(chunk: Chunk, asked: _Asked) -> bool:
+    """Se a linha relida passa pelo meio de uma das linhas pedidas, na altura em que é lida.
 
     O recorte de uma linha leva junto a borda das linhas vizinhas, e o leitor
     devolve esses pedaços como linhas dele: baixos, colados à borda do recorte.
-    Fica o que cruza a altura do meio da linha pedida. Os dois pedaços de uma
-    linha que o leitor partiu ao meio ficam; o pedaço da vizinha, não.
+    Fica o que cruza a altura do meio de uma linha pedida. Os dois pedaços de
+    uma linha que o leitor partiu ao meio ficam; o pedaço da vizinha, não. O
+    meio é o de cada linha, e não o do recorte: num valor quebrado em duas
+    linhas, o meio do recorte cai no vão entre elas.
     """
-    asked = box.unturned((360 - turn) % 360)
-    middle = (asked.y0 + asked.y1) / 2
-    read = chunk.bbox.unturned((360 - turn) % 360)
-    return read.y0 <= middle <= read.y1
+    back = (360 - asked.turn) % 360
+    read = chunk.bbox.unturned(back)
+    for line in asked.lines:
+        box = line.unturned(back)
+        if read.y0 <= (box.y0 + box.y1) / 2 <= read.y1:
+            return True
+    return False
 
 
 def _read_upright(
@@ -1670,7 +1684,7 @@ def _read_upright(
 def _strong_one(
     run: _Run,
     page: Page,
-    boxes: Mapping[BBox, Turn],
+    boxes: Mapping[BBox, _Asked],
     turn: Turn,
     backend: Reader,
 ) -> _StrongRead:
@@ -1687,9 +1701,9 @@ def _strong_one(
         if boxes:
             strong: list[Chunk] = []
             hit = True
-            for box, box_turn in boxes.items():
-                found, found_hit = read_region(view, box, backend, run.cache, turn=box_turn)
-                strong.extend(c for c in within(found, box) if _on_the_line(c, box, box_turn))
+            for box, asked in boxes.items():
+                found, found_hit = read_region(view, box, backend, run.cache, turn=asked.turn)
+                strong.extend(c for c in within(found, box) if _on_a_line(c, asked))
                 hit = hit and found_hit
             scope = f"{len(boxes)} recorte(s) das linhas que falharam"
             return _StrongRead(page, strong, hit, scope, True, None, layout_hit=layout_hit)
@@ -1733,7 +1747,7 @@ def _strong_stage(
         return deferred
     check_names = {c.name for c in checks}
 
-    def boxes_of(page: Page) -> dict[BBox, Turn]:
+    def boxes_of(page: Page) -> dict[BBox, _Asked]:
         # Por região, a verificação diz onde a leitura falhou, e o leitor
         # caro lê só ali: um recorte por valor inválido, cobrindo as linhas
         # em que o valor está, que são duas quando ele quebra na linha. Se
@@ -1746,7 +1760,10 @@ def _strong_stage(
         lines: dict[tuple[str, str], list[Chunk]] = {}
         for check, value, chunk in failures.get(page.index, ()):
             lines.setdefault((check.name, value), []).append(chunk)
-        return {BBox.envelope([c.bbox for c in ls]): _turn_of(ls) for ls in lines.values()}
+        return {
+            BBox.envelope([c.bbox for c in ls]): _Asked(_turn_of(ls), tuple(c.bbox for c in ls))
+            for ls in lines.values()
+        }
 
     def one(page: Page) -> _StrongRead | None:
         """A leitura cara da página, ou None quando o teto de tempo chegou antes dela."""
