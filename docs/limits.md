@@ -30,10 +30,14 @@ precisa conhecer antes de confiar num resultado.
 - **O giro é da linha.** Na folha de cabeça para baixo, o rodapé carimbado
   depois da digitalização segue em pé, com `turn=0`, e o corpo sai com
   `turn=180`. A tarja vertical da margem é de través na folha e leva o giro
-  dela. A decisão olha as linhas deitadas mais largas: a
-  folha em que elas são carimbos em pé fica em pé, e o corpo curto dela não
-  é lido. Quem agrupa as linhas por conta própria usa `Chunk.as_read()`: a
+  dela. Quem agrupa as linhas por conta própria usa `Chunk.as_read()`: a
   caixa de uma linha girada segue no sistema da imagem.
+- **A folha invertida sob um timbrado em pé fica em pé.** A decisão começa
+  pelas linhas deitadas mais largas. Quando elas são um cabeçalho ou um
+  carimbo em pé e bem lido, a página não é relida girada, e o corpo
+  invertido não é lido, curto ou longo. As linhas dele ficam em
+  `Page.unread_lines`, e `Result.review()` lista a página com `unread_lines`
+  quando são a maioria.
 - **A página inclinada não é endireitada.** Só os quatro giros de um quarto
   de volta são tratados.
 - **A linha detectada e não lida não tem texto.** O manuscrito, a cópia
