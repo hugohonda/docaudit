@@ -49,6 +49,7 @@ import urllib.request
 from typing import TYPE_CHECKING, cast
 
 from docaudit.backends.vlm import (
+    _FULL_PAGE,  # pyright: ignore[reportPrivateUsage] - a mesma caixa da página inteira
     _seconds,  # pyright: ignore[reportPrivateUsage] - o mesmo Retry-After do leitor `vlm`
     _TransientError,  # pyright: ignore[reportPrivateUsage] - a mesma falha passageira
 )
@@ -69,8 +70,6 @@ _MIN_SIDE = 50
 """O menor lado, em pixels, que o serviço aceita numa imagem."""
 _MAX_SIDE = 10_000
 """O maior lado, em pixels, que o serviço aceita numa imagem."""
-_WHOLE = BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0)
-"""A caixa da página inteira: a vista com ela é a página, girada ou não."""
 _POLL = 2.0
 """Segundos entre duas consultas à operação, quando o serviço não diz a espera.
 
@@ -203,7 +202,8 @@ class AzureRead:
         if pixels.getcolors(1) is not None:
             return []
         result = self._analyze(_sendable(pixels, view.image(grayscale=False)))
-        if self.on_result is not None and view.box in (None, _WHOLE):
+        # A página girada chega como um recorte da página inteira.
+        if self.on_result is not None and view.box in (None, _FULL_PAGE):
             self.on_result(view, result)
         return _lines(view.page, result, pixels.size, self.name)
 
@@ -220,14 +220,14 @@ class AzureRead:
         """
         first = _obj(next(iter(_items(result.get("pages"))), None))
         size = (int(_number(first.get("width"), 1.0)), int(_number(first.get("height"), 1.0)))
-        lines = _lines(view.page, dict(result), size, self.name)
+        lines = _lines(view.page, result, size, self.name)
         if turn == view.turn:
             return lines
         back = (360 - view.turn) % 360
         return [
             Chunk.make(
                 view.page,
-                line.bbox.unturned(turn).unturned(back),
+                line.bbox.unturned((turn + back) % 360),
                 line.source,
                 line.text,
                 confidence=line.confidence,
@@ -344,7 +344,7 @@ def _error_of(state: dict[str, object]) -> str:
 
 
 def _lines(
-    page: Page, result: dict[str, object], size: tuple[int, int], source: str
+    page: Page, result: Mapping[str, object], size: tuple[int, int], source: str
 ) -> list[Chunk]:
     """Um chunk por linha do resultado, com a caixa normalizada pela imagem de `size`.
 
