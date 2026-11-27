@@ -183,6 +183,13 @@ um bloco só com a folha inteira, que entra no lugar de todas as linhas da
 leitura barata. O leitor externo vê em pé a página que a leitura barata
 leu girada. A página em que nenhum giro leu chega a ele como está.
 
+!!! warning "A página ilegível"
+
+    Um modelo de linguagem não deixa em branco a página que não consegue
+    ler: devolve texto e números com cara de leitura. O `layout=` não impede
+    isso. Trate como não conferido o valor que só o leitor externo trouxe, e
+    veja [os limites](../limits.md#comportamentos-conhecidos).
+
 | parâmetro | para que serve |
 |---|---|
 | `served` | o nome do modelo no pedido; obrigatório fora da máquina |

@@ -266,6 +266,23 @@ def test_short_lines_and_digits_do_not_decide_the_turn():
     assert _upside_down(as_is, turned) is None
 
 
+def test_a_short_line_of_an_upside_down_sheet_follows_the_sheet():
+    """A linha curta lê quase igual nos dois sentidos: a nota maior como está não a segura."""
+    as_is = [_row(0.10, " n  n oe n o  n s", 0.55), _row(0.14, "90,689.1", 0.71)]
+    turned = [
+        _turned(_row(0.14, "1.689,06", 0.62)),
+        _turned(_row(0.10, "primeira linha do corpo da folha", 0.99)),
+    ]
+
+    lines = _upside_down(as_is, turned)
+
+    assert lines is not None
+    assert [(line.text, line.turn) for line in lines] == [
+        ("1.689,06", 180),
+        ("primeira linha do corpo da folha", 180),
+    ]
+
+
 def test_a_tie_keeps_the_sheet_upright():
     as_is = [_row(0.10, "uma linha longa do corpo", 0.90), _row(0.14, " n  n oe n o  n s", 0.50)]
     turned = [
