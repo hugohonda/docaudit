@@ -144,6 +144,9 @@ result = process(
 print(result.spent.usd, result.spent.tokens_in, result.spent.tokens_out)
 ```
 
+Outro provedor externo é o Azure AI Document Intelligence, que devolve as linhas com a
+caixa de cada uma: ver [Ler com o Azure como última etapa](azure.md).
+
 ### Só a página que a leitura barata não leu
 
 O serviço de um provedor serve de última etapa: a leitura barata lê o

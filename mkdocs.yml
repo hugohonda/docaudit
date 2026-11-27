@@ -39,6 +39,7 @@ nav:
       - Escalar só o que falhou: how-to/escalate.md
       - Declarar os campos do seu documento: how-to/checks.md
       - Ligar um modelo de visão e linguagem: how-to/vlm.md
+      - Ler com o Azure como última etapa: how-to/azure.md
       - Entregar a leitura a um agente: agent.md
       - Escrever um leitor: writing-a-reader.md
       - Implantar num serviço: how-to/deploy.md

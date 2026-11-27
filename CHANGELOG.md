@@ -24,6 +24,12 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 - `Chunk.as_read()` dá a caixa como a linha é lida, em pé. Quem agrupa ou ordena as linhas por
   conta própria precisa dela na página lida girada: `bbox` segue no sistema da imagem, e as
   linhas de uma folha de cabeça para baixo estão nele de baixo para cima.
+- `AzureRead`, de `docaudit.backends.azure`, lê uma página pelo modelo de leitura do Azure AI
+  Document Intelligence, só com a biblioteca padrão. É um leitor externo: `process()` exige
+  `allow_external=True`. Devolve uma linha por trecho, com a caixa no sistema da imagem, o giro
+  de cada linha e a confiança da palavra mais duvidosa dela. Conta as páginas enviadas e, com
+  `price_per_page`, os dólares. A chave recusada interrompe o documento; as outras falhas do
+  serviço são da página, que fica com a leitura barata.
 - `Read`, de `docaudit.types`, é o que um leitor devolve quando sabe o que deixou sem ler: a
   lista das linhas, com as caixas sem leitura em `unread`. Uma lista comum continua valendo.
 
