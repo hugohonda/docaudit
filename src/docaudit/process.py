@@ -381,7 +381,9 @@ def read_region(
                         Chunk.key_of(page), bbox, chunk.source, chunk.text, page=page.index
                     ),
                     "reading_order": None,
-                    "turn": turn or chunk.turn,
+                    # O giro da linha soma ao do recorte: o rodapé em pé de uma folha
+                    # invertida chega de cabeça para baixo ao leitor que a vê girada.
+                    "turn": (turn + chunk.turn) % 360,
                 }
             )
         )

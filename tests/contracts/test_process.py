@@ -3112,3 +3112,30 @@ def test_the_unread_lines_of_a_raster_come_back_on_the_page_and_not_over_what_wa
     assert raster.x0 < (box.x0 + box.x1) / 2 < raster.x1
     assert raster.y0 < (box.y0 + box.y1) / 2 < raster.y1
     assert not result.decisions[0].incomplete, "uma caixa sem leitura contra uma linha lida"
+
+
+def test_a_line_the_strong_reader_turns_inside_a_turned_page_adds_its_turn_to_the_page():
+    """A folha chega girada ao leitor caro; a linha que ele ainda gira 180 está em pé na imagem."""
+
+    class _TurnsOneBack(_RecordingVLM):
+        def read(self, view):
+            self.views.append(view)
+            view.image()
+            body = BBox(x0=0.1, y0=0.2, x1=0.9, y1=0.22)
+            footer = BBox(x0=0.1, y0=0.05, x1=0.9, y1=0.07)
+            return [
+                Chunk.make(view.page, body, self.name, "CPF 529.982.247-25", reading_order=0),
+                Chunk.make(view.page, footer, self.name, "rodape em pe", reading_order=1, turn=180),
+            ]
+
+    vlm = _TurnsOneBack()
+    result = process(
+        make_scanned_pdf(pixels=(600, 800)),
+        policy="evidence",
+        cheap=[_SidewaysOCR(180)],
+        strong=vlm,
+    )
+    turns = {c.text: c.turn for c in result.chunks if c.source == vlm.name}
+
+    assert vlm.views[0].turn == 180
+    assert turns == {"CPF 529.982.247-25": 180, "rodape em pe": 0}

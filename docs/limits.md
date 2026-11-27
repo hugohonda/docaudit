@@ -176,8 +176,8 @@ precisa conhecer antes de confiar num resultado.
   girada, e fica a leitura com mais linhas deitadas.
 - **A página mal lida paga a sonda da meia-volta, e a de cabeça para baixo
   paga duas leituras.** Quando a maioria das linhas deitadas mais largas não
-  lê em pé com nota alta, o PP-OCR as reconhece de novo em meia-volta. Se a
-  maioria lê melhor assim, a página é lida de novo girada, e as duas
+  lê em pé com nota alta, o PP-OCR as reconhece de novo em meia-volta,
+  primeiro duas e depois as outras. Se a maioria lê melhor assim, a página é lida de novo girada, e as duas
   leituras são comparadas linha a linha. A página em pé bem lida não paga
   nada a mais.
 - **Uma página nato-digital paga o OCR de cada raster que nenhuma camada

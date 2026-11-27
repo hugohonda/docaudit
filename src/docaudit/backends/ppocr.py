@@ -194,6 +194,14 @@ _PROBE = 5
 mais cara. As linhas mais largas são as que mais texto têm para comparar.
 """
 
+_PROBE_FIRST = 2
+"""Quantas linhas da sonda são reconhecidas primeiro.
+
+Se nenhuma delas lê melhor em meia-volta, a sonda para: a folha em pé mal
+lida paga duas linhas, e não as cinco. Também é custo: com uma só, a sonda
+para cedo demais em folhas de cabeça para baixo.
+"""
+
 _CONFIDENT = 0.8
 """A nota a partir da qual uma linha lida em pé dispensa a sonda da meia-volta.
 
@@ -583,7 +591,8 @@ class PPOCR:
         também em meia-volta, e o terceiro valor diz se a maioria delas leu
         melhor assim, contando só as que têm texto para votar (`_votes`). A
         página em que a maioria delas já leu em pé com nota `_CONFIDENT` não
-        paga a sonda. A leitura das linhas não muda: a sonda
+        paga a sonda, e a sonda para nas `_PROBE_FIRST` primeiras quando
+        nenhuma delas lê melhor em meia-volta. A leitura das linhas não muda: a sonda
         só diz se vale ler a página girada. A linha vertical fica fora da sonda: a tarja é do
         sistema do PDF, e não diz como o papel entrou no scanner.
         """
@@ -623,13 +632,25 @@ class PPOCR:
                 sample = sorted(lying, key=lambda i: crops[i].shape[1], reverse=True)[:_PROBE]
                 confident = sum(scores[i] >= _CONFIDENT for i in sample)
                 if sample and 2 * confident <= len(sample):
-                    again = engine.recognize_txt(
-                        [np.ascontiguousarray(np.rot90(crops[i], 2)) for i in sample]
-                    )
+                    turned_reads: list[tuple[int, str, float]] = []
+                    # Em dois tempos: se nenhuma das primeiras lê melhor em meia-volta, a
+                    # folha está em pé, e as outras linhas da sonda não são reconhecidas.
+                    for part in (sample[:_PROBE_FIRST], sample[_PROBE_FIRST:]):
+                        if not part:
+                            break
+                        again = engine.recognize_txt(
+                            [np.ascontiguousarray(np.rot90(crops[i], 2)) for i in part]
+                        )
+                        turned_reads.extend(
+                            (i, str(text), float(score))
+                            for i, text, score in zip(part, again.txts, again.scores, strict=False)
+                        )
+                        if not any(score > scores[i] for i, _, score in turned_reads):
+                            break
                     votes = [
-                        float(score) > scores[i]
-                        for i, text, score in zip(sample, again.txts, again.scores, strict=False)
-                        if _votes(texts[i], str(text))
+                        score > scores[i]
+                        for i, text, score in turned_reads
+                        if _votes(texts[i], text)
                     ]
                     upside_down = 2 * sum(votes) > len(votes)
         except Exception as exc:
