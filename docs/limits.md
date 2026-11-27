@@ -23,13 +23,14 @@ precisa conhecer antes de confiar num resultado.
   OCR (reconhecimento óptico de caracteres) barato as leu.
 - **Rotação do conteúdo.** O `/Rotate` do arquivo é aplicado, e o PP-OCR lê
   em pé a página digitalizada de lado ou de cabeça para baixo
-  (`Chunk.turn`). O [leitor caro](glossary.md#leitor-caro) vê em pé a página
-  que a leitura barata leu girada. Na cascata barata, em `confirm=` e em
-  `Document.reread`, os outros leitores veem a imagem como ela é: o
-  Tesseract e o leitor `vlm` não giram a página.
-- **O giro é da linha.** Na folha de cabeça para baixo, a tarja da margem e
-  o rodapé carimbado depois da digitalização seguem em pé, com `turn=0`, e o
-  corpo sai com `turn=180`. A decisão olha as linhas deitadas mais largas: a
+  (`Chunk.turn`). O [leitor caro](glossary.md#leitor-caro) e o leitor de
+  pixels de `confirm=` veem em pé a página que a leitura barata leu girada.
+  Na cascata barata e em `Document.reread`, os outros leitores veem a imagem
+  como ela é: o Tesseract e o leitor `vlm` não giram a página.
+- **O giro é da linha.** Na folha de cabeça para baixo, o rodapé carimbado
+  depois da digitalização segue em pé, com `turn=0`, e o corpo sai com
+  `turn=180`. A tarja vertical da margem é de través na folha e leva o giro
+  dela. A decisão olha as linhas deitadas mais largas: a
   folha em que elas são carimbos em pé fica em pé, e o corpo curto dela não
   é lido. Quem agrupa as linhas por conta própria usa `Chunk.as_read()`: a
   caixa de uma linha girada segue no sistema da imagem.

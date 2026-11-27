@@ -482,10 +482,10 @@ class Page(_Frozen):
     unread_lines: tuple[BBox, ...] = PField(
         default=(),
         description=(
-            "Caixas das linhas que o leitor detectou e não leu: a nota do reconhecedor "
-            "ficou abaixo do corte dele. É tinta na página sem texto no resultado. Só o "
-            "leitor que devolve um `Read` as informa, como o PP-OCR; vazio nos outros, e "
-            "quando o leitor caro leu a folha inteira."
+            "Caixas das linhas que o leitor detectou e não leu: o reconhecedor não devolveu "
+            "texto, ou a nota ficou abaixo do corte dele. É tinta na página sem texto no "
+            "resultado. Só o leitor que devolve um `Read` as informa, como o PP-OCR; vazio "
+            "nos outros. A caixa sai quando uma linha aceita do leitor caro a cobre."
         ),
     )
     hidden_fonts: tuple[str, ...] = PField(
@@ -537,7 +537,8 @@ class Chunk(_Frozen):
             "Graus, no sentido anti-horário, que o leitor girou a página para ler a linha em "
             "pé. A caixa fica no sistema da imagem; sem `layout=`, `reading_order` segue a "
             "leitura. Meça antes de reagrupar as linhas girando as caixas. O giro é da "
-            "linha: na folha de cabeça para baixo, o carimbo aposto em pé fica com 0."
+            "linha: na folha de cabeça para baixo, o carimbo aposto em pé fica com 0. A "
+            "linha de través na folha, como a tarja da margem, leva o giro da folha."
         ),
     )
     kind: str | None = PField(
@@ -1285,8 +1286,7 @@ class Result(_Frozen):
         """O JSON sem `schema_version` foi gravado antes de o campo existir: é da versão 1."""
         if not isinstance(data, dict):
             return data
-        fields = cast("dict[str, object]", data)
-        return fields if "schema_version" in fields else {**fields, "schema_version": "1"}
+        return {"schema_version": "1", **cast("dict[str, object]", data)}
 
     def by_page(self) -> dict[int, list[Chunk]]:
         """Os chunks de cada página, na ordem de leitura.

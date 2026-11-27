@@ -210,7 +210,7 @@ def _row(y0: float, text: str, score: float, *, sideways: bool = False) -> _Line
     """Uma linha deitada à altura `y0`, ou a tarja vertical na margem direita com `sideways`."""
     if sideways:
         return _Line(BBox(x0=0.93, y0=0.3, x1=0.95, y1=0.7), text, score, sideways=True)
-    return _Line(BBox(x0=0.1, y0=y0, x1=0.9, y1=y0 + 0.02), text, score)
+    return _Line(BBox(x0=0.1, y0=y0, x1=0.9, y1=y0 + 0.02), text, score, sideways=False)
 
 
 def _turned(line: _Line) -> _Line:
@@ -219,7 +219,10 @@ def _turned(line: _Line) -> _Line:
 
 
 def test_a_sheet_whose_long_lines_read_better_turned_is_upside_down_line_by_line():
-    """O corpo vem da leitura girada, com `turn=180`; a tarja e o rodapé em pé ficam como eram."""
+    """O corpo vem da leitura girada, com `turn=180`, e o rodapé em pé fica com `0`.
+
+    A tarja é de través na folha: fica a leitura dela como está, com o giro da folha.
+    """
     footer = _row(0.90, "Documento assinado digitalmente", 0.99)
     stamp = _row(0.0, "Este documento foi assinado", 0.97, sideways=True)
     as_is = [_row(0.10, " n  n oe n o  n s", 0.55), _row(0.14, "o    r  e n", 0.41), footer, stamp]
@@ -237,7 +240,7 @@ def test_a_sheet_whose_long_lines_read_better_turned_is_upside_down_line_by_line
         ("segunda linha do corpo da folha", 180),
         ("primeira linha do corpo da folha", 180),
         ("Documento assinado digitalmente", 0),
-        ("Este documento foi assinado", 0),
+        ("Este documento foi assinado", 180),
     ]
     back, expected = lines[0].box, as_is[1].box
     assert (back.x0, back.y0, back.x1, back.y1) == pytest.approx(

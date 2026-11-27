@@ -3211,3 +3211,18 @@ def test_a_region_reread_drops_the_slivers_of_the_neighbouring_lines():
         "CPF",
     ]
     assert "Valor R$ 10,00" in {c.text for c in result.chunks}, "a linha de baixo segue a barata"
+
+
+@pytest.mark.parametrize("turn", [90, 180, 270])
+def test_the_other_family_rereads_upright_the_page_the_cheap_read_turned(turn):
+    """O leitor de `confirm=` não gira a página sozinho: recebe a folha como a barata a leu."""
+    confirm = _RecordingVLM(text="CPF 529.982.247-25")
+    confirm.name = "outra-familia"
+    process(
+        make_scanned_pdf(pixels=(600, 800)),
+        policy="evidence",
+        cheap=[_SidewaysOCR(turn)],
+        confirm=confirm,
+    )
+
+    assert [view.turn for view in confirm.views] == [turn]

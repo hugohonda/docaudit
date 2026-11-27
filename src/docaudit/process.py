@@ -243,8 +243,7 @@ def _covering(box: BBox, read: Sequence[Chunk]) -> list[Chunk]:
     O centro, e não a sobreposição: a tarja do e-SAJ corre a margem inteira
     na vertical, e toda linha do corpo que chega à margem a tocaria.
     """
-    cx, cy = _centre(box)
-    return [c for c in read if _distance(c.bbox, cx, cy) == 0.0]
+    return [c for c in read if c.bbox.holds_centre_of(box)]
 
 
 def _already_read(box: BBox, read: Sequence[Chunk]) -> bool:
@@ -271,7 +270,7 @@ def within(chunks: Sequence[Chunk], box: BBox) -> list[Chunk]:
     """
     out: list[Chunk] = []
     for chunk in chunks:
-        if _distance(box, *_centre(chunk.bbox)) > 0.0:
+        if not box.holds_centre_of(chunk.bbox):
             continue
         clipped = BBox(
             x0=max(chunk.bbox.x0, box.x0),
@@ -683,7 +682,7 @@ def _order_by_layout(chunks: Sequence[Chunk], regions: Sequence[Region]) -> list
 
     Cada linha vai ao bloco que contém o seu centro, ou ao mais próximo quando
     nenhum a contém, e recebe o rótulo do bloco em `kind` se o leitor não deu
-    um. Dentro do bloco, a ordem é a da linha como é lida (`_as_read`): na
+    um. Dentro do bloco, a ordem é a da linha como é lida (`Chunk.as_read`): na
     página lida de lado, de cima para baixo na página em pé. Sem bloco
     nenhum, a ordem de cada leitor fica como veio.
     """
@@ -696,7 +695,7 @@ def _order_by_layout(chunks: Sequence[Chunk], regions: Sequence[Region]) -> list
         by_block[nearest].append(chunk)
     out: list[Chunk] = []
     for i, block in by_block.items():
-        for chunk in sorted(block, key=lambda c: (_as_read(c).y0, _as_read(c).x0)):
+        for chunk in sorted(block, key=lambda c: (c.as_read().y0, c.as_read().x0)):
             out.append(
                 chunk.model_copy(
                     update={"reading_order": len(out), "kind": chunk.kind or regions[i].label}
@@ -902,12 +901,7 @@ def _has_letter(text: str) -> bool:
 
 def _same_place(a: Chunk, b: Chunk) -> bool:
     """O centro de uma caixa dentro da outra: a mesma linha no mesmo lugar da folha."""
-    return _already_read(a.bbox, [b]) or _already_read(b.bbox, [a])
-
-
-def _as_read(chunk: Chunk) -> BBox:
-    """A caixa como a linha é lida: em pé, na página girada `turn` graus."""
-    return chunk.as_read()
+    return b.bbox.holds_centre_of(a.bbox) or a.bbox.holds_centre_of(b.bbox)
 
 
 def _is_vertical(box: BBox) -> bool:
@@ -921,7 +915,7 @@ def _is_strip(chunk: Chunk) -> bool:
     Uma letra só não tem direção. O glifo é mais alto que largo, e o `x` de
     uma caixa de seleção repetido no meio da página pareceria tarja.
     """
-    return len("".join(chunk.text.split())) > 1 and _is_vertical(_as_read(chunk))
+    return len("".join(chunk.text.split())) > 1 and _is_vertical(chunk.as_read())
 
 
 def _repeated_elsewhere(items: Sequence[Chunk], copy_of: Mapping[int, object]) -> set[str]:
@@ -986,7 +980,7 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
             form = form_of(chunk.text)
             if _LETTER.search(form):
                 by_form[form].append(chunk)
-                if not _is_vertical(_as_read(chunk)):
+                if not _is_vertical(chunk.as_read()):
                     forms[chunk.page].add(form)
     copy_of = {c.page: frozenset(forms[c.page]) or c.page for cs in by_page.values() for c in cs}
     if len(set(copy_of.values())) == 1:
@@ -1000,8 +994,8 @@ def mark_furniture(by_page: Mapping[int, Sequence[Chunk]]) -> dict[int, list[Chu
         marked = {c.id for c in chunks if c.id in repeated and _is_strip(c)}
         for turn in {c.turn for c in chunks}:
             horizontal = sorted(
-                (c for c in chunks if c.turn == turn and not _is_vertical(_as_read(c))),
-                key=lambda c: (_as_read(c).y0, _as_read(c).x0),
+                (c for c in chunks if c.turn == turn and not _is_vertical(c.as_read())),
+                key=lambda c: (c.as_read().y0, c.as_read().x0),
             )
             for sequence in (horizontal, reversed(horizontal)):
                 for chunk in sequence:
@@ -1279,7 +1273,10 @@ def _confirm_stage(
         for backend in families:
             who = f"releitura por {backend.name}"
             try:
-                other, hit, _ = _read_cached(view, backend, run.cache)
+                # A camada de texto não passa pelos pixels: só o leitor de pixels a vê em pé.
+                layer_read = isinstance(backend, TextLayerReader)
+                turn: Turn = 0 if layer_read else _turn_of(chunks)
+                other, hit = _read_upright(view, backend, run.cache, turn)
             except RuntimeError as exc:
                 run.failures[page.index].append(_warn_failure(backend, page, exc))
                 steps.append(f"{who} falhou: {exc}")
@@ -1653,6 +1650,23 @@ def _on_the_line(chunk: Chunk, box: BBox, turn: Turn) -> bool:
     return read.y0 <= middle <= read.y1
 
 
+def _read_upright(
+    view: PageView, reader: Reader, cache: ModelCallCache | None, turn: Turn
+) -> tuple[list[Chunk], bool]:
+    """A página inteira lida por `reader`, girada `turn` graus para ele a ver em pé.
+
+    É o giro em que a leitura barata leu a maioria das linhas. O leitor que
+    não gira a página sozinho leria a folha invertida como lixo. As caixas
+    voltam ao sistema da imagem, e a ordem é a do leitor.
+    """
+    if not turn:
+        cached, hit, _ = _read_cached(view, reader, cache)
+        return list(cached), hit
+    whole = BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0)
+    found, hit = read_region(view, whole, reader, cache, turn=turn)
+    return [c.model_copy(update={"reading_order": i}) for i, c in enumerate(found)], hit
+
+
 def _strong_one(
     run: _Run,
     page: Page,
@@ -1679,13 +1693,7 @@ def _strong_one(
                 hit = hit and found_hit
             scope = f"{len(boxes)} recorte(s) das linhas que falharam"
             return _StrongRead(page, strong, hit, scope, True, None, layout_hit=layout_hit)
-        if turn:
-            whole = BBox(x0=0.0, y0=0.0, x1=1.0, y1=1.0)
-            found, hit = read_region(view, whole, backend, run.cache, turn=turn)
-            read = [c.model_copy(update={"reading_order": i}) for i, c in enumerate(found)]
-        else:
-            cached, hit, _ = _read_cached(view, backend, run.cache)
-            read = list(cached)
+        read, hit = _read_upright(view, backend, run.cache, turn)
         return _StrongRead(page, read, hit, "a página inteira", False, None, layout_hit=layout_hit)
     except RuntimeError as exc:
         return _StrongRead(page, [], False, "", bool(boxes), exc, layout_hit=layout_hit)
