@@ -136,6 +136,15 @@ precisa conhecer antes de confiar num resultado.
 - **Uma resposta cortada no teto de tokens falha a página.** É o caso de
   um modelo que entra em laço de repetição. A página fica com a leitura
   barata.
+- **O leitor `vlm` inventa valores na página que ninguém lê.** Diante de
+  uma cópia ilegível, um modelo de linguagem completa o padrão que espera:
+  devolve uma tabela limpa, com números em sequência, que não estão na
+  folha. Um identificador inventado pode fechar o próprio dígito
+  verificador. A recusa da linha cara só age quando a leitura barata tem um
+  valor válido a perder, e nessa página ela não leu nada. O `layout=` reduz
+  a invenção na página legível e não a impede na ilegível. Um OCR de pixels
+  como leitor caro devolve quase nada nessa página. Com o `vlm`, confira
+  contra outra leitura todo valor que só ele trouxe.
 - **O leitor `vlm` sem detector devolve a página como um trecho só.** A
   caixa cobre a página inteira, a página tem uma referência só em
   `Result.refs()`, e `Document.crop` dessa caixa é a página inteira. Um
