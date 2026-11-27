@@ -3021,15 +3021,19 @@ class _LeavesUnread:
         )
 
 
-def test_a_page_with_more_lines_detected_than_read_is_incomplete_and_says_where():
-    """Um carimbo lido e o corpo sem leitura: a página não some, sai marcada e com as caixas."""
+def test_a_page_with_more_lines_detected_than_read_is_listed_for_review_and_says_where():
+    """Um carimbo lido e o corpo sem leitura: a página não some, sai marcada e com as caixas.
+
+    Nenhum leitor falhou: `incomplete` segue falso, e o motivo é outro.
+    """
     result = process(make_scanned_pdf(), policy="all_cheap", cheap=[_LeavesUnread(1, 3)])
 
     assert [c.text for c in result.chunks] == ["linha 0 lida"]
     assert len(result.pages[0].unread_lines) == 3
     assert result.pages[0].unread_lines[0] == BBox(x0=0.1, y0=0.5, x1=0.9, y1=0.52)
-    assert result.decisions[0].incomplete
-    assert result.review() == {0: ("incomplete",)}
+    assert not result.decisions[0].incomplete
+    assert not result.decisions[0].failures
+    assert result.review() == {0: ("unread_lines",)}
     assert any("sem leitura" in step for step in result.decisions[0].steps)
     assert result.decisions[0].tier is Tier.CHEAP, "sem sinal na política, nada escala"
 
@@ -3039,7 +3043,6 @@ def test_a_few_unread_lines_on_a_page_that_was_read_do_not_mark_it():
     result = process(make_scanned_pdf(), policy="all_cheap", cheap=[_LeavesUnread(3, 1)])
 
     assert len(result.pages[0].unread_lines) == 1
-    assert not result.decisions[0].incomplete
     assert result.review() == {}
 
 
@@ -3048,7 +3051,7 @@ def test_a_page_where_nothing_was_read_keeps_the_boxes_of_what_was_detected():
 
     assert not result.chunks
     assert len(result.pages[0].unread_lines) == 2
-    assert result.decisions[0].incomplete
+    assert result.review() == {0: ("unread_lines",)}
 
 
 def test_the_unread_lines_are_served_from_the_cache_as_they_were_read(tmp_path):
@@ -3059,7 +3062,7 @@ def test_the_unread_lines_are_served_from_the_cache_as_they_were_read(tmp_path):
 
     assert reader.calls == 1
     assert again.pages[0].unread_lines == first.pages[0].unread_lines
-    assert again.decisions[0].incomplete
+    assert again.review() == first.review() == {0: ("unread_lines",)}
     cache.close()
 
 
@@ -3072,15 +3075,15 @@ def test_evidence_sends_the_page_with_most_lines_unread_to_the_strong_reader():
     assert decision.tier is Tier.STRONG
     assert decision.signals == {"linhas sem leitura": 3}
     assert vlm.name in result.read_by()[0]
-    assert not decision.incomplete
     assert result.pages[0].unread_lines == ()
+    assert "unread_lines" not in result.review().get(0, ())
 
 
 def test_without_a_strong_reader_the_page_with_most_lines_unread_stays_marked():
     result = process(make_scanned_pdf(), policy="evidence", cheap=[_LeavesUnread(1, 3)])
 
     assert result.decisions[0].signals == {"linhas sem leitura": 3}
-    assert result.decisions[0].incomplete
+    assert result.review() == {0: ("unread_lines",)}
     assert len(result.pages[0].unread_lines) == 3
 
 
@@ -3111,7 +3114,7 @@ def test_the_unread_lines_of_a_raster_come_back_on_the_page_and_not_over_what_wa
     (box,) = page.unread_lines
     assert raster.x0 < (box.x0 + box.x1) / 2 < raster.x1
     assert raster.y0 < (box.y0 + box.y1) / 2 < raster.y1
-    assert not result.decisions[0].incomplete, "uma caixa sem leitura contra uma linha lida"
+    assert result.review() == {}, "uma caixa sem leitura contra uma linha lida"
 
 
 def test_a_line_the_strong_reader_turns_inside_a_turned_page_adds_its_turn_to_the_page():

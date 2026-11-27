@@ -776,7 +776,7 @@
     },
     "unread_lines": {
      "default": [],
-     "description": "Caixas das linhas que o leitor de pixels detectou e não leu: a nota do reconhecedor ficou abaixo do corte dele. É tinta na página sem texto no resultado. Vazio na página que nenhum leitor de pixels leu.",
+     "description": "Caixas das linhas que o leitor detectou e não leu: a nota do reconhecedor ficou abaixo do corte dele. É tinta na página sem texto no resultado. Só o leitor que devolve um `Read` as informa, como o PP-OCR; vazio nos outros, e quando o leitor caro leu a folha inteira.",
      "items": {
       "$ref": "#/$defs/BBox"
      },
@@ -856,7 +856,7 @@
     },
     "incomplete": {
      "default": false,
-     "description": "Um leitor falhou e nenhum outro leu no lugar dele, ou o leitor de pixels detectou mais linhas do que a página tem lidas (`Page.unread_lines`): as linhas da página, se houver, são só parte dela. Falso quando o seguinte da cascata leu, quando o leitor caro leu a folha inteira, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes da leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura barata, e sem linha nenhuma sai verdadeiro.",
+     "description": "Um leitor falhou e nenhum outro leu no lugar dele: as linhas da página, se houver, são só parte dela. Falso quando o seguinte da cascata leu, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes da leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura barata, e sem linha nenhuma sai verdadeiro.",
      "title": "Incomplete",
      "type": "boolean"
     },

@@ -57,7 +57,6 @@ from docaudit.policies import (
     fold_lookalikes,
     garbled_runs,
     get_policy,
-    mostly_unread,
     touched_lines,
 )
 from docaudit.registry import get_backend
@@ -90,6 +89,7 @@ from docaudit.types import (
     TriagePolicy,
     TrustLayer,
     Turn,
+    mostly_unread,
     reading_order_key,
 )
 
@@ -534,8 +534,8 @@ def _from_rasters(
         unread=[
             b
             for b in undecoded
-            if any(_distance(raster, *_centre(b)) == 0.0 for _, raster in rasters)
-            and not _already_read(b, read)
+            if any(raster.holds_centre_of(b) for _, raster in rasters)
+            and not any(c.bbox.holds_centre_of(b) for c in read)
         ]
     )
     taken: set[str] = set()
@@ -907,7 +907,7 @@ def _same_place(a: Chunk, b: Chunk) -> bool:
 
 def _as_read(chunk: Chunk) -> BBox:
     """A caixa como a linha é lida: em pé, na página girada `turn` graus."""
-    return chunk.bbox.unturned((360 - chunk.turn) % 360)
+    return chunk.as_read()
 
 
 def _is_vertical(box: BBox) -> bool:
@@ -1101,12 +1101,7 @@ class _Run:
 
 def _with_unread_lines(run: _Run, pages: Sequence[Page]) -> list[Page]:
     """As páginas com as caixas detectadas e não lidas em `Page.unread_lines`."""
-    return [
-        p.model_copy(update={"unread_lines": run.unread.get(p.index, ())})
-        if p.unread_lines != run.unread.get(p.index, ())
-        else p
-        for p in pages
-    ]
+    return [p.model_copy(update={"unread_lines": run.unread.get(p.index, ())}) for p in pages]
 
 
 def _cheap_stage(
@@ -1160,7 +1155,6 @@ def _cheap_stage(
         if read.unread:
             run.unread[page.index] = read.unread
             if mostly_unread(read.unread, read.chunks):
-                run.incomplete.add(page.index)
                 run.steps[page.index].append(
                     f"tier barato: {len(read.unread)} linha(s) detectada(s) sem leitura, "
                     "a maioria da página"
@@ -1785,8 +1779,8 @@ def _strong_stage(
                 merged = clean
             by_page[page.index] = merged
             if not read.by_region:
-                # A folha inteira foi lida de novo: o que a barata deixou sem ler não vale mais.
                 run.incomplete.discard(page.index)
+                # A folha inteira foi lida de novo: o que a barata deixou sem ler não vale mais.
                 run.unread.pop(page.index, None)
             kept = len(merged) - len(accepted)
             run.spent["pages_strong"] += 1

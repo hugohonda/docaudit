@@ -20,7 +20,7 @@ cada objeto. Toda caixa segue [a convenção de `BBox`](#bbox).
 | `folha` | a folha dos autos carimbada na página, ou `null`; ver [`Folha`](#folha) |
 | `gazette` | o cabeçalho de diário oficial da página, ou `null`; ver [`Gazette`](#gazette) |
 | `unread` | as caixas das imagens e dos desenhos que nenhuma camada de texto leu, de cima para baixo e da esquerda para a direita. Rasters que se tocam formam uma caixa só. O índice nesta lista é o que `Chunk.region` aponta |
-| `unread_lines` | as caixas das linhas que o leitor de pixels detectou e não leu: há tinta ali e nenhum texto no resultado. Vazio quando nenhum leitor de pixels leu a página, e quando o leitor caro leu a folha inteira |
+| `unread_lines` | as caixas das linhas que o leitor detectou e não leu: há tinta ali e nenhum texto no resultado. Só o leitor que devolve um `Read` as informa, como o PP-OCR. Vazio nos outros, e quando o leitor caro leu a folha inteira. A página em que elas são mais que as linhas lidas aparece em `Result.review()` com `unread_lines` |
 | `hidden_fonts` | os nomes das fontes do texto escondido, sem repetição. Dizem quem escreveu a camada de OCR: o Tesseract deixa `GlyphLessFont`. Vazio numa página nato-digital |
 
 ## `Gazette`
@@ -99,7 +99,7 @@ O [trecho](../glossary.md#trecho) é a unidade de texto lido.
 | `source` | o nome do leitor que leu o trecho |
 | `confidence` | a confiança média que o motor deu, em `[0, 1]`, ou `null` |
 | `reading_order` | a posição do trecho na ordem de leitura da página, ou `null` |
-| `turn` | os graus, no sentido anti-horário, que o leitor girou a página para ler a linha em pé: `0`, `90`, `180` ou `270`. A caixa não gira. Numa folha de cabeça para baixo, o carimbo aposto em pé depois da digitalização sai com `0` |
+| `turn` | os graus, no sentido anti-horário, que o leitor girou a página para ler a linha em pé: `0`, `90`, `180` ou `270`. A caixa não gira: `Chunk.as_read()` dá a caixa como a linha é lida, para agrupar e ordenar. Numa folha de cabeça para baixo, o carimbo aposto em pé depois da digitalização sai com `0` |
 | `kind` | o tipo da região de layout de onde o texto veio, como `text`, `table` ou `paragraph_title`, quando há detector de layout |
 | `line_break_hyphens` | os índices em `text` dos hífens que estavam numa quebra de linha do PDF, na camada de texto. O hífen fica no texto, e quem lê decide se junta as metades. A palavra que continua noutra coluna, ou depois de outra linha, sai em dois trechos, o primeiro terminando no hífen |
 | `region` | o índice em `Page.unread` do raster de onde a linha veio, quando um leitor de pixels a leu num raster que a camada de texto não leu; `null` nos outros casos |
@@ -282,7 +282,7 @@ A [decisão da política](../glossary.md#decisao-da-politica) de uma página.
 | `signals` | a contagem de cada sinal que disparou, pelo nome do sinal |
 | `steps` | o que `process()` fez com a página, uma frase por passo, na ordem |
 | `failures` | cada leitor que falhou na página, como `<leitor>: <mensagem>`: o da cascata que passou a vez ao seguinte, o da releitura, o leitor caro. Vazio quando nenhum falhou |
-| `incomplete` | `true` quando um leitor falhou e nenhum outro leu no lugar dele, e quando o leitor de pixels detectou mais linhas do que a página tem lidas (`Page.unread_lines`): as linhas, se houver, são só parte da página. `false` quando o seguinte da cascata leu, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes da leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura barata. Sem linha nenhuma, ela sai com `true` |
+| `incomplete` | `true` quando um leitor falhou e nenhum outro leu no lugar dele: as linhas, se houver, são só parte da página. `false` quando o seguinte da cascata leu, e quando só o leitor caro falhou e a leitura barata ficou. Numa política que decide antes da leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura barata. Sem linha nenhuma, ela sai com `true` |
 | `seconds` | os segundos de parede de cada etapa que tocou a página: `cheap`, com a detecção de layout, `confirm` e `strong`. A leitura do cache conta o tempo que levou |
 
 `tier` é o veredito da política, e não o que rodou. Sem leitor caro

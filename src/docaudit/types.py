@@ -69,6 +69,7 @@ __all__ = [
     "TriagePolicy",
     "TrustLayer",
     "chunk_schema_digest",
+    "mostly_unread",
     "reading_order_key",
 ]
 
@@ -145,6 +146,15 @@ class BBox(_Frozen):
         width = min(self.x1, other.x1) - max(self.x0, other.x0)
         height = min(self.y1, other.y1) - max(self.y0, other.y0)
         return max(width, 0.0) * max(height, 0.0)
+
+    def holds_centre_of(self, other: BBox) -> bool:
+        """Se o centro de `other` cai nesta caixa: as duas estão no mesmo lugar da folha.
+
+        O centro, e não a sobreposição: a tarja vertical corre a margem inteira,
+        e toda linha do corpo que chega à margem a tocaria.
+        """
+        cx, cy = (other.x0 + other.x1) / 2, (other.y0 + other.y1) / 2
+        return self.x0 <= cx <= self.x1 and self.y0 <= cy <= self.y1
 
     def key(self) -> str:
         """A caixa como texto, com quatro casas: entra nos ids e nas chaves do cache."""
@@ -472,9 +482,10 @@ class Page(_Frozen):
     unread_lines: tuple[BBox, ...] = PField(
         default=(),
         description=(
-            "Caixas das linhas que o leitor de pixels detectou e não leu: a nota do "
-            "reconhecedor ficou abaixo do corte dele. É tinta na página sem texto no "
-            "resultado. Vazio na página que nenhum leitor de pixels leu."
+            "Caixas das linhas que o leitor detectou e não leu: a nota do reconhecedor "
+            "ficou abaixo do corte dele. É tinta na página sem texto no resultado. Só o "
+            "leitor que devolve um `Read` as informa, como o PP-OCR; vazio nos outros, e "
+            "quando o leitor caro leu a folha inteira."
         ),
     )
     hidden_fonts: tuple[str, ...] = PField(
@@ -573,6 +584,14 @@ class Chunk(_Frozen):
             "e para ficar só com o corpo vale `furniture`."
         ),
     )
+
+    def as_read(self) -> BBox:
+        """A caixa como a linha é lida: em pé, na página girada `turn` graus.
+
+        É a geometria para agrupar e ordenar linhas de uma página lida girada.
+        `bbox` segue no sistema da imagem, que é onde a tinta está.
+        """
+        return self.bbox.unturned((360 - self.turn) % 360)
 
     @staticmethod
     def make_id(document: str, bbox: BBox, source: str, text: str, *, page: int) -> str:
@@ -934,8 +953,9 @@ def _blocks_of(lines: Sequence[Chunk], gap: float) -> list[list[list[Chunk]]]:
     A geometria é a da página como a linha é lida: a caixa de uma linha de
     cabeça para baixo é desvirada antes de entrar numa fileira.
     """
-    upright = {c.id: c for c in lines}
-    as_read = [c.model_copy(update={"bbox": c.bbox.unturned((360 - c.turn) % 360)}) for c in lines]
+    # A linha em pé já está na geometria em que é lida: só a girada ganha uma cópia.
+    as_read = [c if c.turn == 0 else c.model_copy(update={"bbox": c.as_read()}) for c in lines]
+    original = dict(zip(map(id, as_read), lines, strict=True))
     heights = sorted(c.bbox.y1 - c.bbox.y0 for c in as_read)
     median = heights[len(heights) // 2] if heights else 0.0
     blocks: list[list[list[Chunk]]] = []
@@ -943,9 +963,9 @@ def _blocks_of(lines: Sequence[Chunk], gap: float) -> list[list[list[Chunk]]]:
     for row in _rows_of(as_read):
         span = BBox.envelope([c.bbox for c in row])
         if blocks and span.y0 - bottom <= gap * median:
-            blocks[-1].append([upright[c.id] for c in row])
+            blocks[-1].append([original[id(c)] for c in row])
         else:
-            blocks.append([[upright[c.id] for c in row]])
+            blocks.append([[original[id(c)] for c in row]])
         bottom = span.y1
     return blocks
 
@@ -968,6 +988,16 @@ class Read(list[Chunk]):
         """Guarda as linhas lidas e, em `unread`, a caixa de cada linha detectada e não lida."""
         super().__init__(chunks)
         self.unread: tuple[BBox, ...] = tuple(unread)
+
+
+def mostly_unread(unread: Sequence[BBox], chunks: Sequence[Chunk]) -> bool:
+    """Se a página tem mais linhas detectadas e não lidas do que linhas lidas.
+
+    Uma maioria, sem limiar. Conta toda linha da página, e não só as do leitor
+    de pixels: a assinatura sem leitura numa página de texto composto é
+    minoria, e a digitalização que o leitor não leu sob dois carimbos é maioria.
+    """
+    return len(unread) > len(chunks)
 
 
 class Tier(StrEnum):
@@ -1009,10 +1039,8 @@ class RoutingDecision(_Frozen):
     incomplete: bool = PField(
         default=False,
         description=(
-            "Um leitor falhou e nenhum outro leu no lugar dele, ou o leitor de pixels "
-            "detectou mais linhas do que a página tem lidas (`Page.unread_lines`): as linhas "
-            "da página, se houver, são só parte dela. Falso quando o seguinte da cascata leu, "
-            "quando o leitor caro leu a folha inteira, e quando só o "
+            "Um leitor falhou e nenhum outro leu no lugar dele: as linhas da página, se "
+            "houver, são só parte dela. Falso quando o seguinte da cascata leu, e quando só o "
             "leitor caro falhou e a leitura barata ficou. Numa política que decide antes da "
             "leitura barata, como `all_strong`, a página que o leitor caro recusou não tem leitura "
             "barata, e sem linha nenhuma sai verdadeiro."
@@ -1176,7 +1204,14 @@ def _letters_and_digits(text: str) -> str:
     return "".join(ch for ch in fold_lookalikes(text) if ch.isalnum())
 
 
-REVIEW_REASONS = ("incomplete", "reader_failed", "failed_value", "printed_invalid", "two_readings")
+REVIEW_REASONS = (
+    "incomplete",
+    "unread_lines",
+    "reader_failed",
+    "failed_value",
+    "printed_invalid",
+    "two_readings",
+)
 """Os motivos de `Result.review`, na ordem em que saem."""
 
 SCHEMA_VERSION = "2"
@@ -1297,9 +1332,10 @@ class Result(_Frozen):
 
         Cada motivo é um fato categórico deste resultado, sem limiar, na ordem de
         `REVIEW_REASONS`: `incomplete`, um leitor falhou e ninguém leu no lugar
-        dele, ou a maioria das linhas detectadas ficou sem leitura;
-        `reader_failed`, um leitor falhou e outro cobriu; `failed_value`, um
-        valor falha a regra e nenhuma outra família o leu igual;
+        dele; `unread_lines`, o leitor detectou mais linhas do que a página tem
+        lidas (`Page.unread_lines`); `reader_failed`, um leitor falhou e outro
+        cobriu; `failed_value`, um valor falha a regra e nenhuma outra família
+        o leu igual;
         `printed_invalid`, o valor falha e outra família leu igual, o erro é do
         documento; `two_readings`, outro leitor leu a linha de outro modo e a
         dúvida ficou. Diz onde olhar, e não que o resto está certo: a leitura
@@ -1311,6 +1347,12 @@ class Result(_Frozen):
                 found.setdefault(decision.page, set()).add("incomplete")
             elif decision.failures:
                 found.setdefault(decision.page, set()).add("reader_failed")
+        lines: dict[int, list[Chunk]] = {}
+        for chunk in self.chunks:
+            lines.setdefault(chunk.page, []).append(chunk)
+        for page in self.pages:
+            if mostly_unread(page.unread_lines, lines.get(page.index, ())):
+                found.setdefault(page.index, set()).add("unread_lines")
         for entity in self.entities:
             if entity.state is EntityState.FAILED:
                 reason = "failed_value" if entity.printed is None else "printed_invalid"
@@ -1729,7 +1771,13 @@ class Reader(Protocol):
         """
         ...
 
-    def read(self, view: PageView) -> Sequence[Chunk]: ...
+    def read(self, view: PageView) -> Sequence[Chunk]:
+        """As linhas que o leitor leu em `view`: uma página, ou um recorte dela.
+
+        O leitor que sabe o que detectou e não leu devolve um `Read`, que é
+        uma lista de linhas com as caixas sem leitura em `unread`.
+        """
+        ...
 
 
 @runtime_checkable

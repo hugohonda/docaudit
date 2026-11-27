@@ -270,7 +270,7 @@ Dentro dele, vence a página com mais ocorrências. Essa ordem não foi medida.
 | sinal | padrão | o que conta |
 |---|---|---|
 | `EmptyRead()` | sim | a leitura que não trouxe texto nenhum. Uma folha em branco também volta vazia |
-| `UnreadLines()` | sim | a página em que o leitor de pixels detectou mais linhas do que a página tem lidas (`Page.unread_lines`): a digitalização que ele não soube ler, o manuscrito, a cópia fraca. A página de foto ou de assinaturas também dispara |
+| `UnreadLines()` | sim | a página em que o leitor detectou mais linhas do que a página tem lidas (`Page.unread_lines`, que o PP-OCR informa): a digitalização que ele não soube ler, o manuscrito, a cópia fraca. A página de foto ou de assinaturas também dispara |
 | `GarbledText()` | sim | caracteres que só uma decodificação quebrada produz: o de substituição U+FFFD, os da área de uso privado, que saem de uma fonte sem tabela ToUnicode, e os de controle, exceto tabulação e quebra de linha. Vale também em texto composto, porque reler os pixels conserta o que a decodificação quebrou |
 | `FailsCheck(CPF)`, `FailsCheck(CNPJ)`, `FailsCheck(CNJ)` | sim | o identificador na pontuação de sempre com dígito verificador errado. O CNPJ pode ser alfanumérico |
 | `FailsCheck(AMOUNT_BRL)` | sim | o valor em reais que a grafia brasileira não permite: duas vírgulas, espaço entre grupos de milhar depois do `R$`, letra no lugar de dígito, grupo sem três dígitos |

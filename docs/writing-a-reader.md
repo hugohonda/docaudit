@@ -75,7 +75,7 @@ detecção de elementos fixos julga a linha como se a página estivesse em pé.
 O leitor que detecta uma linha e não consegue lê-la devolve um `Read`: a
 lista das linhas lidas, com a caixa de cada linha sem leitura em `unread`.
 `process()` leva essas caixas a `Page.unread_lines`, e a página em que elas
-são a maioria sai marcada. Devolver uma lista comum continua valendo.
+são a maioria aparece em `Result.review()`. Devolver uma lista comum continua valendo.
 
 ```python
 from docaudit.types import Read

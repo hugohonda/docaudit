@@ -25,6 +25,7 @@ from docaudit.types import (
     EntityState,
     RoutingDecision,
     Tier,
+    mostly_unread,
 )
 
 if TYPE_CHECKING:
@@ -87,7 +88,6 @@ __all__ = [
     "garbled_runs",
     "get_policy",
     "mojibake_in",
-    "mostly_unread",
     "signal",
 ]
 
@@ -1337,18 +1337,8 @@ class EmptyRead:
         return 0 if _text_of(chunks).strip() else 1
 
 
-def mostly_unread(unread: Sequence[BBox], chunks: Sequence[Chunk]) -> bool:
-    """Se a página tem mais linhas detectadas e não lidas do que linhas lidas.
-
-    Uma maioria, sem limiar. Conta toda linha da página, e não só as do leitor
-    de pixels: a assinatura sem leitura numa página de texto composto é
-    minoria, e a digitalização que o leitor não leu sob dois carimbos é maioria.
-    """
-    return len(unread) > len(chunks)
-
-
 class UnreadLines:
-    """O leitor de pixels detectou mais linhas do que leu.
+    """O leitor detectou mais linhas do que a página tem lidas (`Page.unread_lines`).
 
     É a folha com tinta e quase sem texto: a digitalização que o reconhecedor
     não soube ler, o manuscrito, a cópia fraca. A foto e a assinatura que

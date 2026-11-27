@@ -147,17 +147,20 @@ print(result.spent.usd, result.spent.tokens_in, result.spent.tokens_out)
 ### Só a página que a leitura barata não leu
 
 O serviço de um provedor serve de última etapa: a leitura barata lê o
-documento inteiro na máquina, e só a página que ela não leu sai. A política
-`evidence` encaminha a página vazia e a página com mais linhas detectadas do
-que lidas, que é a folha manuscrita ou a cópia fraca. O teto de `Budget`
-limita quantas páginas vão ao provedor.
+documento inteiro na máquina, e só a página encaminhada sai. Com os sinais
+abaixo, a política `evidence` encaminha a página vazia e a página com mais
+linhas detectadas do que lidas, que é a folha manuscrita ou a cópia fraca.
+Com os sinais padrão, sai também a página com texto mal decodificado ou com
+um valor que falha a regra. O teto de `Budget` limita quantas páginas vão ao
+provedor.
 
 ```python
 from docaudit import Budget
+from docaudit.policies import EmptyRead, EvidenceRouter, UnreadLines
 
 result = process(
     "documento-publico.pdf",
-    policy="evidence",
+    policy=EvidenceRouter([EmptyRead(), UnreadLines()]),
     strong=reader,
     allow_external=True,
     budget=Budget(max_strong_pages=20),
@@ -167,9 +170,12 @@ for page, reasons in result.review().items():
 print(result.read_by())
 ```
 
-`Result.review()` lista a página que ficou incompleta, por estar fora do
-teto ou porque o provedor falhou nela. `Result.read_by()` diz quais páginas
-o leitor externo leu. Passe `layout=` ao leitor: sem ele, o `vlm` devolve
+`Result.review()` lista com `unread_lines` a página que seguiu com mais
+linhas detectadas do que lidas, por estar fora do teto ou porque o provedor
+falhou nela, e com `reader_failed` a que o provedor recusou. O provedor
+recusa páginas: a resposta que estoura `max_tokens` e a que o filtro dele
+bloqueia contam como falha, e a página fica com a leitura barata.
+`Result.read_by()` diz quais páginas o leitor externo leu. Passe `layout=` ao leitor: sem ele, o `vlm` devolve
 um bloco só com a folha inteira, que entra no lugar de todas as linhas da
 leitura barata. O leitor externo vê em pé a página que a leitura barata
 leu girada. A página em que nenhum giro leu chega a ele como está.

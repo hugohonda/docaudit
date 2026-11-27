@@ -12,13 +12,18 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
-- `Page.unread_lines` traz a caixa de cada linha que o leitor de pixels detectou e não leu. A
-  página em que elas são mais que as linhas lidas sai com `RoutingDecision.incomplete`, e
-  `Result.review()` a lista. A folha manuscrita, a cópia fraca e a digitalização que o
-  reconhecedor não soube ler voltavam com poucas linhas ou nenhuma, sem marca.
+- `Page.unread_lines` traz a caixa de cada linha que o PP-OCR detectou e não leu. A página em
+  que elas são mais que as linhas lidas aparece em `Result.review()` com o motivo novo
+  `unread_lines`. A folha manuscrita, a cópia fraca e a digitalização que o reconhecedor não
+  soube ler voltavam com poucas linhas ou nenhuma, sem marca. `RoutingDecision.incomplete` não
+  muda de sentido: segue dizendo que um leitor falhou.
 - O sinal `UnreadLines` entra em `DEFAULT_SIGNALS`: a política `evidence` encaminha ao leitor
-  caro a página com mais linhas detectadas do que lidas. Com um teto em `Budget`, é o caminho
-  para mandar só essas páginas a um leitor externo.
+  caro a página com mais linhas detectadas do que lidas. Com `EvidenceRouter([EmptyRead(),
+  UnreadLines()])` e um teto em `Budget`, só a página que a leitura barata não leu vai a um
+  leitor externo.
+- `Chunk.as_read()` dá a caixa como a linha é lida, em pé. Quem agrupa ou ordena as linhas por
+  conta própria precisa dela na página lida girada: `bbox` segue no sistema da imagem, e as
+  linhas de uma folha de cabeça para baixo estão nele de baixo para cima.
 - `Read`, de `docaudit.types`, é o que um leitor devolve quando sabe o que deixou sem ler: a
   lista das linhas, com as caixas sem leitura em `unread`. Uma lista comum continua valendo.
 

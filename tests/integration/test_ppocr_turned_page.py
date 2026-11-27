@@ -41,6 +41,15 @@ BODY = [
 FOOTER = "Documento assinado digitalmente, protocolo 0001234-56.2019"
 
 
+def _paste_stamp(img, font, dpi: int) -> None:
+    """Cola na margem direita a tarja escrita de baixo para cima, no sistema da imagem."""
+    from PIL import Image, ImageDraw
+
+    band = Image.new("L", (int(dpi * 4.5), int(dpi * 0.3)), 255)
+    ImageDraw.Draw(band).text((5, 5), STAMP, fill=20, font=font)
+    img.paste(band.rotate(90, expand=True), (int(dpi * 7.7), int(dpi * 3.0)))
+
+
 def _sideways_table(
     angle: int, rows: Sequence[tuple[str, str]] = ROWS, stamp: bool = False
 ) -> bytes:
@@ -61,9 +70,7 @@ def _sideways_table(
         draw.text((int(dpi * 0.8), y), name, fill=20, font=font)
         draw.text((int(dpi * 6.0), y), value, fill=20, font=font)
     if stamp:
-        band = Image.new("L", (int(dpi * 4.5), int(dpi * 0.3)), 255)
-        ImageDraw.Draw(band).text((5, 5), STAMP, fill=20, font=font)
-        img.paste(band.rotate(90, expand=True), (int(dpi * 7.7), int(dpi * 3.0)))
+        _paste_stamp(img, font, dpi)
     buf = BytesIO()
     img.rotate(angle, expand=True).save(buf, format="PDF", resolution=float(dpi))
     return buf.getvalue()
@@ -124,9 +131,7 @@ def _sheet(
         draw.text((int(dpi * 0.8), int(dpi * (1.2 + 0.32 * i))), line, fill=20, font=font)
     img = img.rotate(turn, expand=True)
     if stamp:
-        band = Image.new("L", (int(dpi * 4.5), int(dpi * 0.3)), 255)
-        ImageDraw.Draw(band).text((5, 5), STAMP, fill=20, font=font)
-        img.paste(band.rotate(90, expand=True), (int(dpi * 7.7), int(dpi * 3.0)))
+        _paste_stamp(img, font, dpi)
     if footer:
         ImageDraw.Draw(img).text((int(dpi * 0.8), int(dpi * 11.1)), FOOTER, fill=20, font=small)
     buf = BytesIO()
@@ -136,7 +141,7 @@ def _sheet(
 
 def _by_text(chunks: Sequence[docaudit.Chunk]) -> dict[str, docaudit.Chunk]:
     """As linhas pelo texto sem espaços: o reconhecedor às vezes abre um depois da vírgula."""
-    return {"".join(c.text.split()): c for c in chunks}
+    return {_key(c.text): c for c in chunks}
 
 
 def _key(text: str) -> str:
@@ -171,7 +176,7 @@ def test_a_sheet_scanned_upside_down_is_read_line_by_line_and_the_stamps_stay(
     if stamp:
         for word in STAMP_WORDS:
             assert chunks[word].turn == 0, sorted(chunks)
-    assert not result.decisions[0].incomplete
+    assert "unread_lines" not in result.review().get(0, ())
 
 
 @pytest.mark.parametrize("stamp", [False, True])
@@ -248,4 +253,4 @@ def test_the_lines_the_reader_detects_and_cannot_read_come_out_as_unread_boxes()
     assert len(read.unread) < len(read)
     result = docaudit.process(pdf, cheap=[PPOCR()])
     assert result.pages[0].unread_lines == read.unread
-    assert not result.decisions[0].incomplete, "a minoria sem leitura não marca a página"
+    assert result.review() == {}, "a minoria sem leitura não marca a página"

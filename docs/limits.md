@@ -29,14 +29,17 @@ precisa conhecer antes de confiar num resultado.
   Tesseract e o leitor `vlm` não giram a página.
 - **O giro é da linha.** Na folha de cabeça para baixo, a tarja da margem e
   o rodapé carimbado depois da digitalização seguem em pé, com `turn=0`, e o
-  corpo sai com `turn=180`. A folha em que os carimbos em pé são mais que as
-  linhas do corpo fica em pé, e o corpo dela não é lido.
+  corpo sai com `turn=180`. A decisão olha as linhas deitadas mais largas: a
+  folha em que elas são carimbos em pé fica em pé, e o corpo curto dela não
+  é lido. Quem agrupa as linhas por conta própria usa `Chunk.as_read()`: a
+  caixa de uma linha girada segue no sistema da imagem.
 - **A página inclinada não é endireitada.** Só os quatro giros de um quarto
   de volta são tratados.
 - **A linha detectada e não lida não tem texto.** O manuscrito, a cópia
-  fraca e a foto deixam caixas em `Page.unread_lines`. Quando são a maioria
-  da página, ela sai com `RoutingDecision.incomplete`; o texto só vem de um
-  leitor caro que a leia.
+  fraca e a foto deixam caixas em `Page.unread_lines`, quando o leitor é o
+  PP-OCR. Quando são a maioria da página, `Result.review()` a lista com
+  `unread_lines`; o texto só vem de um leitor caro que a leia. O Tesseract e
+  o leitor `vlm` não informam essas caixas.
 - **Consistência entre páginas.** Os sinais veem uma página por vez.
   Conferir que o número do processo é o mesmo em todas as páginas exige
   olhar o documento inteiro. Para isso não há gancho além de uma política

@@ -674,8 +674,8 @@ def test_a_dotted_number_with_an_id_tail_or_after_a_number_label_is_not_an_amoun
 
 def test_unread_lines_fires_only_when_they_outnumber_the_lines_read():
     """A maioria da página sem leitura dispara, com a contagem; a minoria, não."""
-    from docaudit.policies import DEFAULT_SIGNALS, UnreadLines, mostly_unread
-    from docaudit.types import BBox
+    from docaudit.policies import DEFAULT_SIGNALS, UnreadLines
+    from docaudit.types import BBox, mostly_unread
 
     box = BBox(x0=0.1, y0=0.1, x1=0.9, y1=0.2)
     page = make_page(0).model_copy(update={"unread_lines": (box, box)})

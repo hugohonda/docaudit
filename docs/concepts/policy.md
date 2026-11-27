@@ -76,8 +76,8 @@ páginas segue três critérios, nesta ordem:
 Os sinais padrão, `DEFAULT_SIGNALS`, são estes, nesta ordem:
 
 - `EmptyRead`, a leitura vazia;
-- `UnreadLines`, a página em que o leitor de pixels detectou mais linhas do
-  que a página tem lidas;
+- `UnreadLines`, a página em que o leitor detectou mais linhas do que a
+  página tem lidas (`Page.unread_lines`, que o PP-OCR informa);
 - `GarbledText`, o texto mal decodificado;
 - `FailsCheck` de CPF (Cadastro de Pessoas Físicas);
 - `FailsCheck` de CNPJ (Cadastro Nacional da Pessoa Jurídica);
