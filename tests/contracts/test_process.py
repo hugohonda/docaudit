@@ -3364,6 +3364,60 @@ def test_a_page_block_counts_any_cheap_line_of_the_page_as_the_same_place():
     assert result.review()[0] == ("one_reading",)
 
 
+def test_a_costly_line_says_which_of_its_numbers_no_cheap_line_had(scanned_doc):
+    """O número que a linha barata também trazia sai confirmado; o outro, com a posição dele."""
+    result = _costly("fls. 312", "fls. 312, guia 4455", scanned_doc)
+
+    (line,) = result.chunks
+    assert (line.source, line.also_read_by) == ("strong", ("cheap",))
+    assert [line.text[a:b] for a, b in line.unconfirmed or ()] == ["529.982.247-25", "4455"]
+
+
+def test_a_piece_of_a_longer_number_does_not_confirm_a_short_one():
+    """No bloco da página inteira, o `50` dentro de um protocolo não confirma o de uma célula."""
+    cheap = _Boxes(
+        [
+            ("CPF 529.982.247-26", (0.1, 0.10, 0.9, 0.12)),
+            ("protocolo 2020.0000150", (0.1, 0.30, 0.9, 0.32)),
+            ("quantidade 12", (0.1, 0.40, 0.9, 0.42)),
+        ]
+    )
+    strong = FakeVLM(text="CPF 529.982.247-25 quantidade 12 e código 50")
+
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[cheap], strong=strong)
+
+    (block,) = result.chunks
+    assert block.also_read_by == ("boxes",)
+    assert [block.text[a:b] for a, b in block.unconfirmed or ()] == ["529.982.247-25", "50"]
+
+
+def test_a_costly_line_where_no_cheap_line_was_has_every_number_unconfirmed():
+    """Sem linha barata no lugar, ninguém mais leu ali, e a linha diz isso."""
+    cheap = _Boxes([("CPF 529.982.247-26", (0.1, 0.10, 0.9, 0.12))])
+    strong = _Boxes(
+        [
+            ("CPF 529.982.247-25", (0.1, 0.10, 0.9, 0.12)),
+            ("patrimônio 1787888", (0.1, 0.50, 0.9, 0.52)),
+        ]
+    )
+    strong.name = "strong"
+
+    result = process(make_scanned_pdf(), policy="evidence", cheap=[cheap], strong=strong)
+
+    alone = next(c for c in result.chunks if c.text.startswith("patrimônio"))
+    assert alone.also_read_by == ()
+    assert [alone.text[a:b] for a, b in alone.unconfirmed or ()] == ["1787888"]
+
+
+def test_a_cheap_line_was_not_compared_with_another_reading(scanned_doc):
+    """A linha barata não tem outra leitura com que comparar: `None`, e não vazio."""
+    cheap = _Says("cheap", {0: "total R$ 1.234,56"})
+
+    result = process(scanned_doc, cheap=[cheap], policy="all_cheap", pages={0})
+
+    assert [(c.also_read_by, c.unconfirmed) for c in result.chunks] == [((), None)]
+
+
 def test_a_value_of_a_page_only_the_cheap_reader_read_is_not_a_reason(scanned_doc):
     """Sem leitor caro na página, todo valor tem uma leitura só, e isso não é notícia."""
     cheap = _Says("cheap", {0: "total R$ 1.234,56"})

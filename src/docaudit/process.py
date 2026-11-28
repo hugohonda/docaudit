@@ -632,6 +632,32 @@ def _digits(text: str) -> str:
     return re.sub(r"[^0-9]", "", text)
 
 
+_NUMBER = re.compile(r"[0-9][0-9.,/\-]*[0-9]|[0-9]")
+"""Um número como está impresso: os dígitos com os separadores entre eles, sem espaço."""
+
+
+def _compared(line: Chunk, left: Sequence[_Left]) -> Chunk:
+    """A linha do leitor caro com o que as linhas baratas que saíram do lugar dela dizem.
+
+    `also_read_by` traz os leitores dessas linhas, e `unconfirmed` os números
+    da linha que nenhuma delas trazia. O número é comparado inteiro, pelos
+    dígitos: o pedaço de um número maior não confirma um número curto, e é
+    num bloco da página inteira, com todas as linhas baratas da página no
+    lugar, que essa coincidência é mais fácil. Sem linha no lugar, nenhum
+    número da linha tem outra leitura.
+    """
+    others = [x for x in left if x.source != line.source]
+    read = {_digits(m.group()) for x in others for m in _NUMBER.finditer(x.text)}
+    return line.model_copy(
+        update={
+            "also_read_by": tuple(dict.fromkeys(x.source for x in others)),
+            "unconfirmed": tuple(
+                m.span() for m in _NUMBER.finditer(line.text) if _digits(m.group()) not in read
+            ),
+        }
+    )
+
+
 def _explains(check: FailsCheck, value: str, chunk: Chunk) -> bool:
     """Se a linha do leitor caro traz o valor que confere no lugar do inválido.
 
@@ -1864,6 +1890,10 @@ def _strong_stage(
             run.others.extend(lost)
             merged, replaced = _replace_read(cheap, accepted, run.displaced)
             run.others.extend(replaced)
+            entered = {s.id for s in accepted}
+            merged = [
+                _compared(c, run.displaced.get(c.id, ())) if c.id in entered else c for c in merged
+            ]
             # A linha barata que sobra fora das caixas do leitor caro fica
             # porque ninguém a releu. A linha mal decodificada é a exceção
             # quando o leitor caro leu a folha inteira: ela é lixo por
