@@ -105,6 +105,8 @@ O [trecho](../glossary.md#trecho) é a unidade de texto lido.
 | `region` | o índice em `Page.unread` do raster de onde a linha veio, quando um leitor de pixels a leu num raster que a camada de texto não leu; `null` nos outros casos |
 | `inked` | na camada de texto, `true` na linha desenhada com tinta e sem imagem por cima, `false` na invisível ou coberta; `null` na linha de leitor de pixels. Na digitalização com camada de OCR, a linha `true` é texto composto: a tarja e a folha que o tribunal desenha à vista |
 | `furniture` | `true` no [elemento fixo](../glossary.md#elemento-fixo): a linha que se repete, no mesmo lugar, em outra página lida que não é cópia desta, numa sequência a partir do alto ou do pé da folha, ou na vertical da margem. São o cabeçalho, o rodapé e a tarja. A linha fica no resultado |
+| `also_read_by` | na linha que o leitor caro pôs no lugar da leitura barata, os leitores das linhas que saíram dali; vazio quando nenhum outro leitor leu nada nesse lugar |
+| `unconfirmed` | na mesma linha, o começo e o fim, em `text`, de cada número que nenhuma das linhas que saíram trazia. Vazio: todo número foi lido também por outro leitor. `null`: a linha não foi comparada com outra leitura, como a linha barata. Ver [O número que só um leitor leu](../concepts/provenance.md#o-numero-que-so-um-leitor-leu) |
 
 A unidade depende do leitor. A camada de texto, o Tesseract e o PP-OCR
 devolvem uma linha por trecho. O leitor `vlm` com detector de layout devolve

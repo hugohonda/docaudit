@@ -585,6 +585,24 @@ class Chunk(_Frozen):
             "e para ficar só com o corpo vale `furniture`."
         ),
     )
+    also_read_by: tuple[str, ...] = PField(
+        default=(),
+        description=(
+            "Na linha que o leitor caro pôs no lugar da leitura barata, os leitores das linhas "
+            "que saíram dali. Vazio: nenhum outro leitor leu nada nesse lugar. Não entra no `id`."
+        ),
+    )
+    unconfirmed: tuple[tuple[int, int], ...] | None = PField(
+        default=None,
+        description=(
+            "Na linha que o leitor caro pôs no lugar da leitura barata, os números que nenhuma "
+            "das linhas que saíram dali trazia: o começo e o fim de cada um, como em "
+            "`text[começo:fim]`. Um número é uma sequência de dígitos com os separadores entre "
+            "eles, e a comparação é pelos dígitos do número inteiro. Vazio: todo número da "
+            "linha foi lido também por outro leitor. None: a linha não foi comparada com outra "
+            "leitura, que é o caso da linha barata. Não entra no `id`."
+        ),
+    )
 
     def as_read(self) -> BBox:
         """A caixa como a linha é lida: em pé, na página girada `turn` graus.

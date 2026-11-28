@@ -157,7 +157,9 @@ precisa conhecer antes de confiar num resultado.
   [`Entity.also_read_by`](concepts/provenance.md#a-ocorrencia-de-um-valor-e-o-que-a-sustenta)
   vem vazio nele, e `Result.review()` lista a página com `one_reading`. A
   marca só alcança o valor que uma verificação conhece. O código inventado
-  numa tabela não é ocorrência, e nada o marca.
+  numa tabela não é ocorrência: ele sai em `Chunk.unconfirmed`, a posição de
+  cada número da linha que nenhuma linha barata do lugar trazia. O texto
+  inventado que não é número não é comparado.
 - **O leitor `vlm` sem detector devolve a página como um trecho só.** A
   caixa cobre a página inteira, a página tem uma referência só em
   `Result.refs()`, e `Document.crop` dessa caixa é a página inteira. Um
