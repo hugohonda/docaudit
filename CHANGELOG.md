@@ -12,6 +12,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `Chunk.also_read_by` e `Chunk.unconfirmed`: a linha que o leitor caro pôs no lugar da leitura
+  barata diz quais leitores tinham linhas ali e a posição de cada número dela que nenhuma dessas
+  linhas trazia. Alcança o número sem forma própria, como o código de uma tabela, que não é
+  ocorrência. A comparação é pelos dígitos do número inteiro, sem corte por tamanho.
+
 - `Entity.also_read_by` traz os outros leitores que leram o mesmo valor no mesmo lugar: a linha
   barata que o leitor caro substituiu, a camada de OCR, a releitura de `confirm=` e a linha
   recusada do leitor caro. `Result.evidence()` lista cada um como `other_reading` que concorda,

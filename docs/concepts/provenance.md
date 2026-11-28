@@ -189,7 +189,37 @@ todas as linhas baratas da página, e ali o mesmo lugar é a página inteira. Do
 leitores da mesma família erram juntos: a lista traz os nomes, e quem chama
 sabe quais são de famílias diferentes. E o campo só existe nos valores que uma
 verificação conhece: o número sem forma própria, como um código numa tabela,
-não é ocorrência, e nada o marca.
+não é ocorrência. Esse fica na linha, abaixo.
+
+### O número que só um leitor leu
+
+A linha que o leitor caro pôs no lugar da leitura barata diz o que as linhas
+que saíram dali traziam. `Chunk.also_read_by` tem os leitores delas, e
+`Chunk.unconfirmed` a posição, no texto da linha, de cada número que nenhuma
+delas trazia:
+
+```python
+for chunk in result.chunks:
+    for begin, end in chunk.unconfirmed or ():
+        print(chunk.page, chunk.text[begin:end], chunk.also_read_by)
+```
+
+São três casos. Com `also_read_by` vazio, nenhum outro leitor leu nada naquele
+lugar, e todo número da linha tem uma leitura só. Com leitores em
+`also_read_by` e `unconfirmed` vazio, todo número da linha foi lido também.
+Com os dois preenchidos, outro leitor leu ali e não trouxe aqueles números.
+Na linha barata, `unconfirmed` é `None`: ela não foi comparada com outra
+leitura.
+
+Um número é uma sequência de dígitos com os separadores entre eles, sem
+espaço. A comparação é pelos dígitos do número inteiro: o pedaço de um número
+maior não confirma um número curto. Não há corte por tamanho. Um número de um
+ou dois dígitos, como `12`, aparece em tanta linha que a concordância dele
+vale pouco, e quem chama decide a partir de que tamanho olha.
+
+É o que alcança a tabela que um leitor por modelo de linguagem inventa na
+página ilegível: os códigos dela não são ocorrências, e saem todos em
+`unconfirmed`. O texto que não é número não é comparado.
 
 É uma lista, e não um veredito. A tarja repete o mesmo número em toda página
 de um processo, e duas páginas dela não são duas fontes: quem chama decide o
