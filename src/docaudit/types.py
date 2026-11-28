@@ -714,6 +714,15 @@ class Entity(_Frozen):
             "pode ser de leitura."
         ),
     )
+    alike: bool = PField(
+        default=False,
+        description=(
+            "Num valor `failed`, se a falha é a troca que leitores de famílias diferentes fazem "
+            "igual (`Check.alike`), como o ponto no lugar da vírgula decimal de um valor em "
+            "reais. Outro leitor tende a ler a mesma troca: reler não a conserta, e a leitura "
+            "igual de outra família não prova que ela está impressa."
+        ),
+    )
     also_read_by: tuple[str, ...] = PField(
         default=(),
         description=(

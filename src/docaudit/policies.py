@@ -1207,6 +1207,7 @@ def entities_of(
                 bbox=BBox.envelope([c.bbox for c in lines]),
                 chunk_ids=chunk_ids,
                 span=(offset, offset + end - start) if spans else None,
+                alike=not valid and check.alike is not None and check.alike(value),
             )
             found.append((start, entity))
     # Estável: na mesma posição, fica a ordem das verificações.
@@ -1363,15 +1364,30 @@ class FailsCheck:
     conhecido.
     """
 
-    def __init__(self, check: Check) -> None:
-        """Fixa a verificação; o nome do sinal é o do campo."""
+    def __init__(self, check: Check, *, alike: bool = True) -> None:
+        """Fixa a verificação; o nome do sinal é o do campo.
+
+        Com `alike=False`, o sinal não conta o valor que falha pela troca que
+        leitores de famílias diferentes fazem igual (`Check.alike`), como o
+        ponto no lugar da vírgula decimal. Outro leitor tende a ler a mesma
+        troca, e a página que só tem essa falha deixa de ser encaminhada. O
+        valor segue `failed` em `Result.entities`, com `Entity.alike`.
+        """
         self.check = check
         self.name = f"{check.name} que falha a verificação"
         self.field = check.name
+        self.alike = alike
+
+    def _counts(self, value: str) -> bool:
+        """Se um valor que falha conta para este sinal."""
+        return self.alike or self.check.alike is None or not self.check.alike(value)
 
     def __call__(self, page: Page, chunks: Sequence[Chunk]) -> int:
         """Quantas ocorrências falham; 0 em texto composto."""
-        return failures(self.check, _machine_text(page, chunks))
+        if self.alike:
+            return failures(self.check, _machine_text(page, chunks))
+        found = _matches(self.check, _machine_chunks(page, chunks), labeled=False)
+        return sum(1 for _, _, value, valid, _ in found if not valid and self._counts(value))
 
     def failing(self, page: Page, chunks: Sequence[Chunk]) -> list[tuple[str, Chunk]]:
         """Cada valor que falha, com cada chunk em que ele está; vazio em texto composto.
@@ -1386,7 +1402,7 @@ class FailsCheck:
             for _, _, value, valid, lines in _matches(
                 self.check, _machine_chunks(page, chunks), labeled=False
             )
-            if not valid
+            if not valid and self._counts(value)
             for chunk in lines
         ]
 

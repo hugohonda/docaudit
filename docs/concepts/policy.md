@@ -136,6 +136,35 @@ mínimo.
     O valor que compensa depende do leitor caro e do acervo. Meça nos seus
     documentos antes de subir o mínimo.
 
+### A troca que os leitores fazem juntos
+
+Numa tabela digitalizada em baixa resolução, a vírgula decimal e o ponto têm
+a mesma mancha de tinta: a diferença não está na imagem. O leitor de pixels
+lê `432.13`, e outro leitor, de outra família, lê o mesmo ponto. A
+verificação declara essa troca em `Check.alike`, e o valor sai `failed`, com
+`Entity.alike`.
+
+Por padrão, esse valor encaminha a página, como qualquer falha. Reler ali
+compra pouco: o leitor caro tende a ler o mesmo ponto, e, quando lê a vírgula
+numa célula sem `R$`, o número deixa de ter a forma de um valor em reais.
+`FailsCheck(AMOUNT_BRL, alike=False)` faz o sinal deixar de contar essa
+falha. A página que só a tem fica na etapa barata, e a que tem outra falha
+escala como antes:
+
+```python
+from docaudit.policies import AMOUNT_BRL, DEFAULT_SIGNALS, EvidenceRouter, FailsCheck
+
+signals = [
+    FailsCheck(s.check, alike=False) if isinstance(s, FailsCheck) and s.check is AMOUNT_BRL else s
+    for s in DEFAULT_SIGNALS
+]
+policy = EvidenceRouter(signals)
+```
+
+O valor continua em `Result.entities` como `failed`, e a página continua em
+`Result.review()` com `failed_value`. Só o encaminhamento muda. O que se
+perde é o texto que o leitor caro leria melhor no resto da página.
+
 ## Os três estados
 
 A mesma verificação que encaminha a página também produz `Result.entities`,

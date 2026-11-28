@@ -12,6 +12,11 @@ Antes da 1.0.0, a API pode mudar numa versão menor.
 
 ### Adicionado
 
+- `Entity.alike` diz, num valor `failed`, que a falha é a troca que leitores de famílias
+  diferentes fazem igual, como o ponto no lugar da vírgula decimal de um valor em reais.
+  `FailsCheck(check, alike=False)` faz o sinal deixar de contar essa falha: a página que só a tem
+  fica na etapa barata, e o valor segue `failed`. O padrão não muda.
+
 - `Entity.also_read_by` traz os outros leitores que leram o mesmo valor no mesmo lugar: a linha
   barata que o leitor caro substituiu, a camada de OCR, a releitura de `confirm=` e a linha
   recusada do leitor caro. `Result.evidence()` lista cada um como `other_reading` que concorda,
